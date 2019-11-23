@@ -1,0 +1,23 @@
+local
+  $(SML_LIB)/basis/basis.mlb
+  $(SML_LIB)/basis/unsafe.mlb
+  $(SML_LIB)/smlnj-lib/RegExp/regexp-lib.mlb
+  $(SML_LIB)/smlnj-lib/Util/smlnj-lib.mlb
+  ../util/config.mlb
+  tree-lang/config.mlb
+  tokens-lang/config.mlb
+  chars-lang/config.mlb
+
+  local 
+    ../trace/chars-lang/config.mlb
+  in
+    structure Trace = Char_String
+  end
+
+in
+  ann
+    "nonexhaustiveMatch ignore"
+  in
+    app.sml
+  end
+end
