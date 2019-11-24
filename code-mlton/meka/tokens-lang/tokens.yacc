@@ -41,7 +41,8 @@ open Tree
   fields_nt of (string * term) list |
   field_nt of (string * term) |
   lams_nt of (term * term) list |
-  lam_nt of (term * term)
+  lam_nt of (term * term) |
+  ids_nt of string list
   
 
 %pos int
@@ -82,7 +83,6 @@ tree_nt:
 base_nt:
   LPAREN LPAREN (Unt LPARENleft) |
   LPAREN lams_nt RPAREN (Fnc (lams_nt, LPARENleft)) |
-  LPAREN term_nt HASH term_nt RPAREN (Pred (term_nt1, term_nt2, HASHleft)) |
   LSQ terms_nt RSQ (Lst (terms_nt, LSQleft)) |
   LCUR fields_nt RCUR (Rec (fields_nt, LCURleft)) |
   ID (Id (ID, IDleft)) |
@@ -95,6 +95,7 @@ term_nt:
   term_nt LARROW term_nt (Def (term_nt1, term_nt2, LARROWleft)) |
   term_nt DOT ID (Selec (term_nt, ID, DOTleft)) |
   term_nt BARARROW term_nt (Pipe (term_nt1, term_nt2, BARARROWleft)) |
+  term_nt HASH term_nt (Pred (term_nt1, term_nt2, HASHleft)) |
   term_nt DCOLON term_nt (Cons (term_nt1, term_nt2, DCOLONleft)) |
   term_nt COLON term_nt (Rep (term_nt1, term_nt2, COLONleft)) |
   term_nt EQ term_nt (Rep (term_nt1, term_nt2, EQleft)) |
@@ -112,7 +113,7 @@ term_nt:
   SYNCED term_nt (Synced (term_nt, SYNCEDleft)) |
   STUCK term_nt (Stuck (term_nt, STUCKleft)) |
   DONE term_nt (Done (term_nt, DONEleft)) |
-  FOR term_nt (FOR (term_nt, FORleft)) |
+  FOR ids_nt DOT term_nt (FOR (ids_nt, term_nt, FORleft)) |
   base_nt base_nt %prec APP (App (base_nt1, base_nt2, base_nt1left)) |
   base_nt (base_nt)
 
@@ -134,3 +135,7 @@ fields_nt:
 
 field_nt:
   ID LARROW term_nt ((ID, term_nt, IDleft))
+
+ids_nt:
+  ID ids_nt (ID :: ids_nt) |
+  ID ([ID])
