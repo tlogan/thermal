@@ -36,7 +36,6 @@ open Tree
 %nonterm
   tree_nt of term |
   term_nt of term |
-  base_nt of term |
   terms_nt of term list |
   fields_nt of (string * term) list |
   field_nt of (string * term) |
@@ -80,15 +79,6 @@ open Tree
 tree_nt:
   term_nt (term_nt)
 
-base_nt:
-  LPAREN LPAREN (Unt LPARENleft) |
-  LPAREN lams_nt RPAREN (Fnc (lams_nt, LPARENleft)) |
-  LSQ terms_nt RSQ (Lst (terms_nt, LSQleft)) |
-  LCUR fields_nt RCUR (Rec (fields_nt, LCURleft)) |
-  ID (Id (ID, IDleft)) |
-  TRUE (BoolLit (true, TRUEleft)) | 
-  FALSE (BoolLit (false, FALSEleft)) |
-  LPAREN term_nt RPAREN (term_nt)
 
 term_nt:
   term_nt SEMICOLON term_nt (Seq (term_nt1, term_nt2, SEMICOLONleft)) |
@@ -114,9 +104,15 @@ term_nt:
   STUCK term_nt (Stuck (term_nt, STUCKleft)) |
   DONE term_nt (Done (term_nt, DONEleft)) |
   FOR ids_nt DOT term_nt (FOR (ids_nt, term_nt, FORleft)) |
-  base_nt base_nt %prec APP (App (base_nt1, base_nt2, base_nt1left)) |
-  base_nt (base_nt)
-
+  term_nt term_nt %prec APP (App (term_nt1, term_nt2, term_nt1left)) |
+  LPAREN LPAREN (Unt LPARENleft) |
+  LPAREN lams_nt RPAREN (Fnc (lams_nt, LPARENleft)) |
+  LSQ terms_nt RSQ (Lst (terms_nt, LSQleft)) |
+  LCUR fields_nt RCUR (Rec (fields_nt, LCURleft)) |
+  ID (Id (ID, IDleft)) |
+  TRUE (BoolLit (true, TRUEleft)) | 
+  FALSE (BoolLit (false, FALSEleft)) |
+  LPAREN term_nt RPAREN (term_nt)
 
 lams_nt:
   lam_nt BAR lams_nt (lam_nt :: lams_nt) | 
