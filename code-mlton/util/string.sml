@@ -36,6 +36,18 @@ in
     split_regex (str, RE.compileString regex_str)
 end
 
-open String
- 
+
+  fun surround tag body = (let
+    val abc = "(" ^ tag
+    val bodyLines = String.tokens (fn c => c = #"\n") body
+    val indentedLines = map (fn l => "  " ^ l) bodyLines
+    val indentedBody = String.concatWith "\n" indentedLines 
+    val xyz = if body = "" then ")" else "\n" ^ indentedBody ^ "\n)"
+  in
+    abc ^ xyz 
+  end)
+
+
+
+  open String
 end
