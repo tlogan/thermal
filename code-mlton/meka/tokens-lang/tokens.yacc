@@ -54,7 +54,9 @@ open Tree
 %right COMMA
 %right SEMICOLON
 %nonassoc LARROW HASH
-%left WEDGE VEE LONGARROW DARROW
+%left LONGARROW DARROW
+%left VEE 
+%left WEDGE
 %nonassoc EQ COLON
 %left DOT
 %left BARARROW
@@ -86,13 +88,13 @@ term_nt:
   term_nt DOT ID (Selec (term_nt, ID, DOTleft)) |
   term_nt BARARROW term_nt (Pipe (term_nt1, term_nt2, BARARROWleft)) |
   term_nt HASH term_nt (Pred (term_nt1, term_nt2, HASHleft)) |
-  term_nt DCOLON term_nt (Cons (term_nt1, term_nt2, DCOLONleft)) |
+  term_nt DCOLON term_nt (Cns (term_nt1, term_nt2, DCOLONleft)) |
   term_nt COLON term_nt (Rep (term_nt1, term_nt2, COLONleft)) |
-  term_nt EQ term_nt (Rep (term_nt1, term_nt2, EQleft)) |
-  term_nt WEDGE term_nt (And (term_nt1, term_nt2, WEDGEleft)) |
-  term_nt VEE term_nt (Or (term_nt1, term_nt2, VEEleft)) |
-  term_nt LONGARROW term_nt (Implies (term_nt1, term_nt2, LONGARROWleft)) |
   term_nt DARROW term_nt (Equiv (term_nt1, term_nt2, DARROWleft)) |
+  term_nt LONGARROW term_nt (Implies (term_nt1, term_nt2, LONGARROWleft)) |
+  term_nt VEE term_nt (Or (term_nt1, term_nt2, VEEleft)) |
+  term_nt WEDGE term_nt (And (term_nt1, term_nt2, WEDGEleft)) |
+  term_nt EQ term_nt (Equal (term_nt1, term_nt2, EQleft)) |
 
   SEND term_nt (Send (term_nt, SENDleft)) |
   RECV term_nt (Recv (term_nt, RECVleft)) |
@@ -103,15 +105,21 @@ term_nt:
   SYNCED term_nt (Synced (term_nt, SYNCEDleft)) |
   STUCK term_nt (Stuck (term_nt, STUCKleft)) |
   DONE term_nt (Done (term_nt, DONEleft)) |
-  FOR ids_nt DOT term_nt (FOR (ids_nt, term_nt, FORleft)) |
+  FOR ids_nt DOT term_nt (AbsProp (ids_nt, term_nt, FORleft)) |
   term_nt term_nt %prec APP (App (term_nt1, term_nt2, term_nt1left)) |
   LPAREN LPAREN (Unt LPARENleft) |
   LPAREN lams_nt RPAREN (Fnc (lams_nt, LPARENleft)) |
   LSQ terms_nt RSQ (Lst (terms_nt, LSQleft)) |
   LCUR fields_nt RCUR (Rec (fields_nt, LCURleft)) |
-  ID (Id (ID, IDleft)) |
+
+  THIS (This THISleft) | 
   TRUE (BoolLit (true, TRUEleft)) | 
   FALSE (BoolLit (false, FALSEleft)) |
+
+  ID (Id (ID, IDleft)) |
+  NUMLIT (NumLit (NUMLIT, NUMLITleft)) |
+  STRINGLIT (StringLit (STRINGLIT, STRINGLITleft)) |
+
   LPAREN term_nt RPAREN (term_nt)
 
 lams_nt:
@@ -130,7 +138,7 @@ fields_nt:
   ([])
 
 field_nt:
-  ID LARROW term_nt ((ID, term_nt, IDleft))
+  ID LARROW term_nt ((ID, term_nt))
 
 ids_nt:
   ID ids_nt (ID :: ids_nt) |
