@@ -12,6 +12,8 @@ open Tree
   EQ | WEDGE | VEE |
   LONGARROW | DARROW |
 
+  CROSS | DASH | STAR | SLASH | CIRSLASH |
+
   APP |
 
   SEND | RECV | WRAP |
@@ -26,6 +28,7 @@ open Tree
 
   LSQ | RSQ | LCUR | RCUR | LPAREN | RPAREN |
 
+  LODASH |
   THIS |
   TRUE | FALSE | 
   NUMLIT of string | STRINGLIT of string |
@@ -63,11 +66,14 @@ open Tree
 %left APP
 %right DCOLON 
 
+%left CROSS DASH 
+%left STAR SLASH CIRSLASH 
+
 %nonassoc SEND RECV WRAP CHSE SPAWN SYNC TILDE REDUCED CALLED RETURNED SPAWNED BLOCKED SYNCED STUCK DONE FOR SOLVE 
 
 %nonassoc LSQ RSQ LCUR RCUR LPAREN RPAREN 
 
-%nonassoc THIS TRUE FALSE 
+%nonassoc LODASH THIS TRUE FALSE 
 
 %nonassoc NUMLIT STRINGLIT ID
 
@@ -96,6 +102,14 @@ term_nt:
   term_nt WEDGE term_nt (And (term_nt1, term_nt2, WEDGEleft)) |
   term_nt EQ term_nt (Equal (term_nt1, term_nt2, EQleft)) |
 
+
+  term_nt CROSS term_nt (Add (term_nt1, term_nt2, CROSSleft)) |
+  term_nt DASH term_nt (Sub (term_nt1, term_nt2, DASHleft)) |
+  term_nt STAR term_nt (Mult (term_nt1, term_nt2, STARleft)) |
+  term_nt SLASH term_nt (Div (term_nt1, term_nt2, SLASHleft)) |
+  term_nt CIRSLASH term_nt (Mod (term_nt1, term_nt2, CIRSLASHleft)) |
+
+
   SEND term_nt (Send (term_nt, SENDleft)) |
   RECV term_nt (Recv (term_nt, RECVleft)) |
   WRAP term_nt (Wrap (term_nt, WRAPleft)) |
@@ -111,6 +125,7 @@ term_nt:
   LSQ terms_nt RSQ (Lst (terms_nt, LSQleft)) |
   LCUR fields_nt RCUR (Rec (fields_nt, LCURleft)) |
 
+  LODASH (CatchAll LODASHleft) | 
   THIS (This THISleft) | 
   TRUE (BoolLit (true, TRUEleft)) | 
   FALSE (BoolLit (false, FALSEleft)) |

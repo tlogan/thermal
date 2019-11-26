@@ -14,6 +14,12 @@ structure Tree = struct
     Or of (term * term * int) |
     And of (term * term * int) |
     Equal of (term * term * int) |
+
+    Add of (term * term * int) |
+    Sub of (term * term * int) |
+    Mult of (term * term * int) |
+    Div of (term * term * int) |
+    Mod of (term * term * int) |
   
     Send of (term * int) |
     Recv of (term * int) |
@@ -31,6 +37,7 @@ structure Tree = struct
     Lst of ((term list) * int) |
     Rec of (((string * term) list) * int) |
   
+    CatchAll of int |
     This of int |
     BoolLit of (bool * int) |
   
@@ -85,6 +92,26 @@ structure Tree = struct
     ) |
 
     Equal (t1, t2, pos) => String.surround ("Equal@" ^ (Int.toString pos)) (
+      (to_string t1) ^ ",\n" ^ (to_string t2)
+    ) |
+
+    Add (t1, t2, pos) => String.surround ("Add@" ^ (Int.toString pos)) (
+      (to_string t1) ^ ",\n" ^ (to_string t2)
+    ) |
+
+    Sub (t1, t2, pos) => String.surround ("Sub@" ^ (Int.toString pos)) (
+      (to_string t1) ^ ",\n" ^ (to_string t2)
+    ) |
+
+    Mult (t1, t2, pos) => String.surround ("Mult@" ^ (Int.toString pos)) (
+      (to_string t1) ^ ",\n" ^ (to_string t2)
+    ) |
+
+    Div (t1, t2, pos) => String.surround ("Div@" ^ (Int.toString pos)) (
+      (to_string t1) ^ ",\n" ^ (to_string t2)
+    ) |
+
+    Mod (t1, t2, pos) => String.surround ("Mod@" ^ (Int.toString pos)) (
       (to_string t1) ^ ",\n" ^ (to_string t2)
     ) |
   
@@ -146,6 +173,9 @@ structure Tree = struct
       String.concatWith ",\n" (List.map to_string_from_field fs)
     ) |
   
+    CatchAll pos =>
+      "CatchAll@" ^ (Int.toString pos) |
+
     This pos =>
       "This@" ^ (Int.toString pos) |
 

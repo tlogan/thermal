@@ -64,6 +64,12 @@ digit=[0-9];
 <INITIAL>"-->" => (LONGARROW (!linenum, inccol 1));
 <INITIAL>"<->" => (DARROW (!linenum, inccol 1));
 
+<INITIAL>"+" => (CROSS (!linenum, inccol 1));
+<INITIAL>"-" => (DASH (!linenum, inccol 1));
+<INITIAL>"*" => (STAR (!linenum, inccol 1));
+<INITIAL>"/" => (SLASH (!linenum, inccol 1));
+<INITIAL>"%" => (CIRSLASH (!linenum, inccol 1));
+
 <INITIAL>"send" => (SEND (!linenum, inccol 1));
 <INITIAL>"recv" => (RECV (!linenum, inccol 1));
 <INITIAL>"wrap" => (WRAP (!linenum, inccol 1));
@@ -93,6 +99,7 @@ digit=[0-9];
 <INITIAL>"(" => (LPAREN (!linenum, inccol 1));
 <INITIAL>")" => (RPAREN (!linenum, inccol 1));
 
+<INITIAL>"_" => (LODASH (!linenum, inccol 1));
 <INITIAL>"this" => (THIS (!linenum, inccol 1));
 <INITIAL>"true" => (TRUE (!linenum, inccol 1));
 <INITIAL>"false" => (FALSE (!linenum, inccol 1));
