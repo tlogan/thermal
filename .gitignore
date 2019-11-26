@@ -6,5 +6,7 @@ bin/**
 **.yacc.desc
 **.yacc.sig
 **.yacc.sml
+**/#*
+**/.#*
 
 

@@ -27,7 +27,6 @@ structure Tree = struct
   
     AbsProp of ((string list) * term * int) |
     App of (term * term * int) |
-    Unt of int |
     Fnc of (((term * term) list) * int) |
     Lst of ((term list) * int) |
     Rec of (((string * term) list) * int) |
@@ -134,9 +133,6 @@ structure Tree = struct
       (to_string t1) ^ ",\n" ^
       (to_string t2)
     ) |
-
-    Unt pos =>
-      "Unt@" ^ (Int.toString pos) |
 
     Fnc (lams, pos) => String.surround ("Fnc@" ^ (Int.toString pos)) (
       String.concatWith ",\n" (List.map to_string_from_lam lams)
