@@ -97,8 +97,8 @@ digit=[0-9];
 <INITIAL>"true" => (TRUE (!linenum, inccol 1));
 <INITIAL>"false" => (FALSE (!linenum, inccol 1));
 
-<INITIAL>("-"?){digit}+(("."|","){digit}*)+ =>
-  (NUMLIT (ytext, !linenum, inccol (size yytext)));
+<INITIAL>("-"?){digit}+(("."|","){digit}+)? =>
+  (NUMLIT (yytext, !linenum, inccol (size yytext)));
 
 <INITIAL>"`"([^"`"]|"\`")*"`" => (STRINGLIT (yytext, !linenum, inccol (size yytext)));
 

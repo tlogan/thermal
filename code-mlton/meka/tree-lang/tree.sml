@@ -41,31 +41,31 @@ structure Tree = struct
 
 
   fun to_string t = (case t of
-    Seq (t1, t2, pos) => String.surround ("Seq" ^ (Int.toString pos)) (
+    Seq (t1, t2, pos) => String.surround ("Seq@" ^ (Int.toString pos)) (
       (to_string t1) ^ ",\n" ^ (to_string t2)
     ) |
 
-    Def (t1, t2, pos) => String.surround ("Def" ^ (Int.toString pos)) (
+    Def (t1, t2, pos) => String.surround ("Def@" ^ (Int.toString pos)) (
       (to_string t1) ^ ",\n" ^ (to_string t2)
     ) |
 
-    Selec (t1, name, pos) => String.surround ("Selec" ^ (Int.toString pos)) (
+    Selec (t1, name, pos) => String.surround ("Selec@" ^ (Int.toString pos)) (
       (to_string t1) ^ ", " ^ name 
     ) |
 
-    Pipe (t1, t2, pos) => String.surround ("Pipe" ^ (Int.toString pos)) (
+    Pipe (t1, t2, pos) => String.surround ("Pipe@" ^ (Int.toString pos)) (
       (to_string t1) ^ ",\n" ^ (to_string t2)
     ) |
 
-    Pred (t1, t2, pos) => String.surround ("Pred" ^ (Int.toString pos)) (
+    Pred (t1, t2, pos) => String.surround ("Pred@" ^ (Int.toString pos)) (
       (to_string t1) ^ ",\n" ^ (to_string t2)
     ) |
 
-    Cns (t1, t2, pos) => String.surround ("Cns" ^ (Int.toString pos)) (
+    Cns (t1, t2, pos) => String.surround ("Cns@" ^ (Int.toString pos)) (
       (to_string t1) ^ ",\n" ^ (to_string t2)
     ) |
 
-    Rep (t1, t2, pos) => String.surround ("Rep" ^ (Int.toString pos)) (
+    Rep (t1, t2, pos) => String.surround ("Rep@" ^ (Int.toString pos)) (
       (to_string t1) ^ ",\n" ^ (to_string t2)
     ) |
 
@@ -73,15 +73,15 @@ structure Tree = struct
       (to_string t1) ^ ",\n" ^ (to_string t2)
     ) |
 
-    Implies (t1, t2, pos) => String.surround ("Implies" ^ (Int.toString pos)) (
+    Implies (t1, t2, pos) => String.surround ("Implies@" ^ (Int.toString pos)) (
       (to_string t1) ^ ",\n" ^ (to_string t2)
     ) |
 
-    Or (t1, t2, pos) => String.surround ("Or" ^ (Int.toString pos)) (
+    Or (t1, t2, pos) => String.surround ("Or@" ^ (Int.toString pos)) (
       (to_string t1) ^ ",\n" ^ (to_string t2)
     ) |
 
-    And (t1, t2, pos) => String.surround ("And" ^ (Int.toString pos)) (
+    And (t1, t2, pos) => String.surround ("And@" ^ (Int.toString pos)) (
       (to_string t1) ^ ",\n" ^ (to_string t2)
     ) |
 

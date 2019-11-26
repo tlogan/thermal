@@ -8,9 +8,6 @@ val flagMapRef =
   ref (StringMap.insertList (StringMap.empty, [
     ("--lex", false),
     ("--parse", false),
-    ("--verify", false),
-    ("--dfa", false),
-    ("--monitor", false),
     ("--help", false)
     ]))
 
@@ -18,15 +15,9 @@ fun printHelp () = (
   print "Usage: ptltl [options]\n" ;
   print "\n" ;
   print "Options: \n" ;
-  print "  --lex <spec.pt>\n" ;
-  print "  --parse <spec.pt>\n";
-  print "  --verify <spec.pt> [trace]\n";
-  print "  --dfa  <spec.pt> [trace]\n";
-  print "  --monitor <spec.pt> \n";
+  print "  --lex <spec.mk>\n" ;
+  print "  --parse <spec.mk>\n";
   print "  --help \n";
-  print "\n" ;
-  print "Trace: \n" ;
-  print "  \"a a b a b a a b b\"\n";
   print "\n"
 )
 
@@ -79,114 +70,11 @@ fun parse [filename] =
 let
   val inStream = readFile filename
   val tokenStream = CharStream.makeTokenStream (readStream inStream)
-  val (tree, rem) = TokenStream.parse (15, tokenStream, printError filename)  
+  val (term, rem) = TokenStream.parse (15, tokenStream, printError filename)  
   val () = TextIO.closeIn inStream
-  (*
-  val parsedFilename = mkOutputFilename filename ".parsed" 
-  val outStream = TextIO.openOut parsedFilename
-  *)
 in
-  print ((Tree.toString tree) ^ "\n") 
+  print ((Tree.to_string term) ^ "\n") 
 end
-
-
-
-
-fun verify [filename, trace_str]  = (let
-  val inStream = readFile filename
-  val tokenStream = CharStream.makeTokenStream (readStream inStream)
-  val (form, rem) = TokenStream.parse (15, tokenStream, printError filename)  
-  val () = TextIO.closeIn inStream
-
-  val trace = rev (Trace.mk_trace trace_str)
-  val answer = (
-    if (Tree.verify (trace, form)) then
-      "ACCEPTED"
-    else
-      "REJECTED"
-  )
-
-in
-  print (answer ^ "\n")
-end)
-
-
-fun verify_via_dfa [filename, trace_str]  = (let
-  val inStream = readFile filename
-  val tokenStream = CharStream.makeTokenStream (readStream inStream)
-  val (form, rem) = TokenStream.parse (15, tokenStream, printError filename)  
-  val () = TextIO.closeIn inStream
-
-  val dfa = Tree.to_dfa form
-  val trace = Trace.mk_trace trace_str
-
-  val answer = (
-    if (dfa trace) then
-      "ACCEPTED"
-    else
-      "REJECTED"
-  )
-
-in
-  print (answer ^ "\n")
-end)
-
-fun monitor [filename]  = (let
-  val inStream = readFile filename
-  val tokenStream = CharStream.makeTokenStream (readStream inStream)
-  val (form, rem) = TokenStream.parse (15, tokenStream, printError filename)  
-  val () = TextIO.closeIn inStream
-
-
-  val (transition_start, transition) = Tree.mk_transitions form
-
-  fun verify_trace (state_op, trace) = (case (state_op, trace) of
-
-    (_, []) => state_op |
-
-    (NONE, elm :: trace') => 
-      verify_trace (SOME (transition_start elm), trace') |
-
-    (SOME state, elm :: trace') => 
-      verify_trace (SOME (transition (state, elm)), trace')
-
-  )
-
-  fun verify_input (state_op, input) = (let
-    val trace = Trace.mk_trace input
-
-    val state_op' = verify_trace (state_op, trace)
-    val result_string = (case state_op' of
-      NONE => "" |
-      SOME state' =>
-        (if state' form then
-          "ACCEPTED"
-        else
-          "REJECTED"
-        )
-    )
-    val _ = print (result_string ^ "\n")
-  in
-    state_op'
-  end)
-
-
-  fun repl state_op = (let
-    val _ = print "> "
-    val input_op = TextIO.inputLine TextIO.stdIn
-  in
-    (case input_op of
-      NONE => () |
-      SOME input => 
-        repl (verify_input (state_op, input))
-    )
-  end)
-
-in
-  repl (NONE)
-end)
-
-
 
 fun flagSet flagMap str =
   case StringMap.lookup (flagMap, str) of
@@ -195,10 +83,7 @@ fun flagSet flagMap str =
 
 fun handleRequest flagMap args = (
   if flagSet flagMap "--lex" then lex args else ();
-  if flagSet flagMap "--parse" then parse args else ();
-  if flagSet flagMap "--verify" then verify args else ();
-  if flagSet flagMap "--dfa" then verify_via_dfa args else ();
-  if flagSet flagMap "--monitor" then monitor args else ()
+  if flagSet flagMap "--parse" then parse args else ()
 ) handle 
    Fail m => print ("failed : " ^ m) |
    x => (raise x)

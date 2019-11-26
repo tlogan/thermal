@@ -7,13 +7,6 @@ local
   tree-lang/config.mlb
   tokens-lang/config.mlb
   chars-lang/config.mlb
-
-  local 
-    ../trace/chars-lang/config.mlb
-  in
-    structure Trace = Char_String
-  end
-
 in
   ann
     "nonexhaustiveMatch ignore"

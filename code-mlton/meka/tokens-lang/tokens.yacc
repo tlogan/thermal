@@ -107,7 +107,7 @@ term_nt:
   DONE term_nt (Done (term_nt, DONEleft)) |
   FOR ids_nt DOT term_nt (AbsProp (ids_nt, term_nt, FORleft)) |
   term_nt term_nt %prec APP (App (term_nt1, term_nt2, term_nt1left)) |
-  LPAREN LPAREN (Unt LPARENleft) |
+  LPAREN RPAREN (Unt LPARENleft) |
   LPAREN lams_nt RPAREN (Fnc (lams_nt, LPARENleft)) |
   LSQ terms_nt RSQ (Lst (terms_nt, LSQleft)) |
   LCUR fields_nt RCUR (Rec (fields_nt, LCURleft)) |
