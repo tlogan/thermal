@@ -106,13 +106,11 @@ term_nt:
   term_nt WEDGE term_nt (And (term_nt1, term_nt2, WEDGEleft)) |
   term_nt EQ term_nt (Equal (term_nt1, term_nt2, EQleft)) |
 
-
   term_nt CROSS term_nt (Add (term_nt1, term_nt2, CROSSleft)) |
   term_nt DASH term_nt (Sub (term_nt1, term_nt2, DASHleft)) |
   term_nt STAR term_nt (Mult (term_nt1, term_nt2, STARleft)) |
   term_nt SLASH term_nt (Div (term_nt1, term_nt2, SLASHleft)) |
   term_nt CIRSLASH term_nt (Mod (term_nt1, term_nt2, CIRSLASHleft)) |
-
 
   ALLOC_CHAN term_nt (AllocChan (term_nt, ALLOC_CHANleft)) |
   SEND term_nt (Send (term_nt, SENDleft)) |
