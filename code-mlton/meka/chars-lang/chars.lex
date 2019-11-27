@@ -70,6 +70,7 @@ digit=[0-9];
 <INITIAL>"/" => (SLASH (!linenum, inccol 1));
 <INITIAL>"%" => (CIRSLASH (!linenum, inccol 1));
 
+<INITIAL>"alloc_chan" => (ALLOC_CHAN (!linenum, inccol 1));
 <INITIAL>"send" => (SEND (!linenum, inccol 1));
 <INITIAL>"recv" => (RECV (!linenum, inccol 1));
 <INITIAL>"wrap" => (WRAP (!linenum, inccol 1));

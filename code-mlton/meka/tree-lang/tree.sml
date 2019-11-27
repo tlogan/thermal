@@ -21,11 +21,17 @@ structure Tree = struct
     Div of (term * term * int) |
     Mod of (term * term * int) |
   
+    AllocChan of (term * int) |
     Send of (term * int) |
     Recv of (term * int) |
     Wrap of (term * int) |
     Chse of (term * int) |
     Spawn of (term * int) |
+    Sync of (term * int) |
+    Solve of (term * int) |
+
+    Not of (term * int) |
+    Reduced of (term * int) |
     Blocked of (term * int) |
     Synced of (term * int) |
     Stuck of (term * int) |
@@ -114,6 +120,11 @@ structure Tree = struct
     Mod (t1, t2, pos) => String.surround ("Mod@" ^ (Int.toString pos)) (
       (to_string t1) ^ ",\n" ^ (to_string t2)
     ) |
+
+    AllocChan (t, pos) => String.surround ("AllocChan@" ^ (Int.toString pos)) (
+      (to_string t)
+    ) |
+
   
     Send (t, pos) => String.surround ("Send@" ^ (Int.toString pos)) (
       (to_string t)
@@ -132,6 +143,22 @@ structure Tree = struct
     ) |
 
     Spawn (t, pos) => String.surround ("Spawn@" ^ (Int.toString pos)) (
+      (to_string t)
+    ) |
+
+    Sync (t, pos) => String.surround ("Sync@" ^ (Int.toString pos)) (
+      (to_string t)
+    ) |
+
+    Solve (t, pos) => String.surround ("Solve@" ^ (Int.toString pos)) (
+      (to_string t)
+    ) |
+
+    Not (t, pos) => String.surround ("Not@" ^ (Int.toString pos)) (
+      (to_string t)
+    ) |
+
+    Reduced (t, pos) => String.surround ("Reduced@" ^ (Int.toString pos)) (
       (to_string t)
     ) |
 
@@ -185,17 +212,14 @@ structure Tree = struct
     BoolLit (false, pos) =>
       "False@" ^ (Int.toString pos) |
   
-    Id (name, pos) => String.surround ("Id@" ^ (Int.toString pos)) (
-      name 
-    ) |
+    Id (name, pos) =>
+      "(Id@" ^ (Int.toString pos) ^ " " ^ name ^ ")" |
 
-    NumLit (num, pos) => String.surround ("NumLit@" ^ (Int.toString pos)) (
-      num 
-    ) |
+    NumLit (num, pos) =>
+      "(NumLit@" ^ (Int.toString pos) ^ " " ^ num ^ ")" |
 
-    StringLit (str, pos) => String.surround ("StringLit@" ^ (Int.toString pos)) (
-      str 
-    )
+    StringLit (str, pos) =>
+      "(Stringit@" ^ (Int.toString pos) ^ " " ^ str ^ ")"
 
   )
 

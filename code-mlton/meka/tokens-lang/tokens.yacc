@@ -16,6 +16,7 @@ open Tree
 
   APP |
 
+  ALLOC_CHAN |
   SEND | RECV | WRAP |
   CHSE | SPAWN | SYNC |
 
@@ -52,11 +53,14 @@ open Tree
 %eop EOF
 %noshift EOF
 
+
+
 %right BAR
 %right FATARROW
 %right COMMA
 %right SEMICOLON
-%nonassoc LARROW HASH
+%nonassoc LARROW
+%nonassoc HASH
 %left LONGARROW DARROW
 %left VEE 
 %left WEDGE
@@ -69,7 +73,7 @@ open Tree
 %left CROSS DASH 
 %left STAR SLASH CIRSLASH 
 
-%nonassoc SEND RECV WRAP CHSE SPAWN SYNC TILDE REDUCED CALLED RETURNED SPAWNED BLOCKED SYNCED STUCK DONE FOR SOLVE 
+%nonassoc ALLOC_CHAN SEND RECV WRAP CHSE SPAWN SYNC TILDE REDUCED CALLED RETURNED SPAWNED BLOCKED SYNCED STUCK DONE FOR SOLVE 
 
 %nonassoc LSQ RSQ LCUR RCUR LPAREN RPAREN 
 
@@ -110,11 +114,18 @@ term_nt:
   term_nt CIRSLASH term_nt (Mod (term_nt1, term_nt2, CIRSLASHleft)) |
 
 
+  ALLOC_CHAN term_nt (AllocChan (term_nt, ALLOC_CHANleft)) |
   SEND term_nt (Send (term_nt, SENDleft)) |
   RECV term_nt (Recv (term_nt, RECVleft)) |
   WRAP term_nt (Wrap (term_nt, WRAPleft)) |
   CHSE term_nt (Chse (term_nt, CHSEleft)) |
   SPAWN term_nt (Spawn (term_nt, SPAWNleft)) |
+  SYNC term_nt (Spawn (term_nt, SYNCleft)) |
+  SOLVE term_nt (Solve (term_nt, SOLVEleft)) |
+
+  TILDE term_nt (Not (term_nt, TILDEleft)) |
+
+  REDUCED term_nt (Reduced (term_nt, REDUCEDleft)) |
   BLOCKED term_nt (Blocked (term_nt, BLOCKEDleft)) |
   SYNCED term_nt (Synced (term_nt, SYNCEDleft)) |
   STUCK term_nt (Stuck (term_nt, STUCKleft)) |
@@ -123,7 +134,9 @@ term_nt:
   term_nt term_nt %prec APP (App (term_nt1, term_nt2, term_nt1left)) |
   LPAREN lams_nt RPAREN (Fnc (lams_nt, LPARENleft)) |
   LSQ terms_nt RSQ (Lst (terms_nt, LSQleft)) |
+  LSQ RSQ (Lst ([], LSQleft)) |
   LCUR fields_nt RCUR (Rec (fields_nt, LCURleft)) |
+  LCUR RCUR (Rec ([], LCURleft)) |
 
   LODASH (CatchAll LODASHleft) | 
   THIS (This THISleft) | 
@@ -137,19 +150,19 @@ term_nt:
   LPAREN term_nt RPAREN (term_nt)
 
 lams_nt:
-  lam_nt BAR lams_nt (lam_nt :: lams_nt) | 
-  lam_nt ([lam_nt]) 
+  lam_nt BAR lams_nt (lam_nt :: lams_nt) |
+  lam_nt ([lam_nt])
   
 lam_nt:
   term_nt FATARROW term_nt ((term_nt1, term_nt2))
 
 terms_nt:
   term_nt COMMA terms_nt (term_nt :: terms_nt) |
-  ([])
-  
+  term_nt ([term_nt])
+
 fields_nt:
   field_nt COMMA fields_nt (field_nt :: fields_nt) |
-  ([])
+  field_nt ([field_nt])
 
 field_nt:
   ID LARROW term_nt ((ID, term_nt))

@@ -42,7 +42,7 @@ end
     val bodyLines = String.tokens (fn c => c = #"\n") body
     val indentedLines = map (fn l => "  " ^ l) bodyLines
     val indentedBody = String.concatWith "\n" indentedLines 
-    val xyz = if body = "" then ")" else "\n" ^ indentedBody ^ "\n)"
+    val xyz = if body = "" then ")" else "\n" ^ indentedBody ^ ")"
   in
     abc ^ xyz 
   end)
