@@ -44,7 +44,7 @@ structure Tree = struct
     Rec of (((string * term) list) * int) |
   
     CatchAll of int |
-    This of int |
+    That of int |
     BoolLit of (bool * int) |
   
     Id of (string * int) |
@@ -174,8 +174,8 @@ structure Tree = struct
     CatchAll pos =>
       "CatchAll@" ^ (Int.toString pos) |
 
-    This pos =>
-      "This@" ^ (Int.toString pos) |
+    That pos =>
+      "That@" ^ (Int.toString pos) |
 
     BoolLit (true, pos) =>
       "True@" ^ (Int.toString pos) |
@@ -356,8 +356,8 @@ _ => NONE)
     CatchAll pos =>
       "CatchAll@" ^ (Int.toString pos) |
 
-    This pos =>
-      "This@" ^ (Int.toString pos) |
+    That pos =>
+      "That@" ^ (Int.toString pos) |
 
     BoolLit (true, pos) =>
       "True@" ^ (Int.toString pos) |

@@ -101,7 +101,7 @@ digit=[0-9];
 <INITIAL>")" => (RPAREN (!linenum, inccol 1));
 
 <INITIAL>"_" => (LODASH (!linenum, inccol 1));
-<INITIAL>"this" => (THIS (!linenum, inccol 1));
+<INITIAL>"that" => (THAT (!linenum, inccol 1));
 <INITIAL>"true" => (TRUE (!linenum, inccol 1));
 <INITIAL>"false" => (FALSE (!linenum, inccol 1));
 
