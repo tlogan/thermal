@@ -1,12 +1,13 @@
-req_ch <- alloc_chan [];
-resp_ch <- alloc_chan [];
+req_ch <- alloc_chan;
+
+resp_ch <- alloc_chan;
 
 spawn ([] => 
 	loop <- (cnt =>
     sync (
 			(cnt % 7 = 0) |> (
-        true => send req_chan |
-        false => send resp_chan));
+        true => send (req_chan, []) |
+        false => send (resp_chan, [])));
     loop (cnt + 1));
   loop 0);
 

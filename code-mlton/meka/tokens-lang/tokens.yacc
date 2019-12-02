@@ -112,7 +112,7 @@ term_nt:
   term_nt SLASH term_nt (Div (term_nt1, term_nt2, SLASHleft)) |
   term_nt CIRSLASH term_nt (Mod (term_nt1, term_nt2, CIRSLASHleft)) |
 
-  ALLOC_CHAN term_nt (AllocChan (term_nt, ALLOC_CHANleft)) |
+  ALLOC_CHAN (AllocChan ALLOC_CHANleft) |
   SEND term_nt (Send (term_nt, SENDleft)) |
   RECV term_nt (Recv (term_nt, RECVleft)) |
   WRAP term_nt (Wrap (term_nt, WRAPleft)) |
