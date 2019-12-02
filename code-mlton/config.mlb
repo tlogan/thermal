@@ -3,7 +3,7 @@ local
   $(SML_LIB)/basis/unsafe.mlb
   $(SML_LIB)/smlnj-lib/RegExp/regexp-lib.mlb
   $(SML_LIB)/smlnj-lib/Util/smlnj-lib.mlb
-  ../util/config.mlb
+  util/config.mlb
   tree-lang/config.mlb
   tokens-lang/config.mlb
   chars-lang/config.mlb

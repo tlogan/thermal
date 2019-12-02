@@ -15,8 +15,8 @@ fun printHelp () = (
   print "Usage: ptltl [options]\n" ;
   print "\n" ;
   print "Options: \n" ;
-  print "  --lex <spec.mk>\n" ;
-  print "  --parse <spec.mk>\n";
+  print "  --lex <spec.trml>\n" ;
+  print "  --parse <spec.trml>\n";
   print "  --help \n";
   print "\n"
 )
