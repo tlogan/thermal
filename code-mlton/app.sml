@@ -25,8 +25,7 @@ fun readFile filename =
   (TextIO.openIn filename) handle (IO.Io {name, function, cause}) =>
     (print ("File \"" ^ name ^ "\" cannot be processed\n"); raise (Fail ""))
 
-fun mkOutputFilename filename suffix =
-let 
+fun mkOutputFilename filename suffix = (let 
   val inStream = readFile filename
   val revtokens = List.rev (String.tokens (fn c => c = #"/") filename)
   val file_token = hd revtokens
@@ -34,14 +33,13 @@ let
   val rev_derived_tokens = (file_token ^ suffix) :: rev_path_tokens 
 in
   String.concatWith "/" (rev rev_derived_tokens) 
-end
+end)
 
-fun printError filename (msg, line, col) =
-let
+fun printError filename (msg, line, col) = (let
   val posString = "[" ^ Int.toString line ^ ":" ^ Int.toString col ^ "] "
 in
   print (filename ^ posString ^ msg ^ "\n")
-end
+end)
 
 
 fun readStream inStream n = 
