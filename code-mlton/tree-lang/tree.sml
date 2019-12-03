@@ -79,6 +79,28 @@ structure Tree = struct
     Mode_Stuck of string |
     Mode_Done of term
 
+  val empty_table = (fn key => NONE)
+
+  fun insert (table, key, item) = (
+    (fn key' => if key' = key then SOME item else (table key')) 
+  )
+  
+  
+  
+  fun insert_table (val_store_base, val_store_top) = (
+    (fn key => (case (val_store_top key) of
+      SOME value => SOME value |
+      NONE => (val_store_base key)
+    ))
+  )
+  
+  fun find (table, key) = (table key)
+  
+  fun remove (table, key) = (fn key' =>
+    if key' = key then NONE else (table key')
+  ) 
+
+
 
   fun to_string t = (case t of
     Seq (t1, t2, pos) => String.surround ("Seq@" ^ (Int.toString pos)) (
@@ -255,14 +277,87 @@ structure Tree = struct
     (to_string t))
 
 
-(*
+  fun store_left (val_store, pat, value) = (case (pat, value) of
+    (* **TODO** *)
+    _ => NONE 
+  )
+  
+
+  fun store_functions (val_store, def) = (case def of
+    _ => val_store 
+  
+    (* **TODO**
+    (Id str, Fnc (lams, pos)) => (
+      insert (val_store, str, Fnc (lams, pos))
+    ) |
+  
+    (pat, Id (str, _)) => 
+      (case (find (val_store, str)) of
+        NONE => val_store |
+        SOME (Fnc (lams, pos)) => insert (val_store, str, Fnc (lams, pos))
+      ) |
+  
+    (Rec fs1, Rec fs2) => (let
+      val pairs = List.mapPartial
+        (fn (name, pat) =>
+          Option.map
+            (fn v => (pat, v))
+            (List.find
+              (fn (n', v) => name = n')
+              fs2)
+        )
+
+      fun acc_step val_store' (pat, value) = (
+        store_functions (val_store', (pat, value))
+      )
+    in
+      List.foldl acc_step val_store pairs
+    end) |
+  
+    (Lst pats, Lst values) => (
+      if (List.length pats = List.length values) then
+        let
+          val pairs = List.zip (pats, values)
+          fun acc_step val_store' (pat, value) = (
+            store_functions (val_store', (pat, value))
+          )
+        in
+          List.foldl acc_step val_store pairs
+        end
+      else
+        val_store 
+    ) |
+
+    (Evt (ec1, t1), Evt (ec2, t2)) =>
+      if (ec1 = ec2) then
+        store_functions (val_store, (t1, t2))
+      else
+        val_store |
+    *)
+  
+  
+  )
+  
+  
+  fun store_functions_norm_list (val_store, ts) = (case ts of
+  
+    NCons (pat, def, ts') => store_functions_norm_list (
+      (store_functions (val_store, (pat, def))),
+      ts'
+    ) |
+  
+    _ => val_store 
+
+  )
+
+
   fun normalize t = (let
   
-    fun sym i = Id ("_g_" ^ (Int.toString i), -1)
+    fun sym i = Id ("_g_" ^ (Int.toString i), ~1)
   
-    fun result_of_norm norm = (case norm of
+    fun result_of_norm ts = (case ts of
       NEnd t => t |
-      NCons (a, b) => result_of_norm b
+      NCons (a, b, ts') => result_of_norm ts' 
     )
   
     fun normalize_cont (t, vc, k) = (case t of
@@ -322,7 +417,7 @@ structure Tree = struct
       t :: ts' => (
         let
           val (n, vc') =
-            (normalize_cont (t, vc, fn (var, vc) => (var, vc)))
+            (normalize_cont (t, vc, fn (var, vc) => (NEnd var, vc)))
         in
           (n, vc') :: (normalize_term_list (ts', vc'))
         end
@@ -351,7 +446,7 @@ structure Tree = struct
   
   
       fun combine_pair (n1, n2) = (case n1 of
-        NCons (a, b) => NCons (a, combine_pair (b, n2)) |
+        NCons (a, b, n') => NCons (a, b, combine_pair (n', n2)) |
         NEnd _ => n2 )
   
       fun combine ns = (case ns of
@@ -374,192 +469,26 @@ structure Tree = struct
     norm
   end)
 
-  fun extract_free_vars t = (case t of
-    (* TODO *)
-  )
 
-
-  fun subst_term (store, t) = (case t of
-    (* TODO *)
-  )
-
-  fun mk_base_events (evt, cont_stack, cnt) = (case evt of
-  
-    Evt (Send, Lst [ChanId i, msg]) =>
-      ([Base_Send (i, msg, [])], cnt) |
-  
-    Evt (Recv, ChanId i) =>
-      ([Base_Recv (i, [])], cnt) |
-  
-    Evt (Chse, Lst values) =>
-      mk_base_events_from_list (values, cont_stack, cnt) |
-  
-    Evt (Wrap, Lst [evt', Fnc (lams, fnc_store)]) =>
-      let
-        val (bases, cnt') = mk_base_events (evt', cont_stack, cnt)
-      in
-        List.foldl (fn (acc_events, acc_cnt) => (fn base => let
-  
-          val wrap_arg = Var ("_wrap_arg_" ^ (Int.toString acc_cnt))
-          val t = AppLeft (Fnc (lams, fnc_store), wrap_arg)
-          val cont = (wrap_arg, t, empty_table)
-  
-          val base' = (case base of
-            Base_Send (i, msg, wrap_stack) => 
-              Base_Send (i, msg, cont :: wrap_stack) |
-            Base_Recv (i, wrap_stack) => 
-              Base_Recv (i, cont :: wrap_stack)
-          ) 
-          val acc_cnt' = acc_cnt + 1
-          val acc_events' = acc_events @ [base']
-        in
-          (acc_events', acc_cnt') 
-        end)) ([], cnt') bases 
-      end |
-  
-    _ => ([], cnt)
-  )
-  
-  and mk_base_events_from_list (evts, cont_stack, cnt) = (case evts of
-    [] => ([], cnt) |
-    evt :: evts' => 
-      let
-        val (base_events, cnt') = mk_base_events (evt, cont_stack, cnt)
-      in
-        if (List.null base_events) then
-          ([], cnt')
-        else (let
-          val (base_events', cnt'') = mk_base_events_from_list (evts', cont_stack, cnt')
-        in
-          (base_events @ base_events', cnt'') 
-        end)
-      end
-  )
-  
-  
-  fun store_functions (val_store, binding) = (case binding of
-    (Var str, Fnc (name, lams)) => (
-      if (name = "") then
-        insert (val_store, str, Fnc (str, lams))
-      else 
-        insert (val_store, str, Fnc (name, lams))
-    ) |
-  
-    (pat, Var str) => 
-      (case (find (val_store, str)) of
-        None => val_store |
-        Some (Fnc (name, lams)) => insert (val_store, str, Fnc (name, lams))
-      ) |
-  
-    (Rec fs1, Rec fs2) =>
-      let
-        fun just_term (f, t) = t
-      in
-        collect_lists (
-          val_store,
-          List.map just_term fs1,
-          List.map just_term fs2
-        )
-      end |
-  
-    (Lst ts1, Lst ts2) =>
-      collect_lists (val_store, ts1, ts2) |
-  
-    (Evt (ec1, t1), Evt (ec2, t2)) =>
-      if (ec1 = ec2) then
-        store_functions (val_store, (t1, t2))
-      else
-        val_store |
-  
-    _ => val_store 
-  
-  )
-  
-  
-  and collect_lists (val_store, pats, values) = (
-    if (List.length pats = List.length values) then
-      let
-        val pairs = List.zip (pats, values)
-        fun acc_step val_store' (pat, value) = (
-          store_functions (val_store', (pat, value))
-        )
-      in
-        List.foldl acc_step val_store pairs
-      end
-    else
-      val_store 
-  )
-  
-  fun collect_bindings (val_store, t) = (case t of
-    Bind (pat, value) =>
-      store_functions (val_store, (pat, value)) | 
-  
-    Seq (Bind binding, t') =>
-      collect_bindings (
-        (store_functions (val_store, binding)),
-        t'
-      ) |
-  
-    Seq (_, t') =>
-      collect_bindings (val_store, t') |
-  
-    _ => val_store 
-  )
-
-  fun block (
-    base_events, cont_stack,
-    (chan_store, block_store, cnt)
-  ) = (let
-    val chan_store' = (List.foldl  
-      (fn chan_store => fn base => block_one (base, cont_stack, chan_store, cnt))
-      chan_store
-      base_events
-    )
-    val block_store' = insert (block_store, cnt, ())
-    val cnt' = cnt + 1
+  fun initial_thread t = (let
+    val ts = normalize t
+    val val_store = store_functions_norm_list (empty_table, ts) 
+    val cont_stack = []
   in
-    (Block base_events, [], (chan_store', block_store', cnt'))
+    (ts, val_store, [])
   end)
-
-
-
-
-  fun reduce_step (
-    (pat, t, ts', val_store, cont_stack),
-    (chan_store, block_store, cnt)
-  
-  ) = (let
-    val reso = subst_term (val_store, t)
-    val (threads, md) = (case store_left (val_store, pat, reso) of
-      Some val_store' =>
-        ([(ts', val_store', cont_stack)], Mode_Reduced (Bind (pat, reso))) |
-      None => ([], Stuck "reduce_step")
-    )
-  in
-    (
-      md, 
-      threads,
-      (chan_store, block_store, cnt)
-    )
-  end)
-  
-  fun resolve (val_store, t) = (let
-    val free_vars = extract_free_vars t
-    val is_resolved = ([] = free_vars)
-  in
-    if is_resolved then
-      t 
-    else
-      resolve (val_store, subst_term (val_store, t))
-  end)
-
-
 
 
   fun seq_step (
     (ts, val_store, cont_stack),
     (chan_store, block_store, cnt)
   ) = (case ts of
+    (* **TODO** *)
+    _ => (
+      Mode_Stuck "TODO",
+      [], (chan_store, block_store, cnt)
+    )
+    (*
     NEnd result_term => (let
   
       val result_md = Return result_term 
@@ -570,8 +499,8 @@ structure Tree = struct
         [] => ([], Done result_term) |
         (pat, ts', val_store') :: cont_stack' => 
           (case store_left (val_store', pat, reso) of
-            None => ([], Stuck "seq_step result") |
-            Some val_store'' => (
+            NONE => ([], Stuck "seq_step result") |
+            SOME val_store'' => (
               [(ts', val_store'', cont_stack')],
               result_md
             )
@@ -589,39 +518,32 @@ structure Tree = struct
       (pat, StringLit str, ts', val_store, cont_stack),
       (chan_store, block_store, cnt)) |
 
-
-    _ => (
-      Stuck "TODO",
-      [], (chan_store, block_store, cnt)
-    )
-
-    (*
-    TODO
     *)
 
   )
+
+  fun string_from_mode md = (case md of
+    (* **TODO **)
+    _ => ""
+    (*
+    *)
+  )
+
 
   fun concur_step (
     threads, env 
   
   ) = (case threads of
-    [] => (print "all done!\n"; None) |
+    [] => (print "all done!\n"; NONE) |
     thread :: threads' => (let
       val (md, seq_threads, env') = (seq_step (thread, env)) 
       val _ = print ((string_from_mode md) ^ "\n")
     in
-      Some (md, (threads' @ seq_threads, env'))
+      SOME (md, (threads' @ seq_threads, env'))
     end)
   )
 
-  fun initial_thread t = (let
-  
-    val ts = normalize t
-    val val_store = collect_bindings (empty_table, ts) 
-    val cont_stack = []
-  in
-    (ts, val_store, [])
-  end)
+
 
   fun run t = (let
 
@@ -632,8 +554,8 @@ structure Tree = struct
     val cnt = 0
 
     fun loop cfg = (case (concur_step cfg) of
-      None => () |
-      Some (md, cfg') =>
+      NONE => () |
+      SOME (md, cfg') =>
         loop cfg' 
     )
   
@@ -644,7 +566,6 @@ structure Tree = struct
     )
   end)
 
-*)
 
 
 
