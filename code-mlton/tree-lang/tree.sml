@@ -281,17 +281,76 @@ structure Tree = struct
     (t, val_store, [])
   end)
 
+  fun sym i = Id ("_g_" ^ (Int.toString i), ~1)
 
   fun seq_step (
-    (ts, val_store, cont_stack),
+    (t, val_store, cont_stack),
     (chan_store, block_store, cnt)
-  ) = (case ts of
-    (* **TODO** *)
+  ) = (case t of
+    Seq (t1, t2, pos) => (let
+      val cont = (sym cnt, t2, val_store)
+      val cnt' = cnt + 1
+      val cont_stack' = cont :: cont_stack
+    in 
+      (
+        Mode_Reduce t1,
+        [(t1, val_store, cont_stack')],
+        (chan_store, block_store, cnt')
+      )
+    end) |
+
     _ => (
       Mode_Stuck "TODO",
       [], (chan_store, block_store, cnt)
     )
+    (* **TODO** *)
     (*
+    Select of (term * string * int) |
+    Pipe of (term * term * int) |
+    Pred of (term * term * int) |
+    Cns of (term * term * int) |
+    Rep of (term * term * int) |
+    Equiv of (term * term * int) |
+    Implies of (term * term * int) |
+    Or of (term * term * int) |
+    And of (term * term * int) |
+    Equal of (term * term * int) |
+
+    Add of (term * term * int) |
+    Sub of (term * term * int) |
+    Mult of (term * term * int) |
+    Div of (term * term * int) |
+    Mod of (term * term * int) |
+  
+    AllocChan of int |
+    Send of (term * int) |
+    Recv of (term * int) |
+    Wrap of (term * int) |
+    Chse of (term * int) |
+    Spawn of (term * int) |
+    Sync of (term * int) |
+    Solve of (term * int) |
+
+    Not of (term * int) |
+    Reduced of (term * int) |
+    Blocked of (term * int) |
+    Synced of (term * int) |
+    Stuck of (term * int) |
+    Done of (term * int) |
+  
+    AbsProp of ((string list) * term * int) |
+    App of (term * term * int) |
+    Fnc of (((term * term) list) * int) |
+    Lst of ((term list) * int) |
+    Rec of (((string * term) list) * int) |
+  
+    CatchAll of int |
+    That of int |
+    BoolLit of (bool * int) |
+  
+    Id of (string * int) |
+    NumLit of (string * int) |
+    StringLit of (string * int)
     *)
 
   )
