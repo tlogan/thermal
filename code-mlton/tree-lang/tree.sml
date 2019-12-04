@@ -2,7 +2,6 @@ structure Tree = struct
 
   datatype term = 
     Seq of (term * term * int) |
-    Def of (term * term * int) |
     Selec of (term * string * int) |
     Pipe of (term * term * int) |
     Pred of (term * term * int) |
@@ -104,10 +103,6 @@ structure Tree = struct
 
   fun to_string t = (case t of
     Seq (t1, t2, pos) => String.surround ("Seq@" ^ (Int.toString pos)) (
-      (to_string t1) ^ ",\n" ^ (to_string t2)
-    ) |
-
-    Def (t1, t2, pos) => String.surround ("Def@" ^ (Int.toString pos)) (
       (to_string t1) ^ ",\n" ^ (to_string t2)
     ) |
 

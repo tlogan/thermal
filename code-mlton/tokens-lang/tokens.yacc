@@ -6,8 +6,8 @@ open Tree
 
 %term
   SEMICOLON | LARROW |
-  COMMA | DOT | 
-  FATARROW | BAR | BARARROW | 
+  COMMA | DOT |
+  BSLASH | BAR | ARROW | 
   HASH | DCOLON | COLON | 
   EQ | WEDGE | VEE |
   LONGARROW | DARROW |
@@ -44,7 +44,7 @@ open Tree
   fields_nt of (string * term) list |
   field_nt of (string * term) |
   lams_nt of (term * term) list |
-  lam_nt of (term * term) |
+  lams_ext_nt of (term * term) list |
   ids_nt of string list
   
 
@@ -56,17 +56,15 @@ open Tree
 
 
 %right BAR
-%right FATARROW
+%right ARROW DOT
 %right COMMA
 %right SEMICOLON
-%nonassoc LARROW
 %nonassoc HASH
 %left LONGARROW DARROW
 %left VEE 
 %left WEDGE
 %nonassoc EQ COLON
-%left DOT
-%left BARARROW
+%left BSLASH
 %left APP
 %right DCOLON 
 
@@ -94,9 +92,8 @@ tree_nt:
 
 term_nt:
   term_nt SEMICOLON term_nt (Seq (term_nt1, term_nt2, SEMICOLONleft)) |
-  term_nt LARROW term_nt (Def (term_nt1, term_nt2, LARROWleft)) |
-  term_nt DOT ID (Selec (term_nt, ID, DOTleft)) |
-  term_nt BARARROW term_nt (Pipe (term_nt1, term_nt2, BARARROWleft)) |
+  term_nt BSLASH ID (Selec (term_nt, ID, BSLASHleft)) |
+  term_nt ARROW term_nt (Pipe (term_nt1, term_nt2, ARROWleft)) |
   term_nt HASH term_nt (Pred (term_nt1, term_nt2, HASHleft)) |
   term_nt DCOLON term_nt (Cns (term_nt1, term_nt2, DCOLONleft)) |
   term_nt COLON term_nt (Rep (term_nt1, term_nt2, COLONleft)) |
@@ -128,9 +125,10 @@ term_nt:
   SYNCED term_nt (Synced (term_nt, SYNCEDleft)) |
   STUCK term_nt (Stuck (term_nt, STUCKleft)) |
   DONE term_nt (Done (term_nt, DONEleft)) |
-  FOR ids_nt DOT term_nt (AbsProp (ids_nt, term_nt, FORleft)) |
+  FOR ids_nt BSLASH term_nt (AbsProp (ids_nt, term_nt, FORleft)) |
   term_nt term_nt %prec APP (App (term_nt1, term_nt2, term_nt1left)) |
-  LPAREN lams_nt RPAREN (Fnc (lams_nt, LPARENleft)) |
+  term_nt DOT term_nt (Fnc ([(term_nt1, term_nt2)], DOTleft)) |
+  lams_nt (Fnc (lams_nt, lams_ntleft)) |
   LSQ terms_nt RSQ (Lst (terms_nt, LSQleft)) |
   LSQ RSQ (Lst ([], LSQleft)) |
   LCUR fields_nt RCUR (Rec (fields_nt, LCURleft)) |
@@ -148,12 +146,12 @@ term_nt:
   LPAREN term_nt RPAREN (term_nt)
 
 lams_nt:
-  lam_nt BAR lams_nt (lam_nt :: lams_nt) |
-  lam_nt ([lam_nt])
-  
-lam_nt:
-  term_nt FATARROW term_nt ((term_nt1, term_nt2))
+  LPAREN term_nt DOT term_nt lams_ext_nt ((term_nt1, term_nt2) :: lams_ext_nt)
 
+lams_ext_nt:
+  BAR term_nt DOT term_nt lams_ext_nt ((term_nt1, term_nt2) :: lams_ext_nt) |
+  RPAREN ([])
+  
 terms_nt:
   term_nt COMMA terms_nt (term_nt :: terms_nt) |
   term_nt ([term_nt])
