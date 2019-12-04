@@ -2,7 +2,7 @@ structure Tree = struct
 
   datatype term = 
     Seq of (term * term * int) |
-    Selec of (term * string * int) |
+    Select of (term * string * int) |
     Pipe of (term * term * int) |
     Pred of (term * term * int) |
     Cns of (term * term * int) |
@@ -50,13 +50,9 @@ structure Tree = struct
     StringLit of (string * int)
 
 
-  datatype norm_list =
-    NCons of (term * term * norm_list) |
-    NEnd of term
-
   type contin = (
+    string *
     term *
-    norm_list *
     (string -> (term option))
   )
   
@@ -106,7 +102,7 @@ structure Tree = struct
       (to_string t1) ^ ",\n" ^ (to_string t2)
     ) |
 
-    Selec (t1, name, pos) => String.surround ("Selec@" ^ (Int.toString pos)) (
+    Select (t1, name, pos) => String.surround ("Selec@" ^ (Int.toString pos)) (
       (to_string t1) ^ ", " ^ name
     ) |
 
@@ -277,200 +273,12 @@ structure Tree = struct
     _ => NONE 
   )
   
-
-  fun store_functions (val_store, def) = (case def of
-    _ => val_store 
   
-    (* **TODO**
-    (Id str, Fnc (lams, pos)) => (
-      insert (val_store, str, Fnc (lams, pos))
-    ) |
-  
-    (pat, Id (str, _)) => 
-      (case (find (val_store, str)) of
-        NONE => val_store |
-        SOME (Fnc (lams, pos)) => insert (val_store, str, Fnc (lams, pos))
-      ) |
-  
-    (Rec fs1, Rec fs2) => (let
-      val pairs = List.mapPartial
-        (fn (name, pat) =>
-          Option.map
-            (fn v => (pat, v))
-            (List.find
-              (fn (n', v) => name = n')
-              fs2)
-        )
-
-      fun acc_step val_store' (pat, value) = (
-        store_functions (val_store', (pat, value))
-      )
-    in
-      List.foldl acc_step val_store pairs
-    end) |
-  
-    (Lst pats, Lst values) => (
-      if (List.length pats = List.length values) then
-        let
-          val pairs = List.zip (pats, values)
-          fun acc_step val_store' (pat, value) = (
-            store_functions (val_store', (pat, value))
-          )
-        in
-          List.foldl acc_step val_store pairs
-        end
-      else
-        val_store 
-    ) |
-
-    (Evt (ec1, t1), Evt (ec2, t2)) =>
-      if (ec1 = ec2) then
-        store_functions (val_store, (t1, t2))
-      else
-        val_store |
-    *)
-  
-  
-  )
-  
-  
-  fun store_functions_norm_list (val_store, ts) = (case ts of
-  
-    NCons (pat, def, ts') => store_functions_norm_list (
-      (store_functions (val_store, (pat, def))),
-      ts'
-    ) |
-  
-    _ => val_store 
-
-  )
-
-
-  fun normalize t = (let
-  
-    fun sym i = Id ("_g_" ^ (Int.toString i), ~1)
-  
-    fun result_of_norm ts = (case ts of
-      NEnd t => t |
-      NCons (a, b, ts') => result_of_norm ts' 
-    )
-  
-    fun normalize_cont (t, vc, k) = (case t of
-      _ => (NEnd (sym vc), vc + 1)
-      (*
-      TODO
-      *)
-  
-  
-    )
-  
-    and normalize_base (result_term, vc, k) = (
-      let
-        val (tk, vc') = (k (sym vc, vc + 1)) 
-        val norm = 
-          NCons (
-            sym vc, result_term, 
-            tk
-          )
-      in
-        (norm, vc')
-      end
-    )
-  
-    and normalize_single (t, result_fun, vc, k) = (
-      normalize_cont (t, vc, fn (var, vc') =>
-        let
-          val (tk, vc'') = (k (sym vc', vc' + 1)) 
-          val norm = 
-            NCons (sym vc', result_fun var, tk)
-        in
-          (norm, vc'')
-        end
-      )
-    )
-  
-    and normalize_pair ((t1, t2), result_fun, vc, k) = (
-      normalize_cont (t1, vc, fn (var1, vc') =>
-        normalize_cont (t2, vc', fn (var2, vc'') =>
-          let
-            val (tk, vc''') = (k (sym vc'', vc'' + 1)) 
-            val norm = 
-              NCons (
-                sym vc'',
-                result_fun (var1, var2), 
-                tk
-              )
-          in
-            (norm, vc''')
-          end
-        )
-      )
-    )
-  
-    and normalize_term_list (ts, vc) = (case ts of
-      [] => [] |
-      t :: ts' => (
-        let
-          val (n, vc') =
-            (normalize_cont (t, vc, fn (var, vc) => (NEnd var, vc)))
-        in
-          (n, vc') :: (normalize_term_list (ts', vc'))
-        end
-      )
-    )
-  
-    and combine_norm_pairs (norm_pairs, result_fun, k) = (let
-  
-      val norms = (List.map (fn (n, vc) => n) norm_pairs)
-  
-      val vars = List.map result_of_norm norms
-  
-  
-      val ls = (List.length norm_pairs)
-      val list_size = Int.toString ls
-  
-      val (n, vc) = (List.last norm_pairs)
-  
-      val (tk, vc') = (k (sym vc, vc + 1))
-  
-      val base_norm = 
-        NCons (
-          sym vc, result_fun vars, 
-          tk
-        )
-  
-  
-      fun combine_pair (n1, n2) = (case n1 of
-        NCons (a, b, n') => NCons (a, b, combine_pair (n', n2)) |
-        NEnd _ => n2 )
-  
-      fun combine ns = (case ns of
-        [] => base_norm |
-        n :: ns' => combine_pair (n, combine ns') 
-      )
-  
-    in
-      (combine norms, vc')
-    end)
-  
-  
-    val (norm, vc') = (normalize_cont (
-      t, 100,
-      (fn (var, vc) => (NEnd var, vc))
-    )) 
-  
-  
-  in
-    norm
-  end)
-
-
   fun initial_thread t = (let
-    val ts = normalize t
-    val val_store = store_functions_norm_list (empty_table, ts) 
+    val val_store = empty_table 
     val cont_stack = []
   in
-    (ts, val_store, [])
+    (t, val_store, [])
   end)
 
 
@@ -484,35 +292,6 @@ structure Tree = struct
       [], (chan_store, block_store, cnt)
     )
     (*
-    NEnd result_term => (let
-  
-      val result_md = Return result_term 
-  
-      val reso = subst_term (val_store, t)
-  
-      val (threads, md) = (case cont_stack of
-        [] => ([], Done result_term) |
-        (pat, ts', val_store') :: cont_stack' => 
-          (case store_left (val_store', pat, reso) of
-            NONE => ([], Stuck "seq_step result") |
-            SOME val_store'' => (
-              [(ts', val_store'', cont_stack')],
-              result_md
-            )
-          )
-      ) 
-    in
-      (
-        md,
-        threads,
-        (chan_store, block_store, cnt)
-      ) 
-    end) |
-
-    NCons (pat, StringLit str, ts') => reduce_step (
-      (pat, StringLit str, ts', val_store, cont_stack),
-      (chan_store, block_store, cnt)) |
-
     *)
 
   )

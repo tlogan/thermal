@@ -92,7 +92,7 @@ tree_nt:
 
 term_nt:
   term_nt SEMICOLON term_nt (Seq (term_nt1, term_nt2, SEMICOLONleft)) |
-  term_nt BSLASH ID (Selec (term_nt, ID, BSLASHleft)) |
+  term_nt BSLASH ID (Select (term_nt, ID, BSLASHleft)) |
   term_nt ARROW term_nt (Pipe (term_nt1, term_nt2, ARROWleft)) |
   term_nt HASH term_nt (Pred (term_nt1, term_nt2, HASHleft)) |
   term_nt DCOLON term_nt (Cns (term_nt1, term_nt2, DCOLONleft)) |
