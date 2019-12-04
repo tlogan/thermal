@@ -281,31 +281,81 @@ structure Tree = struct
     (t, val_store, [])
   end)
 
-  fun sym i = Id ("_g_" ^ (Int.toString i), ~1)
+  fun sym i = "_g_" ^ (Int.toString i)
+
+  fun normalize (
+    t, term_fn, val_store, cont_stack,
+    chan_store, block_store, cnt
+  ) = (let
+    val hole = sym cnt
+    val cont = (hole, t, val_store)
+    val cnt' = cnt + 1
+    val cont_stack' = cont :: cont_stack
+  in
+    (
+      Mode_Reduce t,
+      [(term_fn (Id (hole, ~1)), val_store, cont_stack')],
+      (chan_store, block_store, cnt')
+    )
+  end)
+
+
+  fun resolve (val_store, t) = (case t of
+    _ => NONE
+    (* **TODO** *)
+  )
 
   fun seq_step (
     (t, val_store, cont_stack),
     (chan_store, block_store, cnt)
   ) = (case t of
-    Seq (t1, t2, pos) => (let
-      val cont = (sym cnt, t2, val_store)
-      val cnt' = cnt + 1
-      val cont_stack' = cont :: cont_stack
-    in 
-      (
-        Mode_Reduce t1,
-        [(t1, val_store, cont_stack')],
-        (chan_store, block_store, cnt')
-      )
-    end) |
+    Seq (t1, t2, pos) => normalize (
+      t1, fn _ => t2,
+      val_store, cont_stack,
+      chan_store, block_store, cnt
+    ) |
 
+    Select (t, name, pos) => (case (resolve (val_store, t)) of
+
+      NONE => normalize (
+        t, fn v => Select (v, name, pos),
+        val_store, cont_stack,
+        chan_store, block_store, cnt
+      ) |
+
+      SOME (Rec (fields, pos)) => (let
+        val field_op = (List.find
+          (fn (key, v) => key = name)
+          fields
+        )
+      in
+        (case field_op of
+          SOME (_, v) => (
+            Mode_Reduce v,
+            [(v, val_store, cont_stack)],
+            (chan_store, block_store, cnt)
+          ) |
+
+          NONE => (
+            Mode_Stuck "selection from non-record",
+            [], (chan_store, block_store, cnt)
+          )
+        )
+      end) |
+
+      _ => (
+        Mode_Stuck "selection from non-record",
+        [], (chan_store, block_store, cnt)
+      )
+
+    ) |
+      
     _ => (
       Mode_Stuck "TODO",
       [], (chan_store, block_store, cnt)
     )
     (* **TODO** *)
     (*
-    Select of (term * string * int) |
     Pipe of (term * term * int) |
     Pred of (term * term * int) |
     Cns of (term * term * int) |
