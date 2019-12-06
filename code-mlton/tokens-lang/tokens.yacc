@@ -5,10 +5,10 @@ open Tree
 %name Spec 
 
 %term
-  SEMICOLON | LARROW |
+  SEMICOLON | COLON |
   COMMA | DOT |
   BSLASH | BAR | ARROW | 
-  HASH | DCOLON | COLON | 
+  HASH | DCOLON |
   EQ | WEDGE | VEE |
   LONGARROW | DARROW |
 
@@ -63,7 +63,7 @@ open Tree
 %left LONGARROW DARROW
 %left VEE 
 %left WEDGE
-%nonassoc EQ COLON
+%nonassoc EQ
 %left BSLASH
 %left APP
 %right DCOLON 
@@ -96,7 +96,6 @@ term_nt:
   term_nt ARROW term_nt (Pipe (term_nt1, term_nt2, ARROWleft)) |
   term_nt HASH term_nt (Pred (term_nt1, term_nt2, HASHleft)) |
   term_nt DCOLON term_nt (Cns (term_nt1, term_nt2, DCOLONleft)) |
-  term_nt COLON term_nt (Rep (term_nt1, term_nt2, COLONleft)) |
   term_nt DARROW term_nt (Equiv (term_nt1, term_nt2, DARROWleft)) |
   term_nt LONGARROW term_nt (Implies (term_nt1, term_nt2, LONGARROWleft)) |
   term_nt VEE term_nt (Or (term_nt1, term_nt2, VEEleft)) |
@@ -161,7 +160,7 @@ fields_nt:
   field_nt ([field_nt])
 
 field_nt:
-  ID LARROW term_nt ((ID, term_nt))
+  ID COLON term_nt ((ID, term_nt))
 
 ids_nt:
   ID ids_nt (ID :: ids_nt) |

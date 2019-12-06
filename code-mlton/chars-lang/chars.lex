@@ -49,7 +49,7 @@ digit=[0-9];
 <INITIAL>"//"[^\n]*\n  => (incline (); lex());
 
 <INITIAL>";" => (SEMICOLON (!linenum, inccol 1));
-<INITIAL>"<-" => (LARROW (!linenum, inccol 1));
+<INITIAL>":" => (COLON (!linenum, inccol 1));
 <INITIAL>"," => (COMMA (!linenum, inccol 1));
 <INITIAL>"\\" => (BSLASH (!linenum, inccol 1));
 <INITIAL>"." => (DOT (!linenum, inccol 1));
@@ -57,7 +57,6 @@ digit=[0-9];
 <INITIAL>"->" => (ARROW (!linenum, inccol 1));
 <INITIAL>"#" => (HASH (!linenum, inccol 1));
 <INITIAL>"::" => (DCOLON (!linenum, inccol 1));
-<INITIAL>":" => (COLON (!linenum, inccol 1));
 <INITIAL>"=" => (EQ (!linenum, inccol 1));
 <INITIAL>"/\\" => (WEDGE (!linenum, inccol 1));
 <INITIAL>"\\/" => (VEE (!linenum, inccol 1));

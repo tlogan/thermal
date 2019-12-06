@@ -6,7 +6,6 @@ structure Tree = struct
     Pipe of (term * term * int) |
     Pred of (term * term * int) |
     Cns of (term * term * int) |
-    Rep of (term * term * int) |
     Equiv of (term * term * int) |
     Implies of (term * term * int) |
     Or of (term * term * int) |
@@ -117,11 +116,7 @@ structure Tree = struct
     Cns (t1, t2, pos) => String.surround ("Cns@" ^ (Int.toString pos)) (
       (to_string t1) ^ ",\n" ^ (to_string t2)) |
 
-    Rep (t1, t2, pos) => String.surround ("Rep@" ^ (Int.toString pos)) (
-      (to_string t1) ^ ",\n" ^ (to_string t2)
-    ) |
-
-    Equiv (t1, t2, pos) => String.surround ("Equiv" ^ (Int.toString pos)) (
+    Equiv (t1, t2, pos) => String.surround ("Equiv@_" ^ (Int.toString pos)) (
       (to_string t1) ^ ",\n" ^ (to_string t2)
     ) |
 
@@ -379,7 +374,7 @@ structure Tree = struct
     (t, val_store, cont_stack),
     (chan_store, block_store, cnt)
   ) = (case t of
-    Seq (t1, t2, pos) => normalize (
+    Seq (t1, t2, _) => normalize (
       t1, fn _ => t2,
       val_store, cont_stack,
       chan_store, block_store, cnt
@@ -393,7 +388,7 @@ structure Tree = struct
         chan_store, block_store, cnt
       ) |
 
-      SOME (Rec (fields, pos)) => (let
+      SOME (Rec (fields, _)) => (let
         val field_op = (List.find
           (fn (key, v) => key = name)
           fields
@@ -425,7 +420,7 @@ structure Tree = struct
       val_store, cont_stack,
       chan_store, block_store, cnt,
       (fn
-        (v_arg, Fnc (lams, pos)) => (let
+        (v_arg, Fnc (lams, _)) => (let
 
           val hole = sym cnt
           val cont = (hole, t, val_store)
@@ -470,15 +465,31 @@ structure Tree = struct
       chan_store, block_store, cnt
     ) |
 
-      
+    Cns (t1, t2, pos) => normalize_pair_reduce (
+      (t1, t2), fn (t1, t2) => Cns (t1, t2, pos),
+      val_store, cont_stack,
+      chan_store, block_store, cnt,
+      (fn
+        (v, Lst (ts, _)) => return (
+          Lst (v :: ts, pos),
+          val_store, cont_stack,
+          chan_store, block_store, cnt
+        ) |
+
+        _ => (
+          Mode_Stuck "cons with non-list",
+          [], (chan_store, block_store, cnt)
+        )
+      )
+
+    ) |
+
     _ => (
       Mode_Stuck "TODO",
       [], (chan_store, block_store, cnt)
     )
     (* **TODO** *)
     (*
-    Cns (t1, t2, pos) =>
-    Rep of (term * term * int) |
     Equiv of (term * term * int) |
     Implies of (term * term * int) |
     Or of (term * term * int) |
