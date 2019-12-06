@@ -268,7 +268,7 @@ structure Tree = struct
     (to_string t))
 
 
-  fun store_left (val_store, pat, value) = (case (pat, value) of
+  fun store_insert (val_store, pat, value) = (case (pat, value) of
     (* **TODO** *)
     _ => NONE 
   )
@@ -297,6 +297,35 @@ structure Tree = struct
       [(term_fn (Id (hole, ~1)), val_store, cont_stack')],
       (chan_store, block_store, cnt')
     )
+  end)
+
+  fun return (
+    result,
+    val_store, cont_stack,
+    chan_store, block_store, cnt
+  ) = (let
+    val (threads, md) = (case cont_stack of
+      [] => ([], Mode_Done result) |
+      (pat, t_body, val_store') :: cont_stack' => 
+        (case store_insert (val_store', pat, result) of
+
+          NONE => (
+            [], Mode_Stuck "result does not match continuation hole pattern"
+          ) |
+
+          SOME val_store'' => (
+            [(t_body, val_store'', cont_stack')],
+            Mode_Reduce t_body  
+          )
+
+        )
+    )
+  in
+    (
+      md,
+      threads,
+      (chan_store, block_store, cnt)
+    ) 
   end)
 
 
@@ -376,13 +405,13 @@ structure Tree = struct
         fun match_first lams = (case lams of
           [] => NONE |
           (p, t) :: lams' =>
-            (case (store_left (val_store, p, t_arg)) of
+            (case (store_insert (val_store, p, t_arg)) of
               NONE => match_first lams' |
               SOME val_store' => SOME (t, val_store')
             )
         )
 
-        val (sts, md) = (case (match_first lams) of
+        val (threads, md) = (case (match_first lams) of
           NONE => ([], Mode_Stuck "piped argument does not match pattern") |
           SOME (t_body, val_store') =>
             (
@@ -393,7 +422,7 @@ structure Tree = struct
       in
         (
           md,
-          sts,
+          threads,
           (chan_store, block_store, cnt')
         )
       end) |
@@ -404,6 +433,31 @@ structure Tree = struct
       )
 
     ) |
+
+    Pred (t_param, t_body, pos) => (case (
+      resolve (val_store, t_param),
+      resolve (val_store, t_body)
+    ) of
+
+      (NONE, _) => normalize (
+        t_param, fn v_param => Pred (v_param, t_body, pos),
+        val_store, cont_stack,
+        chan_store, block_store, cnt
+      ) |
+
+      (_, NONE) => normalize (
+        t_body, fn v_body => Pred (t_param, v_body, pos),
+        val_store, cont_stack,
+        chan_store, block_store, cnt
+      ) |
+
+      (SOME v_param, SOME v_body) => return (
+        (Pred (v_param, v_body, pos)),
+        val_store, cont_stack,
+        chan_store, block_store, cnt
+      )
+
+    ) |
       
     _ => (
       Mode_Stuck "TODO",
@@ -411,7 +465,6 @@ structure Tree = struct
     )
     (* **TODO** *)
     (*
-    Pred of (term * term * int) |
     Cns of (term * term * int) |
     Rep of (term * term * int) |
     Equiv of (term * term * int) |
