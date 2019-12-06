@@ -349,6 +349,61 @@ structure Tree = struct
       )
 
     ) |
+
+    Pipe (t_arg, t_fn, pos) => (case (
+      resolve (val_store, t_arg),
+      resolve (val_store, t_fn)
+    ) of
+      (NONE, _) => normalize (
+        t_arg, fn v => Pipe (v, t_fn, pos),
+        val_store, cont_stack,
+        chan_store, block_store, cnt
+      ) |
+
+      (_, NONE) => normalize (
+        t_fn, fn v => Pipe (t_arg, v, pos),
+        val_store, cont_stack,
+        chan_store, block_store, cnt
+      ) |
+
+      (SOME v_arg, SOME (Fnc (lams, pos))) => (let
+
+        val hole = sym cnt
+        val cont = (hole, t, val_store)
+        val cnt' = cnt + 1
+        val cont_stack' = cont :: cont_stack
+
+        fun match_first lams = (case lams of
+          [] => NONE |
+          (p, t) :: lams' =>
+            (case (store_left (val_store, p, t_arg)) of
+              NONE => match_first lams' |
+              SOME val_store' => SOME (t, val_store')
+            )
+        )
+
+        val (sts, md) = (case (match_first lams) of
+          NONE => ([], Mode_Stuck "piped argument does not match pattern") |
+          SOME (t_body, val_store') =>
+            (
+              [(t_body, val_store', cont_stack')],
+              Mode_Reduce t_body 
+            )
+        )
+      in
+        (
+          md,
+          sts,
+          (chan_store, block_store, cnt')
+        )
+      end) |
+
+      _ => (
+        Mode_Stuck "pipe into non-function",
+        [], (chan_store, block_store, cnt)
+      )
+
+    ) |
       
     _ => (
       Mode_Stuck "TODO",
@@ -356,7 +411,6 @@ structure Tree = struct
     )
     (* **TODO** *)
     (*
-    Pipe of (term * term * int) |
     Pred of (term * term * int) |
     Cns of (term * term * int) |
     Rep of (term * term * int) |
