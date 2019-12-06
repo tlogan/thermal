@@ -1,10 +1,10 @@
 {
-  even <- n .
-    n = 0 orelse
+  even : n .
+    n = 0 \/ 
     odd (n - 1),
 
-  odd <- n .
-    n = 1 orelse
+  odd : n .
+    n = 1 \/ 
     even (n - 1)
 
 } -> eo .

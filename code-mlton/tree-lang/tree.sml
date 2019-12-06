@@ -4,7 +4,6 @@ structure Tree = struct
     Seq of (term * term * int) |
     Select of (term * string * int) |
     Pipe of (term * term * int) |
-    Pred of (term * term * int) |
     Cns of (term * term * int) |
     Equiv of (term * term * int) |
     Implies of (term * term * int) |
@@ -106,10 +105,6 @@ structure Tree = struct
     ) |
 
     Pipe (t1, t2, pos) => String.surround ("Pipe@" ^ (Int.toString pos)) (
-      (to_string t1) ^ ",\n" ^ (to_string t2)
-    ) |
-
-    Pred (t1, t2, pos) => String.surround ("Pred@" ^ (Int.toString pos)) (
       (to_string t1) ^ ",\n" ^ (to_string t2)
     ) |
 
@@ -457,12 +452,6 @@ structure Tree = struct
           [], (chan_store, block_store, cnt)
         )
       )
-    ) |
-
-    Pred (t_param, t_body, pos) => normalize_pair_return (
-      (t_param, t_body), fn (t1, t2) => Pred (t1, t2, pos), 
-      val_store, cont_stack,
-      chan_store, block_store, cnt
     ) |
 
     Cns (t1, t2, pos) => normalize_pair_reduce (

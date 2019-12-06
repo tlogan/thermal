@@ -26,21 +26,21 @@ spawn (
   ) -> loop
 ) ;
 
-([p1, p2] # 
+([p1, p2] . 
   recvd p2 \/ 
   recvd p1 /\ weak_until [p1, p2]
 ) -> weak_until .
 
-(p # 
+(p . 
   recvd p /\ always p
 ) -> always .
 
-solve ({} #
-  always ([ch, _] #
+solve ({} . 
+  always ([ch, _] . 
     ch = resp_ch --> 
 		weak_until [
-      [ch, _] # ~(ch = resp_ch),
-      [ch, _] # ch = req_ch
+      [ch, _] . ~(ch = resp_ch),
+      [ch, _] . ch = req_ch
     ]
   )
 )
