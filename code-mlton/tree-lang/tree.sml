@@ -334,6 +334,47 @@ structure Tree = struct
     (* **TODO** *)
   )
 
+  fun normalize_pair_reduce (
+    (t1, t2), f,  
+    val_store, cont_stack,
+    chan_store, block_store, cnt,
+    reduce_f
+  ) = (case (
+    resolve (val_store, t1),
+    resolve (val_store, t2)
+  ) of
+    (NONE, _) => normalize (
+      t1, fn v1 => f (v1, t2),
+      val_store, cont_stack,
+      chan_store, block_store, cnt
+    ) |
+
+    (_, NONE) => normalize (
+      t2, fn v2 => f (t1, v2),
+      val_store, cont_stack,
+      chan_store, block_store, cnt
+    ) |
+
+    (SOME v1, SOME v2) => reduce_f (v1, v2)
+
+  )
+
+  fun normalize_pair_return (
+    (t1, t2), f, 
+    val_store, cont_stack,
+    chan_store, block_store, cnt
+  ) = normalize_pair_reduce (
+    (t1, t2), f, 
+    val_store, cont_stack,
+    chan_store, block_store, cnt,
+    (fn (v1, v2) => return (
+      (f (v1, v2)),
+      val_store, cont_stack,
+      chan_store, block_store, cnt
+    ))
+  )
+
+
   fun seq_step (
     (t, val_store, cont_stack),
     (chan_store, block_store, cnt)
@@ -379,85 +420,56 @@ structure Tree = struct
 
     ) |
 
-    Pipe (t_arg, t_fn, pos) => (case (
-      resolve (val_store, t_arg),
-      resolve (val_store, t_fn)
-    ) of
-      (NONE, _) => normalize (
-        t_arg, fn v => Pipe (v, t_fn, pos),
-        val_store, cont_stack,
-        chan_store, block_store, cnt
-      ) |
+    Pipe (t_arg, t_fn, pos) => normalize_pair_reduce (
+      (t_arg, t_fn), fn (t1, t2) => Pipe (t1, t2, pos),
+      val_store, cont_stack,
+      chan_store, block_store, cnt,
+      (fn
+        (v_arg, Fnc (lams, pos)) => (let
 
-      (_, NONE) => normalize (
-        t_fn, fn v => Pipe (t_arg, v, pos),
-        val_store, cont_stack,
-        chan_store, block_store, cnt
-      ) |
+          val hole = sym cnt
+          val cont = (hole, t, val_store)
+          val cnt' = cnt + 1
+          val cont_stack' = cont :: cont_stack
 
-      (SOME v_arg, SOME (Fnc (lams, pos))) => (let
+          fun match_first lams = (case lams of
+            [] => NONE |
+            (p, t) :: lams' =>
+              (case (store_insert (val_store, p, t_arg)) of
+                NONE => match_first lams' |
+                SOME val_store' => SOME (t, val_store')
+              )
+          )
 
-        val hole = sym cnt
-        val cont = (hole, t, val_store)
-        val cnt' = cnt + 1
-        val cont_stack' = cont :: cont_stack
+          val (threads, md) = (case (match_first lams) of
+            NONE => ([], Mode_Stuck "piped argument does not match pattern") |
+            SOME (t_body, val_store') =>
+              (
+                [(t_body, val_store', cont_stack')],
+                Mode_Reduce t_body 
+              )
+          )
+        in
+          (
+            md,
+            threads,
+            (chan_store, block_store, cnt')
+          )
+        end) |
 
-        fun match_first lams = (case lams of
-          [] => NONE |
-          (p, t) :: lams' =>
-            (case (store_insert (val_store, p, t_arg)) of
-              NONE => match_first lams' |
-              SOME val_store' => SOME (t, val_store')
-            )
+        _ => (
+          Mode_Stuck "pipe into non-function",
+          [], (chan_store, block_store, cnt)
         )
-
-        val (threads, md) = (case (match_first lams) of
-          NONE => ([], Mode_Stuck "piped argument does not match pattern") |
-          SOME (t_body, val_store') =>
-            (
-              [(t_body, val_store', cont_stack')],
-              Mode_Reduce t_body 
-            )
-        )
-      in
-        (
-          md,
-          threads,
-          (chan_store, block_store, cnt')
-        )
-      end) |
-
-      _ => (
-        Mode_Stuck "pipe into non-function",
-        [], (chan_store, block_store, cnt)
       )
-
     ) |
 
-    Pred (t_param, t_body, pos) => (case (
-      resolve (val_store, t_param),
-      resolve (val_store, t_body)
-    ) of
-
-      (NONE, _) => normalize (
-        t_param, fn v_param => Pred (v_param, t_body, pos),
-        val_store, cont_stack,
-        chan_store, block_store, cnt
-      ) |
-
-      (_, NONE) => normalize (
-        t_body, fn v_body => Pred (t_param, v_body, pos),
-        val_store, cont_stack,
-        chan_store, block_store, cnt
-      ) |
-
-      (SOME v_param, SOME v_body) => return (
-        (Pred (v_param, v_body, pos)),
-        val_store, cont_stack,
-        chan_store, block_store, cnt
-      )
-
+    Pred (t_param, t_body, pos) => normalize_pair_return (
+      (t_param, t_body), fn (t1, t2) => Pred (t1, t2, pos), 
+      val_store, cont_stack,
+      chan_store, block_store, cnt
     ) |
+
       
     _ => (
       Mode_Stuck "TODO",
@@ -465,7 +477,7 @@ structure Tree = struct
     )
     (* **TODO** *)
     (*
-    Cns of (term * term * int) |
+    Cns (t1, t2, pos) =>
     Rep of (term * term * int) |
     Equiv of (term * term * int) |
     Implies of (term * term * int) |
