@@ -41,11 +41,12 @@ structure Tree = struct
   
     CatchAll of int |
     That of int |
-    BoolLit of (bool * int) |
+    Bool of (bool * int) |
   
     Id of (string * int) |
-    NumLit of (string * int) |
-    StringLit of (string * int)
+    Num of (string * int) |
+    Str of (string * int) |
+    ChanId of int
 
 
   type contin = (
@@ -233,20 +234,23 @@ structure Tree = struct
     That pos =>
       "That@" ^ (Int.toString pos) |
 
-    BoolLit (true, pos) =>
+    Bool (true, pos) =>
       "True@" ^ (Int.toString pos) |
 
-    BoolLit (false, pos) =>
+    Bool (false, pos) =>
       "False@" ^ (Int.toString pos) |
   
     Id (name, pos) =>
       "(Id@" ^ (Int.toString pos) ^ " " ^ name ^ ")" |
 
-    NumLit (num, pos) =>
-      "(NumLit@" ^ (Int.toString pos) ^ " " ^ num ^ ")" |
+    Num (num, pos) =>
+      "(Num@" ^ (Int.toString pos) ^ " " ^ num ^ ")" |
 
-    StringLit (str, pos) =>
-      "(Stringit@" ^ (Int.toString pos) ^ " " ^ str ^ ")"
+    Str (str, pos) =>
+      "(Stringit@" ^ (Int.toString pos) ^ " " ^ str ^ ")" |
+
+    ChanId i =>
+      "(ChanId " ^ (Int.toString i) ^ ")"
   )
 
   and to_string_from_lam (t1, t2) = String.surround "Lam" (
@@ -324,6 +328,38 @@ structure Tree = struct
     (* **TODO** *)
   )
 
+  fun normalize_single_reduce (
+    t, f,  
+    val_store, cont_stack,
+    chan_store, block_store, cnt,
+    reduce_f
+  ) = (case (resolve (val_store, t)) of
+    NONE => normalize (
+      t, fn v => (f v),
+      val_store, cont_stack,
+      chan_store, block_store, cnt
+    ) |
+
+    SOME v => (reduce_f v)
+  )
+
+
+  fun normalize_single_return (
+    t, f, 
+    val_store, cont_stack,
+    chan_store, block_store, cnt
+  ) = normalize_single_reduce (
+    t, f, 
+    val_store, cont_stack,
+    chan_store, block_store, cnt,
+    (fn v => return (
+      (f v),
+      val_store, cont_stack,
+      chan_store, block_store, cnt
+    ))
+  )
+
+
   fun normalize_pair_reduce (
     (t1, t2), f,  
     val_store, cont_stack,
@@ -349,6 +385,7 @@ structure Tree = struct
 
   )
 
+
   fun normalize_pair_return (
     (t1, t2), f, 
     val_store, cont_stack,
@@ -364,6 +401,42 @@ structure Tree = struct
     ))
   )
 
+  fun fnc_equal (f1, f2) = (let
+    (* **TODO** *)  
+  in
+    false
+  end)
+
+  fun num_add (n1, n2) = (let
+    (* **TODO** *)  
+  in
+    n1 
+  end)
+
+  fun num_sub (n1, n2) = (let
+    (* **TODO** *)  
+  in
+    n1 
+  end)
+
+  fun num_mult (n1, n2) = (let
+    (* **TODO** *)  
+  in
+    n1 
+  end)
+
+
+  fun num_div (n1, n2) = (let
+    (* **TODO** *)  
+  in
+    n1 
+  end)
+
+  fun num_mod (n1, n2) = (let
+    (* **TODO** *)  
+  in
+    n1 
+  end)
 
   fun seq_step (
     (t, val_store, cont_stack),
@@ -473,29 +546,246 @@ structure Tree = struct
 
     ) |
 
+    Equiv (t1, t2, pos) => normalize_pair_reduce (
+      (t1, t2), fn (t1, t2) => Equiv (t1, t2, pos),
+      val_store, cont_stack,
+      chan_store, block_store, cnt,
+      (fn
+        (Bool (b1, _), Bool (b2, _)) => return (
+          Bool (b1 = b2, pos),
+          val_store, cont_stack,
+          chan_store, block_store, cnt
+        ) |
+
+        _ => (
+          Mode_Stuck "<-> with non-boolean",
+          [], (chan_store, block_store, cnt)
+        )
+      )
+
+    ) |
+
+    Implies (t1, t2, pos) => normalize_pair_reduce (
+      (t1, t2), fn (t1, t2) => Implies (t1, t2, pos),
+      val_store, cont_stack,
+      chan_store, block_store, cnt,
+      (fn
+        (Bool (b1, _), Bool (b2, _)) => return (
+          Bool (not b1 orelse b2, pos),
+          val_store, cont_stack,
+          chan_store, block_store, cnt
+        ) |
+
+        _ => (
+          Mode_Stuck "--> with non-boolean",
+          [], (chan_store, block_store, cnt)
+        )
+      )
+
+    ) |
+
+    Or (t1, t2, pos) => normalize_pair_reduce (
+      (t1, t2), fn (t1, t2) => Or (t1, t2, pos),
+      val_store, cont_stack,
+      chan_store, block_store, cnt,
+      (fn
+        (Bool (b1, _), Bool (b2, _)) => return (
+          Bool (b1 orelse b2, pos),
+          val_store, cont_stack,
+          chan_store, block_store, cnt
+        ) |
+
+        _ => (
+          Mode_Stuck "\\/ with non-boolean",
+          [], (chan_store, block_store, cnt)
+        )
+      )
+
+    ) |
+
+    And (t1, t2, pos) => normalize_pair_reduce (
+      (t1, t2), fn (t1, t2) => And (t1, t2, pos),
+      val_store, cont_stack,
+      chan_store, block_store, cnt,
+      (fn
+        (Bool (b1, _), Bool (b2, _)) => return (
+          Bool (b1 andalso b2, pos),
+          val_store, cont_stack,
+          chan_store, block_store, cnt
+        ) |
+
+        _ => (
+          Mode_Stuck "/\\ with non-boolean",
+          [], (chan_store, block_store, cnt)
+        )
+      )
+
+    ) |
+
+    Equal (t1, t2, pos) => normalize_pair_reduce (
+      (t1, t2), fn (t1, t2) => Equal (t1, t2, pos),
+      val_store, cont_stack,
+      chan_store, block_store, cnt,
+      (fn
+
+        (Fnc f1, Fnc f2) => return (
+          Bool (fnc_equal (f1, f2), pos),
+          val_store, cont_stack,
+          chan_store, block_store, cnt
+        ) |
+
+        (v1, v2) => return (
+          Bool (v1 = v2, pos),
+          val_store, cont_stack,
+          chan_store, block_store, cnt
+        )
+
+      )
+
+    ) |
+
+    Add (t1, t2, pos) => normalize_pair_reduce (
+      (t1, t2), fn (t1, t2) => Add (t1, t2, pos),
+      val_store, cont_stack,
+      chan_store, block_store, cnt,
+      (fn
+        (Num n1, Num n2) => return (
+          Num (num_add (n1, n2)),
+          val_store, cont_stack,
+          chan_store, block_store, cnt
+        ) |
+
+        _ => (
+          Mode_Stuck "+ with non-number",
+          [], (chan_store, block_store, cnt)
+        )
+      )
+
+    ) |
+
+    Sub (t1, t2, pos) => normalize_pair_reduce (
+      (t1, t2), fn (t1, t2) => Sub (t1, t2, pos),
+      val_store, cont_stack,
+      chan_store, block_store, cnt,
+      (fn
+        (Num n1, Num n2) => return (
+          Num (num_sub (n1, n2)),
+          val_store, cont_stack,
+          chan_store, block_store, cnt
+        ) |
+
+        _ => (
+          Mode_Stuck "- with non-number",
+          [], (chan_store, block_store, cnt)
+        )
+      )
+
+    ) |
+
+    Mult (t1, t2, pos) => normalize_pair_reduce (
+      (t1, t2), fn (t1, t2) => Mult (t1, t2, pos),
+      val_store, cont_stack,
+      chan_store, block_store, cnt,
+      (fn
+        (Num n1, Num n2) => return (
+          Num (num_mult (n1, n2)),
+          val_store, cont_stack,
+          chan_store, block_store, cnt
+        ) |
+
+        _ => (
+          Mode_Stuck "* with non-number",
+          [], (chan_store, block_store, cnt)
+        )
+      )
+
+    ) |
+
+
+    Div (t1, t2, pos) => normalize_pair_reduce (
+      (t1, t2), fn (t1, t2) => Div (t1, t2, pos),
+      val_store, cont_stack,
+      chan_store, block_store, cnt,
+      (fn
+        (Num n1, Num n2) => return (
+          Num (num_div (n1, n2)),
+          val_store, cont_stack,
+          chan_store, block_store, cnt
+        ) |
+
+        _ => (
+          Mode_Stuck "/ with non-number",
+          [], (chan_store, block_store, cnt)
+        )
+      )
+
+    ) |
+
+    Mod (t1, t2, pos) => normalize_pair_reduce (
+      (t1, t2), fn (t1, t2) => Mod (t1, t2, pos),
+      val_store, cont_stack,
+      chan_store, block_store, cnt,
+      (fn
+        (Num n1, Num n2) => return (
+          Num (num_mod (n1, n2)),
+          val_store, cont_stack,
+          chan_store, block_store, cnt
+        ) |
+
+        _ => (
+          Mode_Stuck "% with non-number",
+          [], (chan_store, block_store, cnt)
+        )
+      )
+
+    ) |
+
+    AllocChan i => (let
+      val chan_store' = insert (chan_store, cnt, ([], []))
+      val cnt' = cnt + 1
+    in
+      return (
+        ChanId cnt,
+        val_store, cont_stack,
+        chan_store', block_store, cnt'
+      )
+    end) |
+
+    Send (t, pos) => normalize_single_return (
+      t, fn v => Send (v, pos), 
+      val_store, cont_stack,
+      chan_store, block_store, cnt
+    ) | 
+
+    Recv (t, pos) => normalize_single_return (
+      t, fn v => Recv (v, pos) ,
+      val_store, cont_stack,
+      chan_store, block_store, cnt
+    ) | 
+
+    Wrap (t, pos) => normalize_single_return (
+      t, fn v => Wrap (v, pos),
+      val_store, cont_stack,
+      chan_store, block_store, cnt
+    ) | 
+
+    Chse (t, pos) => normalize_single_return (
+      t, fn v => Chse (v, pos),
+      val_store, cont_stack,
+      chan_store, block_store, cnt
+    ) | 
+
+
     _ => (
       Mode_Stuck "TODO",
       [], (chan_store, block_store, cnt)
     )
+
+
     (* **TODO** *)
     (*
-    Equiv of (term * term * int) |
-    Implies of (term * term * int) |
-    Or of (term * term * int) |
-    And of (term * term * int) |
-    Equal of (term * term * int) |
 
-    Add of (term * term * int) |
-    Sub of (term * term * int) |
-    Mult of (term * term * int) |
-    Div of (term * term * int) |
-    Mod of (term * term * int) |
   
-    AllocChan of int |
-    Send of (term * int) |
-    Recv of (term * int) |
-    Wrap of (term * int) |
-    Chse of (term * int) |
     Spawn of (term * int) |
     Sync of (term * int) |
     Solve of (term * int) |
@@ -515,11 +805,11 @@ structure Tree = struct
   
     CatchAll of int |
     That of int |
-    BoolLit of (bool * int) |
+    Bool of (bool * int) |
   
     Id of (string * int) |
-    NumLit of (string * int) |
-    StringLit of (string * int)
+    Num of (string * int) |
+    Str of (string * int)
     *)
 
   )

@@ -133,12 +133,12 @@ term_nt:
 
   LODASH (CatchAll LODASHleft) | 
   THAT (That THATleft) | 
-  TRUE (BoolLit (true, TRUEleft)) | 
-  FALSE (BoolLit (false, FALSEleft)) |
+  TRUE (Bool (true, TRUEleft)) | 
+  FALSE (Bool (false, FALSEleft)) |
 
   ID (Id (ID, IDleft)) |
-  NUMLIT (NumLit (NUMLIT, NUMLITleft)) |
-  STRINGLIT (StringLit (STRINGLIT, STRINGLITleft)) |
+  NUMLIT (Num (NUMLIT, NUMLITleft)) |
+  STRINGLIT (Str (STRINGLIT, STRINGLITleft)) |
 
   LPAREN term_nt RPAREN (term_nt)
 
