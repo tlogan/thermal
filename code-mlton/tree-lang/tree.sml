@@ -775,6 +775,28 @@ structure Tree = struct
       chan_store, block_store, cnt
     ) | 
 
+    Spawn (t, pos) => normalize_single_reduce (
+      t, fn v => Spawn (v, pos),  
+      val_store, cont_stack,
+      chan_store, block_store, cnt,
+      (fn
+
+        (Fnc ([(Lst ([], _), t_body)], _)) => (
+          Mode_Spawn t_body,
+          [
+            (Lst ([], pos), val_store, cont_stack),
+            (t_body, val_store, [])
+          ],
+          (chan_store, block_store, cnt)
+        ) |
+
+        _ => (
+          Mode_Stuck "spawn with non-function",
+          [], (chan_store, block_store, cnt)
+        )
+      )
+    ) |
+
 
     _ => (
       Mode_Stuck "TODO",
