@@ -784,6 +784,7 @@ structure Tree = struct
         (Fnc ([(Lst ([], _), t_body)], _)) => (
           Mode_Spawn t_body,
           [
+            (* TODO: reduce to thread id of new thread, instead of empty list*)
             (Lst ([], pos), val_store, cont_stack),
             (t_body, val_store, [])
           ],
