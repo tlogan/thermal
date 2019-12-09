@@ -1,5 +1,7 @@
 structure Tree = struct
 
+  type chan_id = int
+
   datatype term = 
     Seq of (term * term * int) |
     Select of (term * string * int) |
@@ -46,7 +48,10 @@ structure Tree = struct
     Id of (string * int) |
     Num of (string * int) |
     Str of (string * int) |
-    ChanId of int
+
+    (* internal reps *)
+    ChanId of int |
+    Query of (((term * term) list) * chan_id)
 
 
   type contin = (
@@ -57,7 +62,6 @@ structure Tree = struct
   
   type contin_stack = (contin list)
   
-  type chan_id = int
 
   datatype base_event =
     Base_Send of (chan_id * term * contin_stack) |
@@ -249,7 +253,10 @@ structure Tree = struct
       "(Stringit@" ^ (Int.toString pos) ^ " " ^ str ^ ")" |
 
     ChanId i =>
-      "(ChanId " ^ (Int.toString i) ^ ")"
+      "(ChanId " ^ (Int.toString i) ^ ")" |
+
+    Query _ =>
+      "Query"
   )
 
   and to_string_from_lam (t1, t2) = String.surround "Lam" (
@@ -684,6 +691,8 @@ structure Tree = struct
   
   )
 
+  
+
 
   fun seq_step (
     (t, val_store, cont_stack),
@@ -1081,17 +1090,44 @@ structure Tree = struct
       )
     ) |
 
+    Solve (t, pos) => normalize_single_reduce (
+      t, fn v => Solve (v, pos),  
+      val_store, cont_stack,
+      chan_store, block_store, cnt,
+      (fn
+        Fnc (lams, pos_f) => (let
+
+          val chan_store' = insert (chan_store, cnt, ([], []))
+          val cnt' = cnt + 1
+
+        in
+          (
+            Mode_Reduce (ChanId cnt),
+            [
+              (ChanId cnt, val_store, cont_stack), 
+              (Query (lams, cnt), val_store, [])
+            ],
+            (chan_store, block_store, cnt')
+          )
+        end) |
+
+        _ => (
+          Mode_Stuck "solve with non-predicate",
+          [], (chan_store, block_store, cnt)
+        )
+      ) 
+    ) |
+
+
     _ => (
       Mode_Stuck "TODO",
       [], (chan_store, block_store, cnt)
     )
 
-
     (* **TODO** *)
     (*
 
   
-    Solve of (term * int) |
 
     Not of (term * int) |
     Reduced of (term * int) |
@@ -1112,7 +1148,15 @@ structure Tree = struct
   
     Id of (string * int) |
     Num of (string * int) |
-    Str of (string * int)
+    Str of (string * int) |
+    ChanId i =>
+    (* TODO:
+    ** update states with current_thread_id.
+    ** update Query with `that` thread_id
+    ** update channel queues with thread_ids 
+    ** update Mode_Sync with sender and receiver thread_ids
+    *)
+    Query (lams, chan_id) =>
     *)
 
   )
