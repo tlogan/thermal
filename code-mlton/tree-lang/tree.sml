@@ -75,7 +75,7 @@ structure Tree = struct
     Mode_Spawn of term |
     Mode_Block of (base_event list) |
     Mode_Sync of (int * term * int * int) |
-    Mode_Stuck of string |
+    Mode_Stick of string |
     Mode_Done of term
 
   val empty_table = (fn key => NONE)
@@ -334,7 +334,7 @@ structure Tree = struct
         (case (match_first lams) of
 
           NONE => (
-            [], Mode_Stuck "result does not match continuation hole pattern"
+            [], Mode_Stick "result does not match continuation hole pattern"
           ) |
 
           SOME (t_body, val_store'') => (
@@ -597,7 +597,7 @@ structure Tree = struct
           NONE => NONE
         )
         val (threads, md') = (case recv_op of
-          NONE => ([], Mode_Stuck "transact Base_Send") |
+          NONE => ([], Mode_Stick "transact Base_Send") |
           SOME (recv_stack, recv_thread_id) => (
             [
               (Lst ([], 0), empty_table, wrap_stack @ cont_stack, thread_id),
@@ -625,7 +625,7 @@ structure Tree = struct
         )
   
         val (threads, md') = (case send_op of
-          NONE => ([], Mode_Stuck "transact Base_Recv") |
+          NONE => ([], Mode_Stick "transact Base_Recv") |
           SOME (send_stack, msg, send_thread_id) => (
             [
               (Lst ([], 0), empty_table, send_stack, send_thread_id),
@@ -750,14 +750,14 @@ structure Tree = struct
           ) |
 
           NONE => (
-            Mode_Stuck "selection from non-record",
+            Mode_Stick "selection from non-record",
             [], (chan_store, block_store, cnt)
           )
         )
       end) |
 
       _ => (
-        Mode_Stuck "selection from non-record",
+        Mode_Stick "selection from non-record",
         [], (chan_store, block_store, cnt)
       )
 
@@ -775,7 +775,7 @@ structure Tree = struct
         ) |
 
         _ => (
-          Mode_Stuck "pipe into non-function",
+          Mode_Stick "pipe into non-function",
           [], (chan_store, block_store, cnt)
         )
       )
@@ -793,7 +793,7 @@ structure Tree = struct
         ) |
 
         _ => (
-          Mode_Stuck "cons with non-list",
+          Mode_Stick "cons with non-list",
           [], (chan_store, block_store, cnt)
         )
       )
@@ -812,7 +812,7 @@ structure Tree = struct
         ) |
 
         _ => (
-          Mode_Stuck "<-> with non-boolean",
+          Mode_Stick "<-> with non-boolean",
           [], (chan_store, block_store, cnt)
         )
       )
@@ -831,7 +831,7 @@ structure Tree = struct
         ) |
 
         _ => (
-          Mode_Stuck "--> with non-boolean",
+          Mode_Stick "--> with non-boolean",
           [], (chan_store, block_store, cnt)
         )
       )
@@ -850,7 +850,7 @@ structure Tree = struct
         ) |
 
         _ => (
-          Mode_Stuck "\\/ with non-boolean",
+          Mode_Stick "\\/ with non-boolean",
           [], (chan_store, block_store, cnt)
         )
       )
@@ -869,7 +869,7 @@ structure Tree = struct
         ) |
 
         _ => (
-          Mode_Stuck "/\\ with non-boolean",
+          Mode_Stick "/\\ with non-boolean",
           [], (chan_store, block_store, cnt)
         )
       )
@@ -910,7 +910,7 @@ structure Tree = struct
         ) |
 
         _ => (
-          Mode_Stuck "+ with non-number",
+          Mode_Stick "+ with non-number",
           [], (chan_store, block_store, cnt)
         )
       )
@@ -929,7 +929,7 @@ structure Tree = struct
         ) |
 
         _ => (
-          Mode_Stuck "- with non-number",
+          Mode_Stick "- with non-number",
           [], (chan_store, block_store, cnt)
         )
       )
@@ -948,7 +948,7 @@ structure Tree = struct
         ) |
 
         _ => (
-          Mode_Stuck "* with non-number",
+          Mode_Stick "* with non-number",
           [], (chan_store, block_store, cnt)
         )
       )
@@ -968,7 +968,7 @@ structure Tree = struct
         ) |
 
         _ => (
-          Mode_Stuck "/ with non-number",
+          Mode_Stick "/ with non-number",
           [], (chan_store, block_store, cnt)
         )
       )
@@ -987,7 +987,7 @@ structure Tree = struct
         ) |
 
         _ => (
-          Mode_Stuck "% with non-number",
+          Mode_Stick "% with non-number",
           [], (chan_store, block_store, cnt)
         )
       )
@@ -1050,7 +1050,7 @@ structure Tree = struct
         end) |
 
         _ => (
-          Mode_Stuck "spawn with non-function",
+          Mode_Stick "spawn with non-function",
           [], (chan_store, block_store, cnt)
         )
       )
@@ -1084,7 +1084,7 @@ structure Tree = struct
         end)
       else
         (
-          Mode_Stuck "sync with non-event",
+          Mode_Stick "sync with non-event",
           [], (chan_store, block_store, cnt)
         )
       )
@@ -1112,7 +1112,7 @@ structure Tree = struct
         end) |
 
         _ => (
-          Mode_Stuck "solve with non-predicate",
+          Mode_Stick "solve with non-predicate",
           [], (chan_store, block_store, cnt)
         )
       ) 
@@ -1130,7 +1130,7 @@ structure Tree = struct
         ) |
 
         _ => (
-          Mode_Stuck "~ with non-boolean",
+          Mode_Stick "~ with non-boolean",
           [], (chan_store, block_store, cnt)
         )
       )
@@ -1157,7 +1157,7 @@ structure Tree = struct
         ) | 
 
         _ => (
-          Mode_Stuck "reduced with non-predicate",
+          Mode_Stick "reduced with non-predicate",
           [], (chan_store, block_store, cnt)
         )
       )
@@ -1183,14 +1183,14 @@ structure Tree = struct
         ) | 
 
         _ => (
-          Mode_Stuck "blocked with non-predicate",
+          Mode_Stick "blocked with non-predicate",
           [], (chan_store, block_store, cnt)
         )
       )
     ) | 
 
     Synced (t, pos) => normalize_single_reduce (
-      t, fn v => Blocked (v, pos), 
+      t, fn v => Synced (v, pos), 
       val_store, cont_stack, thread_id,
       chan_store, block_store, cnt,
       (fn
@@ -1212,20 +1212,45 @@ structure Tree = struct
         ) | 
 
         _ => (
-          Mode_Stuck "synced with non-predicate",
+          Mode_Stick "synced with non-predicate",
+          [], (chan_store, block_store, cnt)
+        )
+      )
+    ) | 
+
+    Stuck (t, pos) => normalize_single_reduce (
+      t, fn v => Stuck (v, pos), 
+      val_store, cont_stack, thread_id,
+      chan_store, block_store, cnt,
+      (fn
+        Fnc (lams, _) => (case md of
+          Mode_Stick stuck_str => push (
+            (Str (stuck_str, ~1), lams),
+            val_store, cont_stack, thread_id,
+            chan_store, block_store, cnt
+          ) |
+
+          _ => pop (
+            Bool (false, pos),
+            val_store, cont_stack, thread_id,
+            chan_store, block_store, cnt
+          )
+        ) | 
+
+        _ => (
+          Mode_Stick "synced with non-predicate",
           [], (chan_store, block_store, cnt)
         )
       )
     ) | 
 
     _ => (
-      Mode_Stuck "TODO",
+      Mode_Stick "TODO",
       [], (chan_store, block_store, cnt)
     )
 
     (* **TODO** *)
     (*
-    Stuck of (term * int) |
     Done of (term * int) |
   
     AbsProp of ((string list) * term * int) |
