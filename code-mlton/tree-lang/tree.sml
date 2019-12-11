@@ -1264,6 +1264,24 @@ structure Tree = struct
       )
     ) | 
 
+    App (t_fn, t_arg, pos) => normalize_single_reduce (
+      t_fn, fn v_fn => App (t_arg, v_fn, pos),
+      val_store, cont_stack, thread_id,
+      chan_store, block_store, cnt,
+      (fn
+        (Fnc (lams, _), t_arg) => push (
+          (t_arg, lams),
+          val_store, cont_stack, thread_id,
+          chan_store, block_store, cnt
+        ) |
+
+        _ => (
+          Mode_Stick "application of non-function",
+          [], (chan_store, block_store, cnt)
+        )
+      )
+    ) |
+
     _ => (
       Mode_Stick "TODO",
       [], (chan_store, block_store, cnt)
@@ -1272,7 +1290,6 @@ structure Tree = struct
     (* **TODO** *)
     (*
   
-    App of (term * term * int) |
     Fnc of (((term * term) list) * int) |
     Lst of ((term list) * int) |
     Rec of (((string * term) list) * int) |
