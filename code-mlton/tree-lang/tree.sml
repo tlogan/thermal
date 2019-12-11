@@ -424,6 +424,47 @@ structure Tree = struct
     ))
   )
 
+  fun normalize_list_reduce (
+    ts, f,  
+    val_store, cont_stack, thread_id,
+    chan_store, block_store, cnt,
+    reduce_f
+  ) = (let
+
+    fun loop (prefix, postfix) = (case postfix of
+      [] => reduce_f prefix |
+      x :: xs => (case (resolve (val_store, x)) of
+
+        NONE => normalize (
+          x, fn v => f (prefix @ (v :: xs)),
+          val_store, cont_stack, thread_id,
+          chan_store, block_store, cnt
+        ) |
+
+        SOME v => loop (prefix @ [v], xs)
+
+      )
+    )
+  in
+    loop ([], ts)
+  end)
+
+  fun normalize_list_pop (
+    ts, f, 
+    val_store, cont_stack, thread_id,
+    chan_store, block_store, cnt
+  ) = normalize_list_reduce (
+    ts, f, 
+    val_store, cont_stack, thread_id,
+    chan_store, block_store, cnt,
+    (fn vs => pop (
+      (f vs),
+      val_store, cont_stack, thread_id,
+      chan_store, block_store, cnt
+    ))
+  )
+
+
   fun fnc_equal (f1, f2) = (let
     (* **TODO** *)  
   in
@@ -1282,6 +1323,18 @@ structure Tree = struct
       )
     ) |
 
+    Fnc (lams, pos) => pop (
+      Fnc (lams, pos), (* TODO: update function closure *)
+      val_store, cont_stack, thread_id,
+      chan_store, block_store, cnt
+    ) |
+
+    Lst (ts, pos) => normalize_list_pop (
+      ts, fn ts => Lst (ts, pos), 
+      val_store, cont_stack, thread_id,
+      chan_store, block_store, cnt
+    ) | 
+
     _ => (
       Mode_Stick "TODO",
       [], (chan_store, block_store, cnt)
@@ -1290,8 +1343,6 @@ structure Tree = struct
     (* **TODO** *)
     (*
   
-    Fnc of (((term * term) list) * int) |
-    Lst of ((term list) * int) |
     Rec of (((string * term) list) * int) |
   
     CatchAll of int |
