@@ -38,6 +38,10 @@ structure Tree = struct
   
     App of (term * term * int) |
     Fnc of (((term * term) list) * int) |
+    (* TODO: update function closure,
+    ** to contain free-var value-mappings and
+    ** mutually recursve function mappings
+    *)
     Lst of ((term list) * int) |
     Rec of (((string * term) list) * int) |
   
@@ -1324,7 +1328,7 @@ structure Tree = struct
     ) |
 
     Fnc (lams, pos) => pop (
-      Fnc (lams, pos), (* TODO: update function closure *)
+      Fnc (lams, pos),
       val_store, cont_stack, thread_id,
       chan_store, block_store, cnt
     ) |
@@ -1335,6 +1339,63 @@ structure Tree = struct
       chan_store, block_store, cnt
     ) | 
 
+    Rec (fields, pos) => (let
+      val keys = (map (fn (k, t) => k) fields)
+      val ts = (map (fn (k, t) => t) fields)
+    in
+      normalize_list_pop (
+        ts, fn ts => Rec (ListPair.zip (keys, ts), pos), 
+        val_store, cont_stack, thread_id,
+        chan_store, block_store, cnt
+      )
+    end) |
+
+    CatchAll pos => (
+      Mode_Stick "_ in non-pattern",
+      [], (chan_store, block_store, cnt)
+    ) |
+
+    That pos => (
+      Mode_Stick "'that' thread reference outside of query",
+      [], (chan_store, block_store, cnt)
+    ) |
+
+    Bool (b, pos) => pop (
+      Bool (b, pos),
+      val_store, cont_stack, thread_id,
+      chan_store, block_store, cnt
+    ) |
+
+    Id (str, pos) => pop (
+      Id (str, pos),
+      val_store, cont_stack, thread_id,
+      chan_store, block_store, cnt
+    ) |
+
+    Num (str, pos) => pop (
+      Num (str, pos),
+      val_store, cont_stack, thread_id,
+      chan_store, block_store, cnt
+    ) |
+
+    Str (str, pos) => pop (
+      Str (str, pos),
+      val_store, cont_stack, thread_id,
+      chan_store, block_store, cnt
+    ) |
+
+    ChanId i => pop (
+      ChanId i,
+      val_store, cont_stack, thread_id,
+      chan_store, block_store, cnt
+    ) |
+
+    ThreadId i => pop (
+      ThreadId i,
+      val_store, cont_stack, thread_id,
+      chan_store, block_store, cnt
+    ) |
+
     _ => (
       Mode_Stick "TODO",
       [], (chan_store, block_store, cnt)
@@ -1342,18 +1403,8 @@ structure Tree = struct
 
     (* **TODO** *)
     (*
-  
-    Rec of (((string * term) list) * int) |
-  
-    CatchAll of int |
-    That of int |
-    Bool of (bool * int) |
-  
-    Id of (string * int) |
-    Num of (string * int) |
-    Str of (string * int) |
-    ChanId i =>
-    ThreadId i =>
+    ** might need change query to only contain
+    ** lams rewritten as a single bool term with or clauses
     Query (lams, chan_id) =>
     *)
 
