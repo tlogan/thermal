@@ -36,7 +36,6 @@ structure Tree = struct
     Stuck of (term * int) |
     Done of (term * int) |
   
-    AbsProp of ((string list) * term * int) |
     App of (term * term * int) |
     Fnc of (((term * term) list) * int) |
     Lst of ((term list) * int) |
@@ -212,11 +211,6 @@ structure Tree = struct
       (to_string t)
     ) |
   
-    AbsProp (names, t, pos) => String.surround ("AbsProp@" ^ (Int.toString pos)) (
-      "(" ^ (String.concatWith "," names) ^ "),\n" ^
-      (to_string t)
-    ) |
-
     App (t1, t2, pos) => String.surround ("App@" ^ (Int.toString pos)) (
       (to_string t1) ^ ",\n" ^
       (to_string t2)
@@ -1278,7 +1272,6 @@ structure Tree = struct
     (* **TODO** *)
     (*
   
-    AbsProp of ((string list) * term * int) |
     App of (term * term * int) |
     Fnc of (((term * term) list) * int) |
     Lst of ((term list) * int) |

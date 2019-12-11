@@ -25,7 +25,7 @@ open Tree
   REDUCED | CALLED | RETURNED |
   SPAWNED | BLOCKED | SYNCED |
   STUCK | DONE |
-  FOR | SOLVE | 
+  SOLVE | 
 
   LSQ | RSQ | LCUR | RCUR | LPAREN | RPAREN |
 
@@ -44,8 +44,7 @@ open Tree
   fields_nt of (string * term) list |
   field_nt of (string * term) |
   lams_nt of (term * term) list |
-  lams_ext_nt of (term * term) list |
-  ids_nt of string list
+  lams_ext_nt of (term * term) list
   
 
 %pos int
@@ -70,7 +69,7 @@ open Tree
 %left CROSS DASH 
 %left STAR SLASH CIRSLASH 
 
-%nonassoc ALLOC_CHAN SEND RECV WRAP CHSE SPAWN SYNC TILDE REDUCED CALLED RETURNED SPAWNED BLOCKED SYNCED STUCK DONE FOR SOLVE 
+%nonassoc ALLOC_CHAN SEND RECV WRAP CHSE SPAWN SYNC TILDE REDUCED CALLED RETURNED SPAWNED BLOCKED SYNCED STUCK DONE SOLVE 
 
 %nonassoc LSQ RSQ LCUR RCUR LPAREN RPAREN 
 
@@ -122,7 +121,6 @@ term_nt:
   SYNCED term_nt (Synced (term_nt, SYNCEDleft)) |
   STUCK term_nt (Stuck (term_nt, STUCKleft)) |
   DONE term_nt (Done (term_nt, DONEleft)) |
-  FOR ids_nt BSLASH term_nt (AbsProp (ids_nt, term_nt, FORleft)) |
   term_nt term_nt %prec APP (App (term_nt1, term_nt2, term_nt1left)) |
   term_nt DOT term_nt (Fnc ([(term_nt1, term_nt2)], DOTleft)) |
   lams_nt (Fnc (lams_nt, lams_ntleft)) |
@@ -159,7 +157,3 @@ fields_nt:
 
 field_nt:
   ID COLON term_nt ((ID, term_nt))
-
-ids_nt:
-  ID ids_nt (ID :: ids_nt) |
-  ID ([ID])

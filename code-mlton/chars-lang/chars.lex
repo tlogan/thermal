@@ -86,8 +86,6 @@ digit=[0-9];
 <INITIAL>"stuck" => (STUCK (!linenum, inccol 1));
 <INITIAL>"done" => (DONE (!linenum, inccol 1));
 
-
-<INITIAL>"for" => (FOR (!linenum, inccol 1));
 <INITIAL>"solve" => (SOLVE (!linenum, inccol 1));
 
 
