@@ -52,6 +52,7 @@ structure Tree = struct
 
     (* internal reps *)
     ChanId of int |
+    ThreadId of int |
     Query of (((term * term) list) * chan_id * thread_id)
 
 
@@ -255,6 +256,9 @@ structure Tree = struct
 
     ChanId i =>
       "(ChanId " ^ (Int.toString i) ^ ")" |
+
+    ThreadId i =>
+      "(ThreadId " ^ (Int.toString i) ^ ")" |
 
     Query _ =>
       "Query"
@@ -1159,6 +1163,32 @@ structure Tree = struct
       )
     ) | 
 
+    Blocked (t, pos) => normalize_single_reduce (
+      t, fn v => Blocked (v, pos), 
+      val_store, cont_stack, thread_id,
+      chan_store, block_store, cnt,
+      (fn
+        Fnc (lams, _) => (case md of
+          Mode_Block i => push (
+            (ThreadId thread_id, lams),
+            val_store, cont_stack, thread_id,
+            chan_store, block_store, cnt
+          ) |
+
+          _ => pop (
+            Bool (false, pos),
+            val_store, cont_stack, thread_id,
+            chan_store, block_store, cnt
+          )
+        ) | 
+
+        _ => (
+          Mode_Stuck "reduced with non-predicate",
+          [], (chan_store, block_store, cnt)
+        )
+      )
+    ) | 
+
     _ => (
       Mode_Stuck "TODO",
       [], (chan_store, block_store, cnt)
@@ -1166,7 +1196,6 @@ structure Tree = struct
 
     (* **TODO** *)
     (*
-    Blocked of (term * int) |
     Synced of (term * int) |
     Stuck of (term * int) |
     Done of (term * int) |
@@ -1185,6 +1214,7 @@ structure Tree = struct
     Num of (string * int) |
     Str of (string * int) |
     ChanId i =>
+    ThreadId i =>
     Query (lams, chan_id) =>
     *)
 
