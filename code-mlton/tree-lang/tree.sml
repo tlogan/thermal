@@ -76,7 +76,7 @@ structure Tree = struct
     Mode_Block of (base_event list) |
     Mode_Sync of (int * term * int * int) |
     Mode_Stick of string |
-    Mode_Done of term
+    Mode_Finish of term
 
   val empty_table = (fn key => NONE)
 
@@ -317,7 +317,7 @@ structure Tree = struct
     chan_store, block_store, cnt
   ) = (let
     val (threads, md) = (case cont_stack of
-      [] => ([], Mode_Done result) |
+      [] => ([], Mode_Finish result) |
       (lams, val_store') :: cont_stack' => (let
 
 
@@ -1244,6 +1244,32 @@ structure Tree = struct
       )
     ) | 
 
+    Done (t, pos) => normalize_single_reduce (
+      t, fn v => Done (v, pos), 
+      val_store, cont_stack, thread_id,
+      chan_store, block_store, cnt,
+      (fn
+        Fnc (lams, _) => (case md of
+          Mode_Finish v_arg => push (
+            (v_arg, lams),
+            val_store, cont_stack, thread_id,
+            chan_store, block_store, cnt
+          ) |
+
+          _ => pop (
+            Bool (false, pos),
+            val_store, cont_stack, thread_id,
+            chan_store, block_store, cnt
+          )
+        ) | 
+
+        _ => (
+          Mode_Stick "reduced with non-predicate",
+          [], (chan_store, block_store, cnt)
+        )
+      )
+    ) | 
+
     _ => (
       Mode_Stick "TODO",
       [], (chan_store, block_store, cnt)
@@ -1251,7 +1277,6 @@ structure Tree = struct
 
     (* **TODO** *)
     (*
-    Done of (term * int) |
   
     AbsProp of ((string list) * term * int) |
     App of (term * term * int) |
