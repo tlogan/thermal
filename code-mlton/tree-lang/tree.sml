@@ -1183,7 +1183,36 @@ structure Tree = struct
         ) | 
 
         _ => (
-          Mode_Stuck "reduced with non-predicate",
+          Mode_Stuck "blocked with non-predicate",
+          [], (chan_store, block_store, cnt)
+        )
+      )
+    ) | 
+
+    Synced (t, pos) => normalize_single_reduce (
+      t, fn v => Blocked (v, pos), 
+      val_store, cont_stack, thread_id,
+      chan_store, block_store, cnt,
+      (fn
+        Fnc (lams, _) => (case md of
+          Mode_Sync (chan_id, msg, send_id, recv_id) => push (
+            (Lst ([
+              ChanId chan_id, msg,
+              ThreadId send_id, ThreadId recv_id
+            ], ~1), lams),
+            val_store, cont_stack, thread_id,
+            chan_store, block_store, cnt
+          ) |
+
+          _ => pop (
+            Bool (false, pos),
+            val_store, cont_stack, thread_id,
+            chan_store, block_store, cnt
+          )
+        ) | 
+
+        _ => (
+          Mode_Stuck "synced with non-predicate",
           [], (chan_store, block_store, cnt)
         )
       )
@@ -1196,7 +1225,6 @@ structure Tree = struct
 
     (* **TODO** *)
     (*
-    Synced of (term * int) |
     Stuck of (term * int) |
     Done of (term * int) |
   
