@@ -28,6 +28,7 @@ structure Tree = struct
     Spawn of (term * int) |
     Sync of (term * int) |
     Solve of (term * int) |
+    Sat of (term * int) |
 
     Not of (term * int) |
     Reduced of (term * int) |
@@ -188,6 +189,10 @@ structure Tree = struct
     ) |
 
     Solve (t, pos) => String.surround ("Solve@" ^ (Int.toString pos)) (
+      (to_string t)
+    ) |
+
+    Sat (t, pos) => String.surround ("Sat@" ^ (Int.toString pos)) (
       (to_string t)
     ) |
 
@@ -1131,6 +1136,34 @@ structure Tree = struct
 
     Solve (t, pos) => normalize_single_reduce (
       t, fn v => Solve (v, pos),  
+      val_store, cont_stack, thread_id,
+      chan_store, block_store, cnt,
+      (fn
+        Fnc (lams, pos_f) => (let
+          val chan_id = cnt
+          val chan_store' = insert (chan_store, chan_id, ([], []))
+          val thread_id' = cnt + 1
+          val cnt' = cnt + 2 
+        in
+          (
+            Mode_Reduce (ChanId cnt),
+            [
+              (ChanId cnt, val_store, cont_stack, thread_id), 
+              (Query (lams, chan_id, thread_id), val_store, [], thread_id')
+            ],
+            (chan_store, block_store, cnt')
+          )
+        end) |
+
+        _ => (
+          Mode_Stick "solve with non-predicate",
+          [], (chan_store, block_store, cnt)
+        )
+      ) 
+    ) |
+
+    Sat (t, pos) => normalize_single_reduce (
+      t, fn v => Sat (v, pos),  
       val_store, cont_stack, thread_id,
       chan_store, block_store, cnt,
       (fn

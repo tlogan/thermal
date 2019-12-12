@@ -25,7 +25,7 @@ open Tree
   REDUCED | CALLED | RETURNED |
   SPAWNED | BLOCKED | SYNCED |
   STUCK | DONE |
-  SOLVE | 
+  SOLVE | SAT |
 
   LSQ | RSQ | LCUR | RCUR | LPAREN | RPAREN |
 
@@ -69,7 +69,7 @@ open Tree
 %left CROSS DASH 
 %left STAR SLASH CIRSLASH 
 
-%nonassoc ALLOC_CHAN SEND RECV WRAP CHSE SPAWN SYNC TILDE REDUCED CALLED RETURNED SPAWNED BLOCKED SYNCED STUCK DONE SOLVE 
+%nonassoc ALLOC_CHAN SEND RECV WRAP CHSE SPAWN SYNC TILDE REDUCED CALLED RETURNED SPAWNED BLOCKED SYNCED STUCK DONE SOLVE SAT
 
 %nonassoc LSQ RSQ LCUR RCUR LPAREN RPAREN 
 
@@ -113,6 +113,7 @@ term_nt:
   SPAWN term_nt (Spawn (term_nt, SPAWNleft)) |
   SYNC term_nt (Spawn (term_nt, SYNCleft)) |
   SOLVE term_nt (Solve (term_nt, SOLVEleft)) |
+  SAT term_nt (Sat (term_nt, SATleft)) |
 
   TILDE term_nt (Not (term_nt, TILDEleft)) |
 
