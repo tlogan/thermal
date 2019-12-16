@@ -3,6 +3,8 @@ structure Tree = struct
   type chan_id = int
   type thread_id = int
 
+
+
   datatype term = 
     Seq of (term * term * int) |
     Select of (term * string * int) |
@@ -57,7 +59,16 @@ structure Tree = struct
     (* internal reps *)
     ChanId of int |
     ThreadId of int |
-    Query of (((term * term) list) * chan_id * thread_id)
+    Backchain of (
+      string * (term list) (* result string and proposition list *) *
+      chan_id * thread_id *
+      (string -> (term option)) (* env - evolving through query *)
+    ) |
+    Solution of solution
+
+  and solution =
+    Sol_Empty | Sol_Val of term | Sol_Abs of term
+
 
 
   type contin = (
@@ -73,7 +84,7 @@ structure Tree = struct
 
   datatype transition_mode = 
     Mode_Start |
-    Mode_Push |
+    Mode_Hidden |
     Mode_Alloc of int |
     Mode_Reduce of term |
     Mode_Spawn of term |
@@ -263,8 +274,8 @@ structure Tree = struct
     ThreadId i =>
       "(ThreadId " ^ (Int.toString i) ^ ")" |
 
-    Query _ =>
-      "Query"
+    Backchain _ =>
+      "Backchain"
   )
 
   and to_string_from_lam (t1, t2) = String.surround "Lam" (
@@ -290,7 +301,7 @@ structure Tree = struct
     val cont_stack' = cont :: cont_stack
   in
     (
-      Mode_Push,
+      Mode_Hidden,
       [(t_arg, val_store, cont_stack', thread_id)],
       (chan_store, block_store, cnt)
     )
@@ -473,8 +484,13 @@ structure Tree = struct
     ))
   )
 
-
   fun fnc_equal (f1, f2) = (let
+    (* **TODO** *)  
+  in
+    false
+  end)
+
+  fun term_equal (t1, t2) = (let
     (* **TODO** *)  
   in
     false
@@ -758,8 +774,53 @@ structure Tree = struct
   )
 
 
+  fun mk_prop (result_id, lams) = (let
+    (** TODO **)
+  in
+    (Lst ([], ~1))
+  end)
+  
 
 
+
+  fun backchain (
+    result_id, goals, return_chan_id, that_thread_id, env,
+    val_store, cont_stack, thread_id,
+    chan_store, block_store, cnt
+  ) = (case goals of
+    (*
+    [] => (let
+      (* simp = resolve as much as possible *)
+      val simp_term = simp (result_id, env)
+
+      val free_vars = extract_free_vars simp_term
+      val result_msg = if null free_vars then
+        Sol_Val result_msg
+      else
+        Sol_Abs (Fnc [(
+          Lst (free_vars, ~1),
+          result_msg
+        )], ~1)
+
+      val sync_send = Sync (Send (Lst [
+        ChanId return_chan_id,
+        result_msg 
+      ], ~1, ~1))
+    in
+      (
+        Mode_Hidden,
+        [(sync_send, val_store, cont_stack, thread_id)],
+        (chan_store, block_store, cnt)
+      )
+    end)
+    *)
+    (* **TODO** *)
+    _ => (
+      Mode_Stick "TODO",
+      [], (chan_store, block_store, cnt)
+    )
+  )
+  
 
   fun seq_step (
     md,
@@ -926,14 +987,8 @@ structure Tree = struct
       chan_store, block_store, cnt,
       (fn
 
-        (Fnc f1, Fnc f2) => pop (
-          Bool (fnc_equal (f1, f2), pos),
-          val_store, cont_stack, thread_id,
-          chan_store, block_store, cnt
-        ) |
-
         (v1, v2) => pop (
-          Bool (v1 = v2, pos),
+          Bool (term_equal (v1, v2), pos),
           val_store, cont_stack, thread_id,
           chan_store, block_store, cnt
         )
@@ -1144,14 +1199,24 @@ structure Tree = struct
           val chan_store' = insert (chan_store, chan_id, ([], []))
           val thread_id' = cnt + 1
           val cnt' = cnt + 2 
+
+          val env = empty_table
+          val result_id = sym cnt' 
+          val cnt'' = cnt' + 1
+
+          val prop = mk_prop (result_id, lams)
+
         in
           (
             Mode_Reduce (ChanId cnt),
             [
-              (ChanId cnt, val_store, cont_stack, thread_id), 
-              (Query (lams, chan_id, thread_id), val_store, [], thread_id')
+              (ChanId chan_id, val_store, cont_stack, thread_id), 
+              (
+                Backchain (result_id, [prop], chan_id, thread_id, env),
+                val_store, [], thread_id'
+              )
             ],
-            (chan_store, block_store, cnt')
+            (chan_store, block_store, cnt'')
           )
         end) |
 
@@ -1172,14 +1237,24 @@ structure Tree = struct
           val chan_store' = insert (chan_store, chan_id, ([], []))
           val thread_id' = cnt + 1
           val cnt' = cnt + 2 
+
+          val env = empty_table
+          val result_id = sym cnt' 
+          val cnt'' = cnt' + 1
+
+          val prop = mk_prop (result_id, lams)
+
         in
           (
             Mode_Reduce (ChanId cnt),
             [
-              (ChanId cnt, val_store, cont_stack, thread_id), 
-              (Query (lams, chan_id, thread_id), val_store, [], thread_id')
+              (ChanId chan_id, val_store, cont_stack, thread_id), 
+              (
+                Backchain (result_id, [prop], chan_id, thread_id, env),
+                val_store, [], thread_id'
+              )
             ],
-            (chan_store, block_store, cnt')
+            (chan_store, block_store, cnt'')
           )
         end) |
 
@@ -1429,16 +1504,22 @@ structure Tree = struct
       chan_store, block_store, cnt
     ) |
 
+    Backchain (result_id, goals, return_chan_id, that_thread_id, env) => (
+      backchain (
+        result_id, goals, return_chan_id, that_thread_id, env,
+        val_store, cont_stack, thread_id,
+        chan_store, block_store, cnt
+      )
+    ) |
+
     _ => (
       Mode_Stick "TODO",
       [], (chan_store, block_store, cnt)
     )
 
-    (* **TODO** *)
-    (*
-    ** might need change query to only contain
-    ** lams rewritten as a single bool term with or clauses
-    Query (lams, chan_id) =>
+    (* **TODO**
+    Solution of solution
+    Sol_Empty | Sol_Val of term | Sol_Abs of term
     *)
 
   )
