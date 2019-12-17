@@ -41,13 +41,13 @@ structure Tree = struct
     Done of (term * int) |
   
     App of (term * term * int) |
-    Fnc of (((term * term) list) * ((string, term) store) * (string list) * int) |
-    (* Fnc (lams, val_store, mutual_ids, pos)
-    **
-    ** TODO: update function closure,
-    ** to contain free-var value-mappings and
-    ** mutually recursve function mappings
-    *)
+    Fnc of (
+      ((term * term) list) *
+      ((string, term) store) *
+      ((string, (term * term) list) store) *
+      int
+    ) |
+    (* Fnc (lams, val_store, mutual_store, pos) *)
     Lst of ((term list) * int) |
     Rec of (((string * term) list) * int) |
   
@@ -76,7 +76,8 @@ structure Tree = struct
 
   type contin = (
     ((term * term) list) *
-    ((string, term) store)
+    ((string, term) store) *
+    ((string, (term * term) list) store)
   )
   
   type contin_stack = (contin list)
@@ -241,7 +242,7 @@ structure Tree = struct
     ) |
 
 
-    Fnc (lams, fnc_store, mutual_ids, pos) => String.surround ("Fnc@" ^ (Int.toString pos)) (
+    Fnc (lams, fnc_store, mutual_store, pos) => String.surround ("Fnc@" ^ (Int.toString pos)) (
       String.concatWith ",\n" (List.map to_string_from_lam lams)) |
 
     Lst (ts, pos) => String.surround ("Lst@" ^ (Int.toString pos)) (
@@ -298,11 +299,11 @@ structure Tree = struct
   )
 
   fun push (
-    (t_arg, lams),
+    (t_arg, (lams, fnc_store, mutual_store)),
     val_store, cont_stack, thread_id,
     chan_store, block_store, cnt
   ) = (let
-    val cont = (lams, val_store)
+    val cont = (lams, fnc_store, mutual_store)
     val cont_stack' = cont :: cont_stack
   in
     (
@@ -323,7 +324,7 @@ structure Tree = struct
     val hole_lam = (hole, term_fn hole)
   in
     push (
-      (t, [hole_lam]),
+      (t, ([hole_lam], val_store, [])),
       val_store, cont_stack, thread_id,
       chan_store, block_store, cnt
     )
@@ -337,13 +338,22 @@ structure Tree = struct
   ) = (let
     val (threads, md) = (case cont_stack of
       [] => ([], Mode_Finish result) |
-      (lams, val_store') :: cont_stack' => (let
+      (lams, val_store', mutual_store) :: cont_stack' => (let
 
+        (* embed mutual_store within self's functions *)
+        val fnc_store = (map 
+          (fn (k, lams) =>
+            (k, Fnc (lams, val_store', mutual_store, ~1))
+          )
+          mutual_store
+        )
+
+        val val_store'' = insert_table (val_store', fnc_store)
 
         fun match_first lams = (case lams of
           [] => NONE |
           (p, t) :: lams' =>
-            (case (store_insert (val_store', p, result)) of
+            (case (store_insert (val_store'', p, result)) of
               NONE => match_first lams' |
               SOME val_store'' => SOME (t, val_store'')
             )
@@ -550,14 +560,14 @@ structure Tree = struct
       mk_base_events_from_list (values, cont_stack, cnt) |
   
 
-    Wrap (Lst ([evt', Fnc (lams, fnc_store, mutual_ids, pos)], _), pos) =>
+    Wrap (Lst ([evt', Fnc (lams, fnc_store, mutual_store, pos)], _), pos) =>
       let
         val (bases, cnt') = mk_base_events (evt', cont_stack, cnt)
       in
         List.foldl (fn (acc_events, acc_cnt) => (fn base => let
   
           val wrap_arg = Var ("_wrap_arg_" ^ (Int.toString acc_cnt))
-          val t = AppLeft (Fnc (lams, fnc_store, mutual_ids, pos), wrap_arg)
+          val t = AppLeft (Fnc (lams, fnc_store, mutual_store, pos), wrap_arg)
           val cont = (wrap_arg, t, empty_table)
   
           val base' = (case base of
@@ -873,13 +883,34 @@ structure Tree = struct
 
     ) |
 
+    (* Pipe: special recursive case *)
+    Pipe (
+      Fnc (lams, [], [], pos_fnc),
+      t_fn,
+      pos
+    ) => (let
+      val mutual_store = (case t_fn of
+        Fnc ([(Id (id_bind, _), _)], [], [], _) =>
+         [(id_bind, lams)] |
+        _ => [] 
+      )
+        
+      val t_arg = Fnc (lams, val_store, mutual_store, pos_fnc)
+    in
+      (
+        Mode_Hidden,
+        [(Pipe (t_arg, t_fn, pos), val_store, cont_stack, thread_id)],
+        (chan_store, block_store, cnt)
+      )
+    end) |
+
     Pipe (t_arg, t_fn, pos) => normalize_single_reduce (
       t_fn, fn v_fn => Pipe (t_arg, v_fn, pos),
       val_store, cont_stack, thread_id,
       chan_store, block_store, cnt,
       (fn
-        (t_arg, Fnc (lams, fnc_store, mutual_ids, _)) => push (
-          (t_arg, lams),
+        (t_arg, Fnc (lams, fnc_store, mutual_store, _)) => push (
+          (t_arg, (lams, fnc_store, mutual_store)),
           val_store, cont_stack, thread_id,
           chan_store, block_store, cnt
         ) |
@@ -1139,7 +1170,7 @@ structure Tree = struct
       chan_store, block_store, cnt,
       (fn
 
-        (Fnc ([(Lst ([], _), t_body)], fnc_store, mutual_ids, _)) => (let
+        (Fnc ([(Lst ([], _), t_body)], fnc_store, mutual_store, _)) => (let
           val spawn_id = cnt
           val cnt' = cnt + 1
         in
@@ -1199,7 +1230,7 @@ structure Tree = struct
       val_store, cont_stack, thread_id,
       chan_store, block_store, cnt,
       (fn
-        Fnc (lams, fnc_store, mutual_ids, pos_f) => (let
+        Fnc (lams, fnc_store, mutual_store, pos_f) => (let
           val chan_id = cnt
           val chan_store' = insert (chan_store, chan_id, ([], []))
           val thread_id' = cnt + 1
@@ -1237,7 +1268,7 @@ structure Tree = struct
       val_store, cont_stack, thread_id,
       chan_store, block_store, cnt,
       (fn
-        Fnc (lams, fnc_store, mutual_ids, pos_f) => (let
+        Fnc (lams, fnc_store, mutual_store, pos_f) => (let
           val chan_id = cnt
           val chan_store' = insert (chan_store, chan_id, ([], []))
           val thread_id' = cnt + 1
@@ -1294,9 +1325,9 @@ structure Tree = struct
       val_store, cont_stack, thread_id,
       chan_store, block_store, cnt,
       (fn
-        Fnc (lams, fnc_store, mutual_ids, _) => (case md of
+        Fnc (lams, fnc_store, mutual_store, _) => (case md of
           Mode_Reduce v_arg => push (
-            (v_arg, lams),
+            (v_arg, (lams, fnc_store, mutual_store)),
             val_store, cont_stack, thread_id,
             chan_store, block_store, cnt
           ) |
@@ -1320,9 +1351,9 @@ structure Tree = struct
       val_store, cont_stack, thread_id,
       chan_store, block_store, cnt,
       (fn
-        Fnc (lams, fnc_store, mutual_ids, _) => (case md of
+        Fnc (lams, fnc_store, mutual_store, _) => (case md of
           Mode_Block i => push (
-            (ThreadId thread_id, lams),
+            (ThreadId thread_id, (lams, fnc_store, mutual_store)),
             val_store, cont_stack, thread_id,
             chan_store, block_store, cnt
           ) |
@@ -1346,12 +1377,15 @@ structure Tree = struct
       val_store, cont_stack, thread_id,
       chan_store, block_store, cnt,
       (fn
-        Fnc (lams, fnc_store, mutual_ids, _) => (case md of
+        Fnc (lams, fnc_store, mutual_store, _) => (case md of
           Mode_Sync (chan_id, msg, send_id, recv_id) => push (
-            (Lst ([
-              ChanId chan_id, msg,
-              ThreadId send_id, ThreadId recv_id
-            ], ~1), lams),
+            (
+              Lst ([
+                ChanId chan_id, msg,
+                ThreadId send_id, ThreadId recv_id
+              ], ~1),
+              (lams, fnc_store, mutual_store)
+            ),
             val_store, cont_stack, thread_id,
             chan_store, block_store, cnt
           ) |
@@ -1375,9 +1409,9 @@ structure Tree = struct
       val_store, cont_stack, thread_id,
       chan_store, block_store, cnt,
       (fn
-        Fnc (lams, fnc_store, mutual_ids, _) => (case md of
+        Fnc (lams, fnc_store, mutual_store, _) => (case md of
           Mode_Stick stuck_str => push (
-            (Str (stuck_str, ~1), lams),
+            (Str (stuck_str, ~1), (lams, fnc_store, mutual_store)),
             val_store, cont_stack, thread_id,
             chan_store, block_store, cnt
           ) |
@@ -1401,8 +1435,8 @@ structure Tree = struct
       val_store, cont_stack, thread_id,
       chan_store, block_store, cnt,
       (fn
-        Fnc (lams, fnc_store, mutual_ids, _) => (case md of Mode_Finish v_arg => push (
-            (v_arg, lams),
+        Fnc (lams, fnc_store, mutual_store, _) => (case md of Mode_Finish v_arg => push (
+            (v_arg, (lams, fnc_store, mutual_store)),
             val_store, cont_stack, thread_id,
             chan_store, block_store, cnt
           ) |
@@ -1426,8 +1460,8 @@ structure Tree = struct
       val_store, cont_stack, thread_id,
       chan_store, block_store, cnt,
       (fn
-        (Fnc (lams, fnc_store, mutual_ids, _), t_arg) => push (
-          (t_arg, lams),
+        (t_arg, Fnc (lams, fnc_store, mutual_store, _)) => push (
+          (t_arg, (lams, fnc_store, mutual_store)),
           val_store, cont_stack, thread_id,
           chan_store, block_store, cnt
         ) |
@@ -1439,14 +1473,14 @@ structure Tree = struct
       )
     ) |
 
-    Fnc (lams, [], mutual_ids, pos) => pop (
-      Fnc (lams, val_store, mutual_ids, pos),
+    Fnc (lams, [], mutual_store, pos) => pop (
+      Fnc (lams, val_store, mutual_store, pos),
       val_store, cont_stack, thread_id,
       chan_store, block_store, cnt
     ) |
 
-    Fnc (lams, fnc_store, mutual_ids, pos) => pop (
-      Fnc (lams, fnc_store, mutual_ids, pos),
+    Fnc (lams, fnc_store, mutual_store, pos) => pop (
+      Fnc (lams, fnc_store, mutual_store, pos),
       val_store, cont_stack, thread_id,
       chan_store, block_store, cnt
     ) |
@@ -1461,12 +1495,21 @@ structure Tree = struct
       val keys = (map (fn (k, t) => k) fields)
       val ts = (map (fn (k, t) => t) fields)
 
+      val mutual_store = (List.mapPartial
+        (fn
+          (k, Fnc (lams, [], [], _)) => 
+            SOME (k, lams) |
+          _ => NONE
+        )
+        fields
+      )
+
       (* embed mutual ids into ts' functions *)
       val ts' =
       (map
         (fn
-          Fnc (lams, fnc_store, [], pos) =>
-            Fnc (lams, fnc_store, keys, pos) 
+          Fnc (lams, [], [], pos) =>
+            Fnc (lams, val_store, mutual_store, pos) 
         | t => t 
         )
         ts

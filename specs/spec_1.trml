@@ -1,7 +1,7 @@
 alloc_chan -> req_ch . 
 alloc_chan -> resp_ch . 
 spawn ([] . 
-	(cnt . 
+  {loop: (cnt . 
     sync (
 			(cnt % 7 = 0) -> (
         true . send [req_chan, []] |
@@ -10,12 +10,11 @@ spawn ([] .
     ) ; 
     loop (cnt + 1)
 
-  ) -> loop . 
-  loop 0
+  }\loop 0 
 ) ;
 
 spawn (
-  ([] . 
+  {loop: [] . 
     sync (
       chse [
         recv req_chan,
@@ -23,7 +22,7 @@ spawn (
       ]
     ) ;
     loop []
-  ) -> loop
+  }\loop
 ) ;
 
 ([p1, p2] . 
@@ -31,9 +30,9 @@ spawn (
   recvd p1 /\ weak_until [p1, p2]
 ) -> weak_until .
 
-(p . 
-  recvd p /\ always p
-) -> always .
+{loop: p . 
+  recvd p /\ loop p
+}\loop -> always .
 
 solve ({} . 
   always ([ch, _] . 
