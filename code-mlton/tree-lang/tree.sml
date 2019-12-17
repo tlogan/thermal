@@ -3,6 +3,9 @@ structure Tree = struct
   type chan_id = int
   type thread_id = int
 
+
+  type ('a, 'b) store = ('a * 'b) list
+
   datatype term = 
     Seq of (term * term * int) |
     Select of (term * string * int) |
@@ -38,7 +41,7 @@ structure Tree = struct
     Done of (term * int) |
   
     App of (term * term * int) |
-    Fnc of (((term * term) list) * (string -> term option) * (string list) * int) |
+    Fnc of (((term * term) list) * ((string, term) store) * (string list) * int) |
     (* Fnc (lams, val_store, mutual_ids, pos)
     **
     ** TODO: update function closure,
@@ -62,7 +65,7 @@ structure Tree = struct
     Backchain of (
       string * (term list) (* result string and proposition list *) *
       chan_id * thread_id *
-      (string -> (term option)) (* env - evolving through query *)
+      ((string, term) store) (* env - evolving through query *)
     ) |
     Solution of solution
 
@@ -73,7 +76,7 @@ structure Tree = struct
 
   type contin = (
     ((term * term) list) *
-    (string -> (term option))
+    ((string, term) store)
   )
   
   type contin_stack = (contin list)
@@ -93,27 +96,28 @@ structure Tree = struct
     Mode_Stick of string |
     Mode_Finish of term
 
-  val empty_table = (fn key => NONE)
+  val empty_table = [] 
 
   fun insert (table, key, item) = (
-    (fn key' => if key' = key then SOME item else (table key')) 
+    (key, item) :: table
   )
-  
   
   
   fun insert_table (val_store_base, val_store_top) = (
-    (fn key => (case (val_store_top key) of
-      SOME value => SOME value |
-      NONE => (val_store_base key)
-    ))
+    val_store_top @ val_store_base
   )
   
-  fun find (table, key) = (table key)
+  fun find (table, key) =
+  (Option.map
+    (fn (k, v) => v)
+    (List.find (fn (k, v) => k = key) table)
+  )
   
-  fun remove (table, key) = (fn key' =>
-    if key' = key then NONE else (table key')
+  fun remove (table, key) =
+  (List.filter
+    (fn k => k <> key)
+    table
   ) 
-
 
 
   fun to_string t = (case t of
@@ -1435,6 +1439,12 @@ structure Tree = struct
       )
     ) |
 
+    Fnc (lams, [], mutual_ids, pos) => pop (
+      Fnc (lams, val_store, mutual_ids, pos),
+      val_store, cont_stack, thread_id,
+      chan_store, block_store, cnt
+    ) |
+
     Fnc (lams, fnc_store, mutual_ids, pos) => pop (
       Fnc (lams, fnc_store, mutual_ids, pos),
       val_store, cont_stack, thread_id,
@@ -1450,9 +1460,21 @@ structure Tree = struct
     Rec (fields, pos) => (let
       val keys = (map (fn (k, t) => k) fields)
       val ts = (map (fn (k, t) => t) fields)
+
+      (* embed mutual ids into ts' functions *)
+      val ts' =
+      (map
+        (fn
+          Fnc (lams, fnc_store, [], pos) =>
+            Fnc (lams, fnc_store, keys, pos) 
+        | t => t 
+        )
+        ts
+      )
+
     in
       normalize_list_pop (
-        ts, fn ts => Rec (ListPair.zip (keys, ts), pos), 
+        ts, fn ts => Rec (ListPair.zip (keys, ts'), pos), 
         val_store, cont_stack, thread_id,
         chan_store, block_store, cnt
       )

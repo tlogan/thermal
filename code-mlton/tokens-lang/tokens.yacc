@@ -123,8 +123,8 @@ term_nt:
   STUCK term_nt (Stuck (term_nt, STUCKleft)) |
   DONE term_nt (Done (term_nt, DONEleft)) |
   term_nt term_nt %prec APP (App (term_nt1, term_nt2, term_nt1left)) |
-  term_nt DOT term_nt (Fnc ([(term_nt1, term_nt2)], (fn id => NONE), [], DOTleft)) |
-  lams_nt (Fnc (lams_nt, (fn id => NONE), [], lams_ntleft)) |
+  term_nt DOT term_nt (Fnc ([(term_nt1, term_nt2)], [], [], DOTleft)) |
+  lams_nt (Fnc (lams_nt, [], [], lams_ntleft)) |
   LSQ terms_nt RSQ (Lst (terms_nt, LSQleft)) |
   LSQ RSQ (Lst ([], LSQleft)) |
   LCUR fields_nt RCUR (Rec (fields_nt, LCURleft)) |
