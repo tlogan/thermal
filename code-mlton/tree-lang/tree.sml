@@ -63,16 +63,14 @@ structure Tree = struct
     ChanId of int |
     ThreadId of int |
     Backchain of (
-      string * (term list) (* result string and proposition list *) *
-      chan_id * thread_id *
+      (term list) (* result string and proposition list *) *
+      thread_id (* that thread id *) *
       ((string, term) store) (* env - evolving through query *)
     ) |
     Solution of solution
 
   and solution =
-    Sol_Empty | Sol_Val of term | Sol_Abs of term
-
-
+    Sol_Empty | Sol_Val of (term * solution) | Sol_Abs of (term * solution)
 
   type contin = (
     ((term * term) list) *
@@ -854,7 +852,7 @@ structure Tree = struct
 
 
   fun backchain (
-    result_id, goals, return_chan_id, that_thread_id, env,
+    goals, that_thread_id, env,
     val_store, cont_stack, thread_id,
     chan_store, block_store, cnt
   ) = (case goals of
@@ -1299,13 +1297,10 @@ structure Tree = struct
         in
           (
             Mode_Reduce (ChanId cnt),
-            [
-              (ChanId chan_id, val_store, cont_stack, thread_id), 
-              (
-                Backchain (result_id, [prop], chan_id, thread_id, env),
-                val_store, [], thread_id'
-              )
-            ],
+            [(
+              Backchain ([prop], thread_id, env),
+              val_store, [], thread_id'
+            )],
             (chan_store, block_store, cnt'')
           )
         end) |
@@ -1317,43 +1312,21 @@ structure Tree = struct
       ) 
     ) |
 
-    Sat (t, pos) => normalize_single_reduce (
-      t, fn v => Sat (v, pos),  
-      val_store, cont_stack, thread_id,
-      chan_store, block_store, cnt,
-      (fn
-        Fnc (lams, fnc_store, mutual_store, pos_f) => (let
-          val chan_id = cnt
-          val chan_store' = insert (chan_store, chan_id, ([], []))
-          val thread_id' = cnt + 1
-          val cnt' = cnt + 2 
-
-          val env = empty_table
-          val result_id = sym cnt' 
-          val cnt'' = cnt' + 1
-
-          val prop = mk_prop (result_id, lams)
-
-        in
-          (
-            Mode_Reduce (ChanId cnt),
-            [
-              (ChanId chan_id, val_store, cont_stack, thread_id), 
-              (
-                Backchain (result_id, [prop], chan_id, thread_id, env),
-                val_store, [], thread_id'
-              )
-            ],
-            (chan_store, block_store, cnt'')
-          )
-        end) |
-
-        _ => (
-          Mode_Stick "solve with non-predicate",
-          [], (chan_store, block_store, cnt)
+    Sat (t, pos) => (let
+      val empty_term = (
+        Equal (
+          Solution Sol_Empty,
+          Sat (t, pos),
+          ~1
         )
-      ) 
-    ) |
+      )
+    in
+      (
+        Mode_Hidden,
+        [(empty_term, val_store, cont_stack, thread_id)],
+        (chan_store, block_store, cnt)
+      )
+    end) |
 
     Not (t, pos) => normalize_single_reduce (
       t, fn v => Not (v, pos),
@@ -1623,9 +1596,9 @@ structure Tree = struct
       chan_store, block_store, cnt
     ) |
 
-    Backchain (result_id, goals, return_chan_id, that_thread_id, env) => (
+    Backchain (goals, that_thread_id, env) => (
       backchain (
-        result_id, goals, return_chan_id, that_thread_id, env,
+        goals, that_thread_id, env,
         val_store, cont_stack, thread_id,
         chan_store, block_store, cnt
       )
