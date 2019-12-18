@@ -502,13 +502,13 @@ structure Tree = struct
   fun fnc_equal (f1, f2) = (let
     (* **TODO** *)  
   in
-    false
+    f1 = f2
   end)
 
   fun term_equal (t1, t2) = (let
     (* **TODO** *)  
   in
-    false
+    t1 = t2 
   end)
 
   fun num_add (n1, n2) = (let
@@ -803,9 +803,51 @@ structure Tree = struct
 
 
   fun mk_prop (result_id, lams) = (let
-    (** TODO **)
+
+    val var = Id (result_id, ~1)
+    val prop_cases = (List.foldl
+      (fn ((t, b), prop_cases_acc) => (case prop_cases_acc of
+        [] => [(
+          Equal (var, t, ~1),
+          [],
+          b
+        )] |
+        (curr, prevs, _) :: _ => (
+          prop_cases_acc @ [(
+            Equal (var, t, ~1),
+            prevs @ [curr],
+            b
+          )]
+        )
+      ))
+      []
+      lams
+    )
+
+    val mk_or_clause = (List.foldl
+      (fn (cl, or_cl) =>
+        Or (or_cl, cl, ~1)
+      )
+      (Bool (false, ~1))
+    )
+    
+
+    val case_clauses = (List.map
+      (fn (curr_cl, prev_cls, b) =>
+        And (curr_cl, (Not (mk_or_clause prev_cls, ~1)), ~1)
+      )
+      prop_cases
+    )
+
+    val mk_and_clause = (List.foldl
+      (fn (cl, and_cl) =>
+        And (and_cl, cl, ~1)
+      )
+      (Bool (true, ~1))
+    )
+
   in
-    (Lst ([], ~1))
+    mk_and_clause case_clauses
   end)
   
 
