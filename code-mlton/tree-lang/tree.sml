@@ -543,49 +543,61 @@ structure Tree = struct
   end)
 
 
-  fun mk_base_events (evt, cont_stack, cnt) = (case evt of
+  fun mk_base_events (evt, cont_stack) = (case evt of
   
     Send (Lst ([ChanId i, msg], _), pos) =>
-      ([Base_Send (i, msg, [])], cnt) |
+      [Base_Send (i, msg, [])] |
   
     Recv (ChanId i, pos) =>
-      ([Base_Recv (i, [])], cnt) |
+      [Base_Recv (i, [])] |
 
-    _ => ([], cnt)
-
-    (*
-    ** TODO **
-  
     Chse (Lst (values, _), pos) =>
-      mk_base_events_from_list (values, cont_stack, cnt) |
-  
+      mk_base_events_from_list (values, cont_stack) |
 
-    Wrap (Lst ([evt', Fnc (lams, fnc_store, mutual_store, pos)], _), pos) =>
+    Wrap (Lst ([evt', Fnc (lams, fnc_store, mutual_store, _)], _), pos) =>
       let
-        val (bases, cnt') = mk_base_events (evt', cont_stack, cnt)
+        val bevts = mk_base_events (evt', cont_stack)
       in
-        List.foldl (fn (acc_events, acc_cnt) => (fn base => let
+        (List.foldl
+          (fn (bevt, bevts_acc) => let
   
-          val wrap_arg = Var ("_wrap_arg_" ^ (Int.toString acc_cnt))
-          val t = AppLeft (Fnc (lams, fnc_store, mutual_store, pos), wrap_arg)
-          val cont = (wrap_arg, t, empty_table)
+            val cont = (lams, fnc_store, mutual_store)
   
-          val base' = (case base of
-            Base_Send (i, msg, wrap_stack) => 
-              Base_Send (i, msg, cont :: wrap_stack) |
-            Base_Recv (i, wrap_stack) => 
-              Base_Recv (i, cont :: wrap_stack)
-          ) 
-          val acc_cnt' = acc_cnt + 1
-          val acc_events' = acc_events @ [base']
-        in
-          (acc_events', acc_cnt') 
-        end)) ([], cnt') bases 
+            val bevt' = (case bevt of
+              Base_Send (i, msg, wrap_stack) => 
+                Base_Send (i, msg, cont :: wrap_stack) |
+              Base_Recv (i, wrap_stack) => 
+                Base_Recv (i, cont :: wrap_stack)
+            ) 
+          in
+            bevts_acc @ [bevt']
+          end)
+          []
+          bevts 
+        )
       end |
 
-    *)
+    _ => []
+
   
   )
+
+  and mk_base_events_from_list (evts, cont_stack) = (case evts of
+    [] => [] |
+    evt :: evts' => 
+      let
+        val base_events = mk_base_events (evt, cont_stack)
+      in
+        if (List.null base_events) then
+          [] 
+        else (let
+          val base_events' = mk_base_events_from_list (evts', cont_stack)
+        in
+          (base_events @ base_events') 
+        end)
+      end
+  )
+
 
   fun poll (base, chan_store, block_store) = (case base of
     Base_Send (i, msg, _) =>
@@ -639,29 +651,29 @@ structure Tree = struct
   )
 
 
-  fun find_active_base (
-    bases, chan_store, block_store
-  ) = (case bases of
+  fun find_active_base_event (
+    bevts, chan_store, block_store
+  ) = (case bevts of
 
     [] =>
       (NONE, chan_store) |
 
-    base :: bases' => (let
-      val (is_active, chan_store') = poll (base, chan_store, block_store)
+    bevt :: bevts' => (let
+      val (is_active, chan_store') = poll (bevt, chan_store, block_store)
     in
       if is_active then
-        (SOME base, chan_store')
+        (SOME bevt, chan_store')
       else 
-        find_active_base (bases', chan_store', block_store)
+        find_active_base_event (bevts', chan_store', block_store)
     end)
       
   )
 
   
   fun transact (
-    base, cont_stack, thread_id,
+    bevt, cont_stack, thread_id,
     (chan_store, block_store, cnt)
-  ) = (case base of
+  ) = (case bevt of
 
     Base_Send (i, msg, wrap_stack) =>
       (let
@@ -720,7 +732,7 @@ structure Tree = struct
   
   )
   
-  fun block_one (base, cont_stack, chan_store, block_id, thread_id) = (case base of
+  fun block_one (bevt, cont_stack, chan_store, block_id, thread_id) = (case bevt of
     Base_Send (i, msg, wrap_stack) =>
       (let
         val cont_stack' = wrap_stack @ cont_stack
@@ -758,8 +770,8 @@ structure Tree = struct
     (chan_store, block_store, cnt)
   ) = (let
     val chan_store' = (List.foldl  
-      (fn (base, chan_store) =>
-        block_one (base, cont_stack, chan_store, cnt, thread_id)
+      (fn (bevt, chan_store) =>
+        block_one (bevt, cont_stack, chan_store, cnt, thread_id)
       )
       chan_store
       base_events
@@ -1198,22 +1210,22 @@ structure Tree = struct
       (fn v => if (is_event v) then
         (let
 
-          val (bases, cnt') = mk_base_events (v, [], cnt) 
+          val bevts = mk_base_events (v, []) 
           
-          val (active_base_op, chan_store') = (
-            find_active_base (bases, chan_store, block_store)
+          val (active_bevt_op, chan_store') = (
+            find_active_base_event (bevts, chan_store, block_store)
           )
         in
-          (case active_base_op of
-            SOME base =>
+          (case active_bevt_op of
+            SOME bevt =>
               transact (
-                base, cont_stack, thread_id,
-                (chan_store', block_store, cnt')
+                bevt, cont_stack, thread_id,
+                (chan_store', block_store, cnt)
               ) |
             NONE =>
               block (
-                bases, cont_stack, thread_id,
-                (chan_store', block_store, cnt')
+                bevts, cont_stack, thread_id,
+                (chan_store', block_store, cnt)
               )
           )
         end)
