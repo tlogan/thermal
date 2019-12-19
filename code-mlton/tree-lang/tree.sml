@@ -1314,11 +1314,11 @@ structure Tree = struct
 
     Sat (t, pos) => (let
       val empty_term = (
-        Equal (
+        Not (Equal (
           Solution Sol_Empty,
           Sat (t, pos),
           ~1
-        )
+        ), ~1)
       )
     in
       (
