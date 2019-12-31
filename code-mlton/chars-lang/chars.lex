@@ -55,6 +55,7 @@ digit=[0-9];
 <INITIAL>"." => (DOT (!linenum, inccol 1));
 <INITIAL>"|" => (BAR (!linenum, inccol 1));
 <INITIAL>"->" => (ARROW (!linenum, inccol 1));
+<INITIAL>"in" => (IN (!linenum, inccol 1));
 <INITIAL>"::" => (DCOLON (!linenum, inccol 1));
 <INITIAL>"=" => (EQ (!linenum, inccol 1));
 <INITIAL>"/\\" => (WEDGE (!linenum, inccol 1));

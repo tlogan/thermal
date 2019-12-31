@@ -7,7 +7,7 @@ open Tree
 %term
   SEMICOLON | COLON |
   COMMA | DOT |
-  BSLASH | BAR | ARROW | 
+  BSLASH | BAR | ARROW | IN |
   DCOLON |
   EQ | WEDGE | VEE |
   LONGARROW | DARROW |
@@ -55,7 +55,7 @@ open Tree
 
 
 %right BAR
-%right ARROW DOT
+%right ARROW IN DOT
 %right COMMA
 %right SEMICOLON
 %left LONGARROW DARROW
@@ -92,6 +92,7 @@ term_nt:
   term_nt SEMICOLON term_nt (Seq (term_nt1, term_nt2, SEMICOLONleft)) |
   term_nt BSLASH ID (Select (term_nt, ID, BSLASHleft)) |
   term_nt ARROW term_nt (Pipe (term_nt1, term_nt2, ARROWleft)) |
+  term_nt IN term_nt (Open (term_nt1, term_nt2, INleft)) |
   term_nt DCOLON term_nt (Cns (term_nt1, term_nt2, DCOLONleft)) |
   term_nt DARROW term_nt (Equiv (term_nt1, term_nt2, DARROWleft)) |
   term_nt LONGARROW term_nt (Implies (term_nt1, term_nt2, LONGARROWleft)) |

@@ -10,6 +10,7 @@ structure Tree = struct
     Seq of (term * term * int) |
     Select of (term * string * int) |
     Pipe of (term * term * int) |
+    Open of (term * term * int) |
     Cns of (term * term * int) |
     Equiv of (term * term * int) |
     Implies of (term * term * int) |
@@ -129,6 +130,10 @@ structure Tree = struct
     ) |
 
     Pipe (t1, t2, pos) => String.surround ("Pipe@" ^ (Int.toString pos)) (
+      (to_string t1) ^ ",\n" ^ (to_string t2)
+    ) |
+
+    Open (t1, t2, pos) => String.surround ("Open@" ^ (Int.toString pos)) (
       (to_string t1) ^ ",\n" ^ (to_string t2)
     ) |
 
@@ -935,26 +940,6 @@ structure Tree = struct
 
     ) |
 
-    (* Pipe: special recursive case *)
-    Pipe (
-      Fnc (lams, [], [], pos_fnc),
-      t_fn,
-      pos
-    ) => (let
-      val mutual_store = (case t_fn of
-        Fnc ([(Id (id_bind, _), _)], [], [], _) =>
-         [(id_bind, lams)] |
-        _ => [] 
-      )
-        
-      val t_arg = Fnc (lams, val_store, mutual_store, pos_fnc)
-    in
-      (
-        Mode_Hidden,
-        [(Pipe (t_arg, t_fn, pos), val_store, cont_stack, thread_id)],
-        (chan_store, block_store, cnt)
-      )
-    end) |
 
     Pipe (t_arg, t_fn, pos) => normalize_single_reduce (
       t_fn, fn v_fn => Pipe (t_arg, v_fn, pos),
@@ -973,6 +958,32 @@ structure Tree = struct
         )
       )
     ) |
+
+
+    Open (t_rec, t_body, pos) => normalize_single_reduce (
+      t_rec, fn v_rec => Open (v_rec, t_body, pos),
+      val_store, cont_stack, thread_id,
+      chan_store, block_store, cnt,
+      (fn
+        (Rec (fields, _), t_body) => (let
+          val val_store' = insert_table (val_store, fields)
+        in
+          (
+            Mode_Hidden,
+            [(t_body, val_store', cont_stack, thread_id)],
+            (chan_store, block_store, cnt)
+          )
+        end) |
+
+        _ => (
+          Mode_Stick "open of non-record",
+          [], (chan_store, block_store, cnt)
+        )
+      )
+    ) |
+
+
+
 
     Cns (t1, t2, pos) => normalize_pair_reduce (
       (t1, t2), fn (t1, t2) => Cns (t1, t2, pos),
