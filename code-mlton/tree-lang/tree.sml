@@ -1416,16 +1416,36 @@ structure Tree = struct
       chan_store, block_store, cnt,
       (fn
         Fnc (lams, fnc_store, mutual_store, _) => (case md of
-          Mode_Sync (chan_id, msg, send_id, recv_id) => push (
-            (
-              Lst ([
-                ChanId chan_id, msg,
-                ThreadId send_id, ThreadId recv_id
-              ], ~1),
-              (lams, fnc_store, mutual_store)
-            ),
-            val_store, cont_stack, thread_id,
-            chan_store, block_store, cnt
+          Mode_Sync (chan_id, msg, send_id, recv_id) => (
+            if (send_id = thread_id) then (
+              push (
+                (
+                  Send (Lst ([ChanId chan_id, msg], ~1), ~1),
+                  (lams, fnc_store, mutual_store)
+                ),
+                val_store, cont_stack, thread_id,
+                chan_store, block_store, cnt
+              )
+              
+
+            ) else if (recv_id = thread_id) then (
+              push (
+                (
+                  Recv (Lst ([ChanId chan_id, msg], ~1), ~1),
+                  (lams, fnc_store, mutual_store)
+                ),
+                val_store, cont_stack, thread_id,
+                chan_store, block_store, cnt
+              )
+
+            ) else (
+              pop (
+                Bool (false, pos),
+                val_store, cont_stack, thread_id,
+                chan_store, block_store, cnt
+              )
+
+            )
           ) |
 
           _ => pop (
@@ -1433,6 +1453,7 @@ structure Tree = struct
             val_store, cont_stack, thread_id,
             chan_store, block_store, cnt
           )
+
         ) | 
 
         _ => (
