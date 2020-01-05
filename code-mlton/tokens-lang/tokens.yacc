@@ -23,7 +23,7 @@ open Tree
   TILDE |
 
   SYNCED |
-  SOLVE | SAT |
+  SOLVE | FOR |
 
   LSQ | RSQ | LCUR | RCUR | LPAREN | RPAREN |
 
@@ -67,7 +67,7 @@ open Tree
 %left CROSS DASH 
 %left STAR SLASH CIRSLASH 
 
-%nonassoc ALLOC_CHAN SEND RECV WRAP CHSE SPAWN SYNC TILDE SYNCED SOLVE SAT
+%nonassoc ALLOC_CHAN SEND RECV WRAP CHSE SPAWN SYNC TILDE SYNCED SOLVE FOR 
 
 %nonassoc LSQ RSQ LCUR RCUR LPAREN RPAREN 
 
@@ -112,7 +112,7 @@ term_nt:
   SPAWN term_nt (Spawn (term_nt, SPAWNleft)) |
   SYNC term_nt (Spawn (term_nt, SYNCleft)) |
   SOLVE term_nt (Solve (term_nt, SOLVEleft)) |
-  SAT term_nt (Sat (term_nt, SATleft)) |
+  FOR term_nt (For (term_nt, FORleft)) |
 
   TILDE term_nt (Not (term_nt, TILDEleft)) |
 

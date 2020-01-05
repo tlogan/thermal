@@ -32,7 +32,7 @@ structure Tree = struct
     Spawn of (term * int) |
     Sync of (term * int) |
     Solve of (term * int) |
-    Sat of (term * int) |
+    For of (term * int) |
 
     Not of (term * int) |
 
@@ -207,7 +207,7 @@ structure Tree = struct
       (to_string t)
     ) |
 
-    Sat (t, pos) => String.surround ("Sat@" ^ (Int.toString pos)) (
+    For (t, pos) => String.surround ("For@" ^ (Int.toString pos)) (
       (to_string t)
     ) |
 
@@ -1302,7 +1302,7 @@ structure Tree = struct
       ) 
     ) |
 
-    Sat (t, pos) => (let
+    For (t, pos) => (let
       val empty_term = (
         Not (Equal (
           Solution Sol_Empty,

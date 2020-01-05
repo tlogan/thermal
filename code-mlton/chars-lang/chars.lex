@@ -81,7 +81,7 @@ digit=[0-9];
 <INITIAL>"synced" => (SYNCED (!linenum, inccol 1));
 
 <INITIAL>"solve" => (SOLVE (!linenum, inccol 1));
-<INITIAL>"sat" => (SAT (!linenum, inccol 1));
+<INITIAL>"for" => (FOR (!linenum, inccol 1));
 
 
 <INITIAL>"[" => (LSQ (!linenum, inccol 1));
