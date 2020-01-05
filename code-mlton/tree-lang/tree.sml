@@ -1277,6 +1277,11 @@ structure Tree = struct
           val result_id = sym cnt' 
           val cnt'' = cnt' + 1
 
+          val bkchn_id = cnt''
+          val cnt''' = cnt'' + 1
+
+          val sync_store' = insert (sync_store, (thread_id, bkchn_id), [])
+
           val prop = mk_prop (result_id, lams)
 
         in
@@ -1286,7 +1291,7 @@ structure Tree = struct
               Backchain ([prop], thread_id, env),
               val_store, [], thread_id'
             )],
-            (chan_store, block_store, sync_store, cnt'')
+            (chan_store, block_store, sync_store', cnt''')
           )
         end) |
 
@@ -1301,7 +1306,7 @@ structure Tree = struct
       val empty_term = (
         Not (Equal (
           Solution Sol_Empty,
-          Sat (t, pos),
+          Solve (t, pos),
           ~1
         ), ~1)
       )
