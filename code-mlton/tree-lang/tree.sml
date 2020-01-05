@@ -44,8 +44,7 @@ structure Tree = struct
       ((string, term) store) *
       ((string, (term * term) list) store) *
       int
-    ) |
-    (* Fnc (lams, val_store, mutual_store, pos) *)
+    ) (* Fnc (lams, val_store, mutual_store, pos) *) |
     Lst of ((term list) * int) |
     Rec of (((string * term) list) * int) |
   
@@ -286,7 +285,7 @@ structure Tree = struct
   fun push (
     (t_arg, (lams, fnc_store, mutual_store)),
     val_store, cont_stack, thread_id,
-    chan_store, block_store, cnt
+    chan_store, block_store, sync_store, cnt
   ) = (let
     val cont = (lams, fnc_store, mutual_store)
     val cont_stack' = cont :: cont_stack
@@ -294,7 +293,7 @@ structure Tree = struct
     (
       Mode_Upkeep,
       [(t_arg, val_store, cont_stack', thread_id)],
-      (chan_store, block_store, cnt)
+      (chan_store, block_store, sync_store, cnt)
     )
   end)
   
@@ -303,7 +302,7 @@ structure Tree = struct
 
   fun normalize (
     t, term_fn, val_store, cont_stack, thread_id,
-    chan_store, block_store, cnt
+    chan_store, block_store, sync_store, cnt
   ) = (let
     val hole = Id (sym cnt, ~1)
     val hole_lam = (hole, term_fn hole)
@@ -311,7 +310,7 @@ structure Tree = struct
     push (
       (t, ([hole_lam], val_store, [])),
       val_store, cont_stack, thread_id,
-      chan_store, block_store, cnt
+      chan_store, block_store, sync_store, cnt
     )
   end)
 
@@ -319,7 +318,7 @@ structure Tree = struct
   fun pop (
     result,
     val_store, cont_stack, thread_id,
-    chan_store, block_store, cnt
+    chan_store, block_store, sync_store, cnt
   ) = (let
     val (threads, md) = (case cont_stack of
       [] => ([], Mode_Finish result) |
@@ -363,7 +362,7 @@ structure Tree = struct
     (
       md,
       threads,
-      (chan_store, block_store, cnt)
+      (chan_store, block_store, sync_store, cnt)
     ) 
   end)
 
@@ -375,13 +374,13 @@ structure Tree = struct
   fun normalize_single_reduce (
     t, f,  
     val_store, cont_stack, thread_id,
-    chan_store, block_store, cnt,
+    chan_store, block_store, sync_store, cnt,
     reduce_f
   ) = (case (resolve (val_store, t)) of
     NONE => normalize (
       t, fn v => (f v),
       val_store, cont_stack, thread_id,
-      chan_store, block_store, cnt
+      chan_store, block_store, sync_store, cnt
     ) |
 
     SOME v => (reduce_f v)
@@ -391,22 +390,22 @@ structure Tree = struct
   fun normalize_single_pop (
     t, f, 
     val_store, cont_stack, thread_id,
-    chan_store, block_store, cnt
+    chan_store, block_store, sync_store, cnt
   ) = normalize_single_reduce (
     t, f, 
     val_store, cont_stack, thread_id,
-    chan_store, block_store, cnt,
+    chan_store, block_store, sync_store, cnt,
     (fn v => pop (
       (f v),
       val_store, cont_stack, thread_id,
-      chan_store, block_store, cnt
+      chan_store, block_store, sync_store, cnt
     ))
   )
 
   fun normalize_pair_reduce (
     (t1, t2), f,  
     val_store, cont_stack, thread_id,
-    chan_store, block_store, cnt,
+    chan_store, block_store, sync_store, cnt,
     reduce_f
   ) = (case (
     resolve (val_store, t1),
@@ -415,13 +414,13 @@ structure Tree = struct
     (NONE, _) => normalize (
       t1, fn v1 => f (v1, t2),
       val_store, cont_stack, thread_id,
-      chan_store, block_store, cnt
+      chan_store, block_store, sync_store, cnt
     ) |
 
     (_, NONE) => normalize (
       t2, fn v2 => f (t1, v2),
       val_store, cont_stack, thread_id,
-      chan_store, block_store, cnt
+      chan_store, block_store, sync_store, cnt
     ) |
 
     (SOME v1, SOME v2) => reduce_f (v1, v2)
@@ -432,22 +431,22 @@ structure Tree = struct
   fun normalize_pair_pop (
     (t1, t2), f, 
     val_store, cont_stack, thread_id,
-    chan_store, block_store, cnt
+    chan_store, block_store, sync_store, cnt
   ) = normalize_pair_reduce (
     (t1, t2), f, 
     val_store, cont_stack, thread_id,
-    chan_store, block_store, cnt,
+    chan_store, block_store, sync_store, cnt,
     (fn (v1, v2) => pop (
       (f (v1, v2)),
       val_store, cont_stack, thread_id,
-      chan_store, block_store, cnt
+      chan_store, block_store, sync_store, cnt
     ))
   )
 
   fun normalize_list_reduce (
     ts, f,  
     val_store, cont_stack, thread_id,
-    chan_store, block_store, cnt,
+    chan_store, block_store, sync_store, cnt,
     reduce_f
   ) = (let
 
@@ -458,7 +457,7 @@ structure Tree = struct
         NONE => normalize (
           x, fn v => f (prefix @ (v :: xs)),
           val_store, cont_stack, thread_id,
-          chan_store, block_store, cnt
+          chan_store, block_store, sync_store, cnt
         ) |
 
         SOME v => loop (prefix @ [v], xs)
@@ -472,15 +471,15 @@ structure Tree = struct
   fun normalize_list_pop (
     ts, f, 
     val_store, cont_stack, thread_id,
-    chan_store, block_store, cnt
+    chan_store, block_store, sync_store, cnt
   ) = normalize_list_reduce (
     ts, f, 
     val_store, cont_stack, thread_id,
-    chan_store, block_store, cnt,
+    chan_store, block_store, sync_store, cnt,
     (fn vs => pop (
       (f vs),
       val_store, cont_stack, thread_id,
-      chan_store, block_store, cnt
+      chan_store, block_store, sync_store, cnt
     ))
   )
 
@@ -657,7 +656,7 @@ structure Tree = struct
   
   fun transact (
     bevt, cont_stack, thread_id,
-    (chan_store, block_store, cnt)
+    (chan_store, block_store, sync_store, cnt)
   ) = (case bevt of
 
     Base_Send (i, msg, wrap_stack) =>
@@ -683,7 +682,7 @@ structure Tree = struct
         (
           md', 
           threads,
-          (chan_store, block_store, cnt)
+          (chan_store, block_store, sync_store, cnt)
         ) 
       end) |
   
@@ -711,7 +710,7 @@ structure Tree = struct
         (
           md',
           threads,
-          (chan_store, block_store, cnt)
+          (chan_store, block_store, sync_store, cnt)
         )
       end)
   
@@ -752,7 +751,7 @@ structure Tree = struct
   
   fun block (
     base_events, cont_stack, thread_id,
-    (chan_store, block_store, cnt)
+    (chan_store, block_store, sync_store, cnt)
   ) = (let
     val chan_store' = (List.foldl  
       (fn (bevt, chan_store) =>
@@ -764,7 +763,7 @@ structure Tree = struct
     val block_store' = insert (block_store, cnt, ())
     val cnt' = cnt + 1
   in
-    (Mode_Block base_events, [], (chan_store', block_store', cnt'))
+    (Mode_Block base_events, [], (chan_store', block_store', sync_store, cnt'))
   end)
 
   fun is_event t = (case t of
@@ -838,7 +837,7 @@ structure Tree = struct
   fun backchain (
     goals, that_thread_id, env,
     val_store, cont_stack, thread_id,
-    chan_store, block_store, cnt
+    chan_store, block_store, sync_store, cnt
   ) = (case goals of
     (*
     [] => (let
@@ -861,27 +860,27 @@ structure Tree = struct
       (
         Mode_Upkeep,
         [(sync_send, val_store, cont_stack, thread_id)],
-        (chan_store, block_store, cnt)
+        (chan_store, block_store, sync_store, cnt)
       )
     end)
     *)
     (* **TODO** *)
     _ => (
       Mode_Stick "TODO",
-      [], (chan_store, block_store, cnt)
+      [], (chan_store, block_store, sync_store, cnt)
     )
   )
 
   fun seq_step (
     md,
     (t, val_store, cont_stack, thread_id),
-    (chan_store, block_store, cnt)
+    (chan_store, block_store, sync_store, cnt)
   ) = (case t of
 
     Seq (t1, t2, _) => normalize (
       t1, fn _ => t2,
       val_store, cont_stack, thread_id,
-      chan_store, block_store, cnt
+      chan_store, block_store, sync_store, cnt
     ) |
 
     Select (t, name, pos) => (case (resolve (val_store, t)) of
@@ -889,7 +888,7 @@ structure Tree = struct
       NONE => normalize (
         t, fn v => Select (v, name, pos),
         val_store, cont_stack, thread_id,
-        chan_store, block_store, cnt
+        chan_store, block_store, sync_store, cnt
       ) |
 
       SOME (Rec (fields, _)) => (let
@@ -902,19 +901,19 @@ structure Tree = struct
           SOME (_, v) => (
             Mode_Reduce v,
             [(v, val_store, cont_stack, thread_id)],
-            (chan_store, block_store, cnt)
+            (chan_store, block_store, sync_store, cnt)
           ) |
 
           NONE => (
             Mode_Stick "selection from non-record",
-            [], (chan_store, block_store, cnt)
+            [], (chan_store, block_store, sync_store, cnt)
           )
         )
       end) |
 
       _ => (
         Mode_Stick "selection from non-record",
-        [], (chan_store, block_store, cnt)
+        [], (chan_store, block_store, sync_store, cnt)
       )
 
     ) |
@@ -922,17 +921,17 @@ structure Tree = struct
     Pipe (t_arg, t_fn, pos) => normalize_single_reduce (
       t_fn, fn v_fn => Pipe (t_arg, v_fn, pos),
       val_store, cont_stack, thread_id,
-      chan_store, block_store, cnt,
+      chan_store, block_store, sync_store, cnt,
       (fn
         (t_arg, Fnc (lams, fnc_store, mutual_store, _)) => push (
           (t_arg, (lams, fnc_store, mutual_store)),
           val_store, cont_stack, thread_id,
-          chan_store, block_store, cnt
+          chan_store, block_store, sync_store, cnt
         ) |
 
         _ => (
           Mode_Stick "pipe into non-function",
-          [], (chan_store, block_store, cnt)
+          [], (chan_store, block_store, sync_store, cnt)
         )
       )
     ) |
@@ -941,7 +940,7 @@ structure Tree = struct
     Open (t_rec, t_body, pos) => normalize_single_reduce (
       t_rec, fn v_rec => Open (v_rec, t_body, pos),
       val_store, cont_stack, thread_id,
-      chan_store, block_store, cnt,
+      chan_store, block_store, sync_store, cnt,
       (fn
         (Rec (fields, _), t_body) => (let
           val val_store' = insert_table (val_store, fields)
@@ -949,13 +948,13 @@ structure Tree = struct
           (
             Mode_Upkeep,
             [(t_body, val_store', cont_stack, thread_id)],
-            (chan_store, block_store, cnt)
+            (chan_store, block_store, sync_store, cnt)
           )
         end) |
 
         _ => (
           Mode_Stick "open of non-record",
-          [], (chan_store, block_store, cnt)
+          [], (chan_store, block_store, sync_store, cnt)
         )
       )
     ) |
@@ -963,17 +962,17 @@ structure Tree = struct
     Cns (t1, t2, pos) => normalize_pair_reduce (
       (t1, t2), fn (t1, t2) => Cns (t1, t2, pos),
       val_store, cont_stack, thread_id,
-      chan_store, block_store, cnt,
+      chan_store, block_store, sync_store, cnt,
       (fn
         (v, Lst (ts, _)) => pop (
           Lst (v :: ts, pos),
           val_store, cont_stack, thread_id,
-          chan_store, block_store, cnt
+          chan_store, block_store, sync_store, cnt
         ) |
 
         _ => (
           Mode_Stick "cons with non-list",
-          [], (chan_store, block_store, cnt)
+          [], (chan_store, block_store, sync_store, cnt)
         )
       )
 
@@ -982,17 +981,17 @@ structure Tree = struct
     Equiv (t1, t2, pos) => normalize_pair_reduce (
       (t1, t2), fn (t1, t2) => Equiv (t1, t2, pos),
       val_store, cont_stack, thread_id,
-      chan_store, block_store, cnt,
+      chan_store, block_store, sync_store, cnt,
       (fn
         (Bool (b1, _), Bool (b2, _)) => pop (
           Bool (b1 = b2, pos),
           val_store, cont_stack, thread_id,
-          chan_store, block_store, cnt
+          chan_store, block_store, sync_store, cnt
         ) |
 
         _ => (
           Mode_Stick "<-> with non-boolean",
-          [], (chan_store, block_store, cnt)
+          [], (chan_store, block_store, sync_store, cnt)
         )
       )
 
@@ -1001,17 +1000,17 @@ structure Tree = struct
     Implies (t1, t2, pos) => normalize_pair_reduce (
       (t1, t2), fn (t1, t2) => Implies (t1, t2, pos),
       val_store, cont_stack, thread_id,
-      chan_store, block_store, cnt,
+      chan_store, block_store, sync_store, cnt,
       (fn
         (Bool (b1, _), Bool (b2, _)) => pop (
           Bool (not b1 orelse b2, pos),
           val_store, cont_stack, thread_id,
-          chan_store, block_store, cnt
+          chan_store, block_store, sync_store, cnt
         ) |
 
         _ => (
           Mode_Stick "--> with non-boolean",
-          [], (chan_store, block_store, cnt)
+          [], (chan_store, block_store, sync_store, cnt)
         )
       )
 
@@ -1020,17 +1019,17 @@ structure Tree = struct
     Or (t1, t2, pos) => normalize_pair_reduce (
       (t1, t2), fn (t1, t2) => Or (t1, t2, pos),
       val_store, cont_stack, thread_id,
-      chan_store, block_store, cnt,
+      chan_store, block_store, sync_store, cnt,
       (fn
         (Bool (b1, _), Bool (b2, _)) => pop (
           Bool (b1 orelse b2, pos),
           val_store, cont_stack, thread_id,
-          chan_store, block_store, cnt
+          chan_store, block_store, sync_store, cnt
         ) |
 
         _ => (
           Mode_Stick "\\/ with non-boolean",
-          [], (chan_store, block_store, cnt)
+          [], (chan_store, block_store, sync_store, cnt)
         )
       )
 
@@ -1039,17 +1038,17 @@ structure Tree = struct
     And (t1, t2, pos) => normalize_pair_reduce (
       (t1, t2), fn (t1, t2) => And (t1, t2, pos),
       val_store, cont_stack, thread_id,
-      chan_store, block_store, cnt,
+      chan_store, block_store, sync_store, cnt,
       (fn
         (Bool (b1, _), Bool (b2, _)) => pop (
           Bool (b1 andalso b2, pos),
           val_store, cont_stack, thread_id,
-          chan_store, block_store, cnt
+          chan_store, block_store, sync_store, cnt
         ) |
 
         _ => (
           Mode_Stick "/\\ with non-boolean",
-          [], (chan_store, block_store, cnt)
+          [], (chan_store, block_store, sync_store, cnt)
         )
       )
 
@@ -1058,13 +1057,13 @@ structure Tree = struct
     Equal (t1, t2, pos) => normalize_pair_reduce (
       (t1, t2), fn (t1, t2) => Equal (t1, t2, pos),
       val_store, cont_stack, thread_id,
-      chan_store, block_store, cnt,
+      chan_store, block_store, sync_store, cnt,
       (fn
 
         (v1, v2) => pop (
           Bool (term_equal (v1, v2), pos),
           val_store, cont_stack, thread_id,
-          chan_store, block_store, cnt
+          chan_store, block_store, sync_store, cnt
         )
 
       )
@@ -1074,17 +1073,17 @@ structure Tree = struct
     Add (t1, t2, pos) => normalize_pair_reduce (
       (t1, t2), fn (t1, t2) => Add (t1, t2, pos),
       val_store, cont_stack, thread_id,
-      chan_store, block_store, cnt,
+      chan_store, block_store, sync_store, cnt,
       (fn
         (Num n1, Num n2) => pop (
           Num (num_add (n1, n2)),
           val_store, cont_stack, thread_id,
-          chan_store, block_store, cnt
+          chan_store, block_store, sync_store, cnt
         ) |
 
         _ => (
           Mode_Stick "+ with non-number",
-          [], (chan_store, block_store, cnt)
+          [], (chan_store, block_store, sync_store, cnt)
         )
       )
 
@@ -1093,17 +1092,17 @@ structure Tree = struct
     Sub (t1, t2, pos) => normalize_pair_reduce (
       (t1, t2), fn (t1, t2) => Sub (t1, t2, pos),
       val_store, cont_stack, thread_id,
-      chan_store, block_store, cnt,
+      chan_store, block_store, sync_store, cnt,
       (fn
         (Num n1, Num n2) => pop (
           Num (num_sub (n1, n2)),
           val_store, cont_stack, thread_id,
-          chan_store, block_store, cnt
+          chan_store, block_store, sync_store, cnt
         ) |
 
         _ => (
           Mode_Stick "- with non-number",
-          [], (chan_store, block_store, cnt)
+          [], (chan_store, block_store, sync_store, cnt)
         )
       )
 
@@ -1112,17 +1111,17 @@ structure Tree = struct
     Mult (t1, t2, pos) => normalize_pair_reduce (
       (t1, t2), fn (t1, t2) => Mult (t1, t2, pos),
       val_store, cont_stack, thread_id,
-      chan_store, block_store, cnt,
+      chan_store, block_store, sync_store, cnt,
       (fn
         (Num n1, Num n2) => pop (
           Num (num_mult (n1, n2)),
           val_store, cont_stack, thread_id,
-          chan_store, block_store, cnt
+          chan_store, block_store, sync_store, cnt
         ) |
 
         _ => (
           Mode_Stick "* with non-number",
-          [], (chan_store, block_store, cnt)
+          [], (chan_store, block_store, sync_store, cnt)
         )
       )
 
@@ -1132,17 +1131,17 @@ structure Tree = struct
     Div (t1, t2, pos) => normalize_pair_reduce (
       (t1, t2), fn (t1, t2) => Div (t1, t2, pos),
       val_store, cont_stack, thread_id,
-      chan_store, block_store, cnt,
+      chan_store, block_store, sync_store, cnt,
       (fn
         (Num n1, Num n2) => pop (
           Num (num_div (n1, n2)),
           val_store, cont_stack, thread_id,
-          chan_store, block_store, cnt
+          chan_store, block_store, sync_store, cnt
         ) |
 
         _ => (
           Mode_Stick "/ with non-number",
-          [], (chan_store, block_store, cnt)
+          [], (chan_store, block_store, sync_store, cnt)
         )
       )
 
@@ -1151,17 +1150,17 @@ structure Tree = struct
     Mod (t1, t2, pos) => normalize_pair_reduce (
       (t1, t2), fn (t1, t2) => Mod (t1, t2, pos),
       val_store, cont_stack, thread_id,
-      chan_store, block_store, cnt,
+      chan_store, block_store, sync_store, cnt,
       (fn
         (Num n1, Num n2) => pop (
           Num (num_mod (n1, n2)),
           val_store, cont_stack, thread_id,
-          chan_store, block_store, cnt
+          chan_store, block_store, sync_store, cnt
         ) |
 
         _ => (
           Mode_Stick "% with non-number",
-          [], (chan_store, block_store, cnt)
+          [], (chan_store, block_store, sync_store, cnt)
         )
       )
 
@@ -1174,38 +1173,38 @@ structure Tree = struct
       pop (
         ChanId cnt,
         val_store, cont_stack, thread_id,
-        chan_store', block_store, cnt'
+        chan_store', block_store, sync_store, cnt'
       )
     end) |
 
     Send (t, pos) => normalize_single_pop (
       t, fn v => Send (v, pos), 
       val_store, cont_stack, thread_id,
-      chan_store, block_store, cnt
+      chan_store, block_store, sync_store, cnt
     ) | 
 
     Recv (t, pos) => normalize_single_pop (
       t, fn v => Recv (v, pos) ,
       val_store, cont_stack, thread_id,
-      chan_store, block_store, cnt
+      chan_store, block_store, sync_store, cnt
     ) | 
 
     Wrap (t, pos) => normalize_single_pop (
       t, fn v => Wrap (v, pos),
       val_store, cont_stack, thread_id,
-      chan_store, block_store, cnt
+      chan_store, block_store, sync_store, cnt
     ) | 
 
     Chse (t, pos) => normalize_single_pop (
       t, fn v => Chse (v, pos),
       val_store, cont_stack, thread_id,
-      chan_store, block_store, cnt
+      chan_store, block_store, sync_store, cnt
     ) | 
 
     Spawn (t, pos) => normalize_single_reduce (
       t, fn v => Spawn (v, pos),  
       val_store, cont_stack, thread_id,
-      chan_store, block_store, cnt,
+      chan_store, block_store, sync_store, cnt,
       (fn
 
         (Fnc ([(Lst ([], _), t_body)], fnc_store, mutual_store, _)) => (let
@@ -1218,13 +1217,13 @@ structure Tree = struct
               (Lst ([], pos), val_store, cont_stack, thread_id),
               (t_body, val_store, [], spawn_id)
             ],
-            (chan_store, block_store, cnt')
+            (chan_store, block_store, sync_store, cnt')
           )
         end) |
 
         _ => (
           Mode_Stick "spawn with non-function",
-          [], (chan_store, block_store, cnt)
+          [], (chan_store, block_store, sync_store, cnt)
         )
       )
     ) |
@@ -1232,7 +1231,7 @@ structure Tree = struct
     Sync (t, pos) => normalize_single_reduce (
       t, fn v => Sync (v, pos),  
       val_store, cont_stack, thread_id,
-      chan_store, block_store, cnt,
+      chan_store, block_store, sync_store, cnt,
       (fn v => if (is_event v) then
         (let
 
@@ -1246,19 +1245,19 @@ structure Tree = struct
             SOME bevt =>
               transact (
                 bevt, cont_stack, thread_id,
-                (chan_store', block_store, cnt)
+                (chan_store', block_store, sync_store, cnt)
               ) |
             NONE =>
               block (
                 bevts, cont_stack, thread_id,
-                (chan_store', block_store, cnt)
+                (chan_store', block_store, sync_store, cnt)
               )
           )
         end)
       else
         (
           Mode_Stick "sync with non-event",
-          [], (chan_store, block_store, cnt)
+          [], (chan_store, block_store, sync_store, cnt)
         )
       )
     ) |
@@ -1266,7 +1265,7 @@ structure Tree = struct
     Solve (t, pos) => normalize_single_reduce (
       t, fn v => Solve (v, pos),  
       val_store, cont_stack, thread_id,
-      chan_store, block_store, cnt,
+      chan_store, block_store, sync_store, cnt,
       (fn
         Fnc (lams, fnc_store, mutual_store, pos_f) => (let
           val chan_id = cnt
@@ -1287,13 +1286,13 @@ structure Tree = struct
               Backchain ([prop], thread_id, env),
               val_store, [], thread_id'
             )],
-            (chan_store, block_store, cnt'')
+            (chan_store, block_store, sync_store, cnt'')
           )
         end) |
 
         _ => (
           Mode_Stick "solve with non-predicate",
-          [], (chan_store, block_store, cnt)
+          [], (chan_store, block_store, sync_store, cnt)
         )
       ) 
     ) |
@@ -1310,24 +1309,24 @@ structure Tree = struct
       (
         Mode_Upkeep,
         [(empty_term, val_store, cont_stack, thread_id)],
-        (chan_store, block_store, cnt)
+        (chan_store, block_store, sync_store, cnt)
       )
     end) |
 
     Not (t, pos) => normalize_single_reduce (
       t, fn v => Not (v, pos),
       val_store, cont_stack, thread_id,
-      chan_store, block_store, cnt,
+      chan_store, block_store, sync_store, cnt,
       (fn
         Bool (b, _) => pop (
           Bool (not b, pos),
           val_store, cont_stack, thread_id,
-          chan_store, block_store, cnt
+          chan_store, block_store, sync_store, cnt
         ) |
 
         _ => (
           Mode_Stick "~ with non-boolean",
-          [], (chan_store, block_store, cnt)
+          [], (chan_store, block_store, sync_store, cnt)
         )
       )
 
@@ -1336,7 +1335,7 @@ structure Tree = struct
     Synced (t, pos) => normalize_single_reduce (
       t, fn v => Synced (v, pos), 
       val_store, cont_stack, thread_id,
-      chan_store, block_store, cnt,
+      chan_store, block_store, sync_store, cnt,
       (fn
         Fnc (lams, fnc_store, mutual_store, _) => (case md of
           Mode_Sync (chan_id, msg, send_id, recv_id) => (
@@ -1347,7 +1346,7 @@ structure Tree = struct
                   (lams, fnc_store, mutual_store)
                 ),
                 val_store, cont_stack, thread_id,
-                chan_store, block_store, cnt
+                chan_store, block_store, sync_store, cnt
               )
               
 
@@ -1358,14 +1357,14 @@ structure Tree = struct
                   (lams, fnc_store, mutual_store)
                 ),
                 val_store, cont_stack, thread_id,
-                chan_store, block_store, cnt
+                chan_store, block_store, sync_store, cnt
               )
 
             ) else (
               pop (
                 Bool (false, pos),
                 val_store, cont_stack, thread_id,
-                chan_store, block_store, cnt
+                chan_store, block_store, sync_store, cnt
               )
 
             )
@@ -1374,14 +1373,14 @@ structure Tree = struct
           _ => pop (
             Bool (false, pos),
             val_store, cont_stack, thread_id,
-            chan_store, block_store, cnt
+            chan_store, block_store, sync_store, cnt
           )
 
         ) | 
 
         _ => (
           Mode_Stick "synced with non-predicate",
-          [], (chan_store, block_store, cnt)
+          [], (chan_store, block_store, sync_store, cnt)
         )
       )
     ) | 
@@ -1389,17 +1388,17 @@ structure Tree = struct
     App (t_fn, t_arg, pos) => normalize_single_reduce (
       t_fn, fn v_fn => App (t_arg, v_fn, pos),
       val_store, cont_stack, thread_id,
-      chan_store, block_store, cnt,
+      chan_store, block_store, sync_store, cnt,
       (fn
         (t_arg, Fnc (lams, fnc_store, mutual_store, _)) => push (
           (t_arg, (lams, fnc_store, mutual_store)),
           val_store, cont_stack, thread_id,
-          chan_store, block_store, cnt
+          chan_store, block_store, sync_store, cnt
         ) |
 
         _ => (
           Mode_Stick "application of non-function",
-          [], (chan_store, block_store, cnt)
+          [], (chan_store, block_store, sync_store, cnt)
         )
       )
     ) |
@@ -1407,19 +1406,19 @@ structure Tree = struct
     Fnc (lams, [], mutual_store, pos) => pop (
       Fnc (lams, val_store, mutual_store, pos),
       val_store, cont_stack, thread_id,
-      chan_store, block_store, cnt
+      chan_store, block_store, sync_store, cnt
     ) |
 
     Fnc (lams, fnc_store, mutual_store, pos) => pop (
       Fnc (lams, fnc_store, mutual_store, pos),
       val_store, cont_stack, thread_id,
-      chan_store, block_store, cnt
+      chan_store, block_store, sync_store, cnt
     ) |
 
     Lst (ts, pos) => normalize_list_pop (
       ts, fn ts => Lst (ts, pos), 
       val_store, cont_stack, thread_id,
-      chan_store, block_store, cnt
+      chan_store, block_store, sync_store, cnt
     ) | 
 
     Rec (fields, pos) => (let
@@ -1450,67 +1449,67 @@ structure Tree = struct
       normalize_list_pop (
         ts, fn ts => Rec (ListPair.zip (keys, ts'), pos), 
         val_store, cont_stack, thread_id,
-        chan_store, block_store, cnt
+        chan_store, block_store, sync_store, cnt
       )
     end) |
 
     CatchAll pos => (
       Mode_Stick "_ in non-pattern",
-      [], (chan_store, block_store, cnt)
+      [], (chan_store, block_store, sync_store, cnt)
     ) |
 
     That pos => (
       Mode_Stick "'that' thread reference outside of query",
-      [], (chan_store, block_store, cnt)
+      [], (chan_store, block_store, sync_store, cnt)
     ) |
 
     Bool (b, pos) => pop (
       Bool (b, pos),
       val_store, cont_stack, thread_id,
-      chan_store, block_store, cnt
+      chan_store, block_store, sync_store, cnt
     ) |
 
     Id (str, pos) => pop (
       Id (str, pos),
       val_store, cont_stack, thread_id,
-      chan_store, block_store, cnt
+      chan_store, block_store, sync_store, cnt
     ) |
 
     Num (str, pos) => pop (
       Num (str, pos),
       val_store, cont_stack, thread_id,
-      chan_store, block_store, cnt
+      chan_store, block_store, sync_store, cnt
     ) |
 
     Str (str, pos) => pop (
       Str (str, pos),
       val_store, cont_stack, thread_id,
-      chan_store, block_store, cnt
+      chan_store, block_store, sync_store, cnt
     ) |
 
     ChanId i => pop (
       ChanId i,
       val_store, cont_stack, thread_id,
-      chan_store, block_store, cnt
+      chan_store, block_store, sync_store, cnt
     ) |
 
     ThreadId i => pop (
       ThreadId i,
       val_store, cont_stack, thread_id,
-      chan_store, block_store, cnt
+      chan_store, block_store, sync_store, cnt
     ) |
 
     Backchain (goals, that_thread_id, env) => (
       backchain (
         goals, that_thread_id, env,
         val_store, cont_stack, thread_id,
-        chan_store, block_store, cnt
+        chan_store, block_store, sync_store, cnt
       )
     ) |
 
     _ => (
       Mode_Stick "TODO",
-      [], (chan_store, block_store, cnt)
+      [], (chan_store, block_store, sync_store, cnt)
     )
 
     (* **TODO**
@@ -1553,7 +1552,7 @@ structure Tree = struct
 
     val chan_store = empty_table
     val block_store = empty_table
-    val query_store = empty_table (* of ((thread_id, query_id) -> event_list) *)
+    val sync_store = empty_table (* of ((thread_id, query_id) -> event_list) *)
     val cnt = 1
 
 
@@ -1567,7 +1566,7 @@ structure Tree = struct
     loop (
       Mode_Start,
       [thread],
-      (chan_store, block_store, cnt)
+      (chan_store, block_store, sync_store, cnt)
     )
   end)
 
