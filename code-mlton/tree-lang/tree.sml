@@ -35,11 +35,8 @@ structure Tree = struct
     Sat of (term * int) |
 
     Not of (term * int) |
-    Reduced of (term * int) |
-    Blocked of (term * int) |
+
     Synced of (term * int) |
-    Stuck of (term * int) |
-    Done of (term * int) |
   
     App of (term * term * int) |
     Fnc of (
@@ -87,12 +84,12 @@ structure Tree = struct
 
   datatype transition_mode = 
     Mode_Start |
-    Mode_Hidden |
-    Mode_Alloc of int |
+    Mode_Upkeep |
     Mode_Reduce of term |
     Mode_Spawn of term |
     Mode_Block of (base_event list) |
-    Mode_Sync of (int * term * int * int) |
+    Mode_Sync of (int * term * int * int)
+      (* Mode_Sync (thread_id, msg, send_id, recv_id) *) |
     Mode_Stick of string |
     Mode_Finish of term
 
@@ -219,26 +216,11 @@ structure Tree = struct
       (to_string t)
     ) |
 
-    Reduced (t, pos) => String.surround ("Reduced@" ^ (Int.toString pos)) (
-      (to_string t)
-    ) |
-
-    Blocked (t, pos) => String.surround ("Blocked@" ^ (Int.toString pos)) (
-      (to_string t)
-    ) |
 
     Synced (t, pos) => String.surround ("Synced@" ^ (Int.toString pos)) (
       (to_string t)
     ) |
 
-    Stuck (t, pos) => String.surround ("Stuck@" ^ (Int.toString pos)) (
-      (to_string t)
-    ) |
-
-    Done (t, pos) => String.surround ("Done@" ^ (Int.toString pos)) (
-      (to_string t)
-    ) |
-  
     App (t1, t2, pos) => String.surround ("App@" ^ (Int.toString pos)) (
       (to_string t1) ^ ",\n" ^
       (to_string t2)
@@ -310,7 +292,7 @@ structure Tree = struct
     val cont_stack' = cont :: cont_stack
   in
     (
-      Mode_Hidden,
+      Mode_Upkeep,
       [(t_arg, val_store, cont_stack', thread_id)],
       (chan_store, block_store, cnt)
     )
@@ -852,9 +834,6 @@ structure Tree = struct
   in
     mk_and_clause case_clauses
   end)
-  
-
-
 
   fun backchain (
     goals, that_thread_id, env,
@@ -880,7 +859,7 @@ structure Tree = struct
       ], ~1, ~1))
     in
       (
-        Mode_Hidden,
+        Mode_Upkeep,
         [(sync_send, val_store, cont_stack, thread_id)],
         (chan_store, block_store, cnt)
       )
@@ -892,13 +871,13 @@ structure Tree = struct
       [], (chan_store, block_store, cnt)
     )
   )
-  
 
   fun seq_step (
     md,
     (t, val_store, cont_stack, thread_id),
     (chan_store, block_store, cnt)
   ) = (case t of
+
     Seq (t1, t2, _) => normalize (
       t1, fn _ => t2,
       val_store, cont_stack, thread_id,
@@ -940,7 +919,6 @@ structure Tree = struct
 
     ) |
 
-
     Pipe (t_arg, t_fn, pos) => normalize_single_reduce (
       t_fn, fn v_fn => Pipe (t_arg, v_fn, pos),
       val_store, cont_stack, thread_id,
@@ -969,7 +947,7 @@ structure Tree = struct
           val val_store' = insert_table (val_store, fields)
         in
           (
-            Mode_Hidden,
+            Mode_Upkeep,
             [(t_body, val_store', cont_stack, thread_id)],
             (chan_store, block_store, cnt)
           )
@@ -981,9 +959,6 @@ structure Tree = struct
         )
       )
     ) |
-
-
-
 
     Cns (t1, t2, pos) => normalize_pair_reduce (
       (t1, t2), fn (t1, t2) => Cns (t1, t2, pos),
@@ -1333,7 +1308,7 @@ structure Tree = struct
       )
     in
       (
-        Mode_Hidden,
+        Mode_Upkeep,
         [(empty_term, val_store, cont_stack, thread_id)],
         (chan_store, block_store, cnt)
       )
@@ -1357,58 +1332,6 @@ structure Tree = struct
       )
 
     ) |
-
-    Reduced (t, pos) => normalize_single_reduce (
-      t, fn v => Reduced (v, pos), 
-      val_store, cont_stack, thread_id,
-      chan_store, block_store, cnt,
-      (fn
-        Fnc (lams, fnc_store, mutual_store, _) => (case md of
-          Mode_Reduce v_arg => push (
-            (v_arg, (lams, fnc_store, mutual_store)),
-            val_store, cont_stack, thread_id,
-            chan_store, block_store, cnt
-          ) |
-
-          _ => pop (
-            Bool (false, pos),
-            val_store, cont_stack, thread_id,
-            chan_store, block_store, cnt
-          )
-        ) | 
-
-        _ => (
-          Mode_Stick "reduced with non-predicate",
-          [], (chan_store, block_store, cnt)
-        )
-      )
-    ) | 
-
-    Blocked (t, pos) => normalize_single_reduce (
-      t, fn v => Blocked (v, pos), 
-      val_store, cont_stack, thread_id,
-      chan_store, block_store, cnt,
-      (fn
-        Fnc (lams, fnc_store, mutual_store, _) => (case md of
-          Mode_Block i => push (
-            (ThreadId thread_id, (lams, fnc_store, mutual_store)),
-            val_store, cont_stack, thread_id,
-            chan_store, block_store, cnt
-          ) |
-
-          _ => pop (
-            Bool (false, pos),
-            val_store, cont_stack, thread_id,
-            chan_store, block_store, cnt
-          )
-        ) | 
-
-        _ => (
-          Mode_Stick "blocked with non-predicate",
-          [], (chan_store, block_store, cnt)
-        )
-      )
-    ) | 
 
     Synced (t, pos) => normalize_single_reduce (
       t, fn v => Synced (v, pos), 
@@ -1458,57 +1381,6 @@ structure Tree = struct
 
         _ => (
           Mode_Stick "synced with non-predicate",
-          [], (chan_store, block_store, cnt)
-        )
-      )
-    ) | 
-
-    Stuck (t, pos) => normalize_single_reduce (
-      t, fn v => Stuck (v, pos), 
-      val_store, cont_stack, thread_id,
-      chan_store, block_store, cnt,
-      (fn
-        Fnc (lams, fnc_store, mutual_store, _) => (case md of
-          Mode_Stick stuck_str => push (
-            (Str (stuck_str, ~1), (lams, fnc_store, mutual_store)),
-            val_store, cont_stack, thread_id,
-            chan_store, block_store, cnt
-          ) |
-
-          _ => pop (
-            Bool (false, pos),
-            val_store, cont_stack, thread_id,
-            chan_store, block_store, cnt
-          )
-        ) | 
-
-        _ => (
-          Mode_Stick "synced with non-predicate",
-          [], (chan_store, block_store, cnt)
-        )
-      )
-    ) | 
-
-    Done (t, pos) => normalize_single_reduce (
-      t, fn v => Done (v, pos), 
-      val_store, cont_stack, thread_id,
-      chan_store, block_store, cnt,
-      (fn
-        Fnc (lams, fnc_store, mutual_store, _) => (case md of Mode_Finish v_arg => push (
-            (v_arg, (lams, fnc_store, mutual_store)),
-            val_store, cont_stack, thread_id,
-            chan_store, block_store, cnt
-          ) |
-
-          _ => pop (
-            Bool (false, pos),
-            val_store, cont_stack, thread_id,
-            chan_store, block_store, cnt
-          )
-        ) | 
-
-        _ => (
-          Mode_Stick "reduced with non-predicate",
           [], (chan_store, block_store, cnt)
         )
       )
@@ -1681,6 +1553,7 @@ structure Tree = struct
 
     val chan_store = empty_table
     val block_store = empty_table
+    val query_store = empty_table (* of ((thread_id, query_id) -> event_list) *)
     val cnt = 1
 
 

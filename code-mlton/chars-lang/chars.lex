@@ -78,14 +78,7 @@ digit=[0-9];
 <INITIAL>"sync" => (SYNC (!linenum, inccol 1));
 
 <INITIAL>"~" => (TILDE (!linenum, inccol 1));
-<INITIAL>"reduced" => (REDUCED (!linenum, inccol 1));
-<INITIAL>"called" => (CALLED (!linenum, inccol 1));
-<INITIAL>"returned" => (RETURNED (!linenum, inccol 1));
-<INITIAL>"spawned" => (SPAWNED (!linenum, inccol 1));
-<INITIAL>"blocked" => (BLOCKED (!linenum, inccol 1));
 <INITIAL>"synced" => (SYNCED (!linenum, inccol 1));
-<INITIAL>"stuck" => (STUCK (!linenum, inccol 1));
-<INITIAL>"done" => (DONE (!linenum, inccol 1));
 
 <INITIAL>"solve" => (SOLVE (!linenum, inccol 1));
 <INITIAL>"sat" => (SAT (!linenum, inccol 1));

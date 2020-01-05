@@ -22,9 +22,7 @@ open Tree
 
   TILDE |
 
-  REDUCED | CALLED | RETURNED |
-  SPAWNED | BLOCKED | SYNCED |
-  STUCK | DONE |
+  SYNCED |
   SOLVE | SAT |
 
   LSQ | RSQ | LCUR | RCUR | LPAREN | RPAREN |
@@ -69,7 +67,7 @@ open Tree
 %left CROSS DASH 
 %left STAR SLASH CIRSLASH 
 
-%nonassoc ALLOC_CHAN SEND RECV WRAP CHSE SPAWN SYNC TILDE REDUCED CALLED RETURNED SPAWNED BLOCKED SYNCED STUCK DONE SOLVE SAT
+%nonassoc ALLOC_CHAN SEND RECV WRAP CHSE SPAWN SYNC TILDE SYNCED SOLVE SAT
 
 %nonassoc LSQ RSQ LCUR RCUR LPAREN RPAREN 
 
@@ -118,11 +116,7 @@ term_nt:
 
   TILDE term_nt (Not (term_nt, TILDEleft)) |
 
-  REDUCED term_nt (Reduced (term_nt, REDUCEDleft)) |
-  BLOCKED term_nt (Blocked (term_nt, BLOCKEDleft)) |
   SYNCED term_nt (Synced (term_nt, SYNCEDleft)) |
-  STUCK term_nt (Stuck (term_nt, STUCKleft)) |
-  DONE term_nt (Done (term_nt, DONEleft)) |
   term_nt term_nt %prec APP (App (term_nt1, term_nt2, term_nt1left)) |
   term_nt DOT term_nt (Fnc ([(term_nt1, term_nt2)], [], [], DOTleft)) |
   lams_nt (Fnc (lams_nt, [], [], lams_ntleft)) |
