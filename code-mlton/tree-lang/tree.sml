@@ -274,10 +274,19 @@ structure Tree = struct
 
 
   fun store_insert (val_store, pat, value) = (case (pat, value) of
+    (Cns (t1, t2, _), Lst (vs, _))  => (case vs of
+      [] => NONE |
+      v :: vs' => (Option.mapPartial
+        (fn val_store' =>
+          store_insert (val_store', t2, Lst (vs', ~1))
+        )
+        (store_insert (val_store, t1, v))
+      )
+    ) |
 
+    _ => NONE 
     (* **TODO** *)
     (*
-    Cns of (term * term * int) |
     Send of (term * int) |
     Recv of (term * int) |
     Fnc of (
@@ -296,8 +305,6 @@ structure Tree = struct
     Str of (string * int) |
     *)
 
-    (* internal reps *)
-    _ => NONE 
   )
 
   fun push (
