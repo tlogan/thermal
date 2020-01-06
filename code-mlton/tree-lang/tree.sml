@@ -273,25 +273,71 @@ structure Tree = struct
     (to_string t))
 
 
-  fun store_insert (val_store, pat, value) = (case (pat, value) of
+  fun fnc_equal (f1, f2) = (let
+    (* **TODO** *)  
+  in
+    f1 = f2
+  end)
+
+  fun term_equal (t1, t2) = (let
+    (* **TODO** *)  
+  in
+    t1 = t2 
+  end)
+
+  fun num_add (n1, n2) = (let
+    (* **TODO** *)  
+  in
+    n1 
+  end)
+
+  fun num_sub (n1, n2) = (let
+    (* **TODO** *)  
+  in
+    n1 
+  end)
+
+  fun num_mult (n1, n2) = (let
+    (* **TODO** *)  
+  in
+    n1 
+  end)
+
+
+  fun num_div (n1, n2) = (let
+    (* **TODO** *)  
+  in
+    n1 
+  end)
+
+  fun num_mod (n1, n2) = (let
+    (* **TODO** *)  
+  in
+    n1 
+  end)
+
+
+
+
+  fun match_value_insert (val_store, pat, value) = (case (pat, value) of
     (Cns (t1, t2, _), Lst (vs, _))  => (case vs of
       [] => NONE |
       v :: vs' => (Option.mapPartial
         (fn val_store' =>
-          store_insert (val_store', t1, v)
+          match_value_insert (val_store', t1, v)
         )
-        (store_insert (val_store, t2, Lst (vs', ~1)))
+        (match_value_insert (val_store, t2, Lst (vs', ~1)))
       )
     ) |
 
     (Send (t, _), Send (v, _)) =>
-      store_insert (val_store, t, v) |
+      match_value_insert (val_store, t, v) |
 
     (Recv (t, _), Recv (v, _)) =>
-      store_insert (val_store, t, v) |
+      match_value_insert (val_store, t, v) |
 
     (Fnc p_fnc, Fnc v_fnc) => (
-      if p_fnc = v_fnc then
+      if fnc_equal (p_fnc, v_fnc) then
         SOME val_store
       else
         NONE
@@ -303,26 +349,68 @@ structure Tree = struct
 
       (t :: ts', v :: vs') => (Option.mapPartial
         (fn val_store' =>
-          store_insert (val_store', t, v)
+          match_value_insert (val_store', t, v)
         )
-        (store_insert (val_store, Lst (ts', ~1), Lst (vs', ~1)))
+        (match_value_insert (val_store, Lst (ts', ~1), Lst (vs', ~1)))
       ) |
 
       _ =>
         NONE
     ) |
 
+    (Rec (p_fields, _), Rec (v_fields, _)) => (case (p_fields, v_fields) of
+      ([], []) =>
+        SOME val_store |
+
+      ((pk, t) :: ps, _ :: _) => (let
+        val (match, remainder) = (List.partition  
+          (fn (k, v) => k = pk)
+          v_fields
+        )
+      in
+        (case match of
+          [(k, v)] => (Option.mapPartial
+            (fn val_store' => match_value_insert (val_store', t, v))
+            (match_value_insert (val_store, Rec (ps, ~1), Rec (remainder, ~1)))
+          ) |
+
+          _ => NONE
+        )
+      end) |
+
+      _ =>
+        NONE
+      
+    ) |
+
+    (CatchAll _, _) =>
+      SOME val_store |
+
+    (Bool (b, _), Bool (bv, _)) => (
+      if b = bv then
+        SOME val_store
+      else
+        NONE
+    ) |
+
+    (Id (str, _), v) =>
+      SOME (insert (val_store, str, v)) |
+
+    (Num (n, _), Num (nv, _)) => (
+      if n = nv then
+        SOME val_store
+      else
+        NONE
+    ) |
+
+    (Str (str, _), Str (strv, _)) => (
+      if str = strv then
+        SOME val_store
+      else
+        NONE
+    ) |
+
     _ => NONE 
-    (* **TODO** *)
-    (*
-    Rec of (((string * term) list) * int) |
-  
-    CatchAll of int |
-    Bool of (bool * int) |
-    Id of (string * int) |
-    Num of (string * int) |
-    Str of (string * int) |
-    *)
 
   )
 
@@ -381,7 +469,7 @@ structure Tree = struct
         fun match_first lams = (case lams of
           [] => NONE |
           (p, t) :: lams' =>
-            (case (store_insert (val_store'', p, result)) of
+            (case (match_value_insert (val_store'', p, result)) of
               NONE => match_first lams' |
               SOME val_store'' => SOME (t, val_store'')
             )
@@ -526,49 +614,6 @@ structure Tree = struct
       chan_store, block_store, sync_store, cnt
     ))
   )
-
-  fun fnc_equal (f1, f2) = (let
-    (* **TODO** *)  
-  in
-    f1 = f2
-  end)
-
-  fun term_equal (t1, t2) = (let
-    (* **TODO** *)  
-  in
-    t1 = t2 
-  end)
-
-  fun num_add (n1, n2) = (let
-    (* **TODO** *)  
-  in
-    n1 
-  end)
-
-  fun num_sub (n1, n2) = (let
-    (* **TODO** *)  
-  in
-    n1 
-  end)
-
-  fun num_mult (n1, n2) = (let
-    (* **TODO** *)  
-  in
-    n1 
-  end)
-
-
-  fun num_div (n1, n2) = (let
-    (* **TODO** *)  
-  in
-    n1 
-  end)
-
-  fun num_mod (n1, n2) = (let
-    (* **TODO** *)  
-  in
-    n1 
-  end)
 
 
   fun mk_base_events (evt, cont_stack) = (case evt of
