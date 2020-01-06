@@ -284,11 +284,15 @@ structure Tree = struct
       )
     ) |
 
+    (Send (t, _), Send (v, _)) =>
+      store_insert (val_store, t, v) |
+
+    (Recv (t, _), Recv (v, _)) =>
+      store_insert (val_store, t, v) |
+
     _ => NONE 
     (* **TODO** *)
     (*
-    Send of (term * int) |
-    Recv of (term * int) |
     Fnc of (
       ((term * term) list) *
       ((string, term) store) *
