@@ -28,7 +28,6 @@ open Tree
   LSQ | RSQ | LCUR | RCUR | LPAREN | RPAREN |
 
   LODASH |
-  THAT |
   TRUE | FALSE | 
   NUMLIT of string | STRINGLIT of string |
   ID of string |
@@ -71,7 +70,7 @@ open Tree
 
 %nonassoc LSQ RSQ LCUR RCUR LPAREN RPAREN 
 
-%nonassoc LODASH THAT TRUE FALSE 
+%nonassoc LODASH TRUE FALSE 
 
 %nonassoc NUMLIT STRINGLIT ID
 
@@ -126,7 +125,6 @@ term_nt:
   LCUR RCUR (Rec ([], LCURleft)) |
 
   LODASH (CatchAll LODASHleft) | 
-  THAT (That THATleft) | 
   TRUE (Bool (true, TRUEleft)) | 
   FALSE (Bool (false, FALSEleft)) |
 

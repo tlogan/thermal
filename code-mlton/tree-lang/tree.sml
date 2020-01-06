@@ -49,7 +49,6 @@ structure Tree = struct
     Rec of (((string * term) list) * int) |
   
     CatchAll of int |
-    That of int |
     Bool of (bool * int) |
   
     Id of (string * int) |
@@ -61,7 +60,7 @@ structure Tree = struct
     ThreadId of int |
     Backchain of (
       (term list) (* result string and proposition list *) *
-      thread_id (* that thread id *) *
+      thread_id (* monitee thread id *) *
       ((string, term) store) (* env - evolving through query *)
     ) |
     Solution of solution
@@ -240,9 +239,6 @@ structure Tree = struct
     CatchAll pos =>
       "CatchAll@" ^ (Int.toString pos) |
 
-    That pos =>
-      "That@" ^ (Int.toString pos) |
-
     Bool (true, pos) =>
       "true@" ^ (Int.toString pos) |
 
@@ -278,7 +274,29 @@ structure Tree = struct
 
 
   fun store_insert (val_store, pat, value) = (case (pat, value) of
+
     (* **TODO** *)
+    (*
+    Cns of (term * term * int) |
+    Send of (term * int) |
+    Recv of (term * int) |
+    Fnc of (
+      ((term * term) list) *
+      ((string, term) store) *
+      ((string, (term * term) list) store) *
+      int
+    ) (* Fnc (lams, val_store, mutual_store, pos) *) |
+    Lst of ((term list) * int) |
+    Rec of (((string * term) list) * int) |
+  
+    CatchAll of int |
+    Bool of (bool * int) |
+    Id of (string * int) |
+    Num of (string * int) |
+    Str of (string * int) |
+    *)
+
+    (* internal reps *)
     _ => NONE 
   )
 
@@ -835,7 +853,7 @@ structure Tree = struct
   end)
 
   fun backchain (
-    goals, that_thread_id, env,
+    goals, monitee_thread_id, env,
     val_store, cont_stack, thread_id,
     chan_store, block_store, sync_store, cnt
   ) = (case goals of
@@ -1463,11 +1481,6 @@ structure Tree = struct
       [], (chan_store, block_store, sync_store, cnt)
     ) |
 
-    That pos => (
-      Mode_Stick "'that' thread reference outside of query",
-      [], (chan_store, block_store, sync_store, cnt)
-    ) |
-
     Bool (b, pos) => pop (
       Bool (b, pos),
       val_store, cont_stack, thread_id,
@@ -1504,9 +1517,9 @@ structure Tree = struct
       chan_store, block_store, sync_store, cnt
     ) |
 
-    Backchain (goals, that_thread_id, env) => (
+    Backchain (goals, monitee_thread_id, env) => (
       backchain (
-        goals, that_thread_id, env,
+        goals, monitee_thread_id, env,
         val_store, cont_stack, thread_id,
         chan_store, block_store, sync_store, cnt
       )
