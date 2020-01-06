@@ -278,9 +278,9 @@ structure Tree = struct
       [] => NONE |
       v :: vs' => (Option.mapPartial
         (fn val_store' =>
-          store_insert (val_store', t2, Lst (vs', ~1))
+          store_insert (val_store', t1, v)
         )
-        (store_insert (val_store, t1, v))
+        (store_insert (val_store, t2, Lst (vs', ~1)))
       )
     ) |
 
@@ -290,16 +290,31 @@ structure Tree = struct
     (Recv (t, _), Recv (v, _)) =>
       store_insert (val_store, t, v) |
 
+    (Fnc p_fnc, Fnc v_fnc) => (
+      if p_fnc = v_fnc then
+        SOME val_store
+      else
+        NONE
+    ) |
+
+    (Lst (ts, _), Lst (vs, _)) => (case (ts, vs) of
+      ([], []) =>
+        SOME val_store |
+
+      (t :: ts', v :: vs') => (Option.mapPartial
+        (fn val_store' =>
+          store_insert (val_store', t, v)
+        )
+        (store_insert (val_store, Lst (ts', ~1), Lst (vs', ~1)))
+      ) |
+
+      _ =>
+        NONE
+    ) |
+
     _ => NONE 
     (* **TODO** *)
     (*
-    Fnc of (
-      ((term * term) list) *
-      ((string, term) store) *
-      ((string, (term * term) list) store) *
-      int
-    ) (* Fnc (lams, val_store, mutual_store, pos) *) |
-    Lst of ((term list) * int) |
     Rec of (((string * term) list) * int) |
   
     CatchAll of int |
