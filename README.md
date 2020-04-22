@@ -1,6 +1,47 @@
 # Thermal
 The Robot Mind and Language
 
+
+ {
+ fact :
+   0 . 1 |
+   [`S` n] . (S n) * (n ;= fact)
+
+ (* lists do not have commas when within square braces *)
+
+ even :
+   0 . true |
+   [`S` n] . odd n
+
+ odd :
+   0 . false |
+   [`S` n] . even n 
+
+ (* recursion defined within record syntax *)
+
+ prefix fib : 
+   0 . 0 |
+   1 . 1 |
+   `S` , [`S` n] . fib [`S` n] + fib n 
+
+ (* prefix keyword allowes using fib in prefix position *)
+ (* comma used to construct list without square brackets*)
+
+ } .. 
+
+ 4 ;= x . 
+
+ (x ;= fact) ;= y .
+ 
+ fib y
+
+ (* two dots opens record inside of following procedure *)
+ (* semi-eq applies right side to argument on left *)
+
+ (* records do not have commas when within curly braces *)
+
+
+
 P --> Q
 ~ P \\/ Q
 ~ (P /\\ ~ Q)  
