@@ -65,18 +65,18 @@ digit=[0-9];
 <INITIAL>"%" => (CIRSLASH (!linenum, inccol 1));
 
 
-<INITIAL>"wadd" => (WADD (!linenum, inccol 1));
-<INITIAL>"wsub" => (WSUB (!linenum, inccol 1));
-<INITIAL>"wmul" => (WMUL (!linenum, inccol 1));
-<INITIAL>"wdiv_s" => (WDIV_S (!linenum, inccol 1));
-<INITIAL>"wdiv_u" => (WDIV_U (!linenum, inccol 1));
-<INITIAL>"wrem_s" => (WREM_S (!linenum, inccol 1));
-<INITIAL>"wrem_u" => (WREM_U (!linenum, inccol 1));
+<INITIAL>"addw" => (ADDW (!linenum, inccol 1));
+<INITIAL>"subw" => (SUBW (!linenum, inccol 1));
+<INITIAL>"mulw" => (MULW (!linenum, inccol 1));
+<INITIAL>"divsw" => (DIVSW (!linenum, inccol 1));
+<INITIAL>"divuw" => (DIVUW (!linenum, inccol 1));
+<INITIAL>"remsw" => (REMSW (!linenum, inccol 1));
+<INITIAL>"remuw" => (REMUW (!linenum, inccol 1));
 
-<INITIAL>"fadd" => (FADD (!linenum, inccol 1));
-<INITIAL>"fsub" => (FSUB (!linenum, inccol 1));
-<INITIAL>"fmul" => (FMUL (!linenum, inccol 1));
-<INITIAL>"fdiv" => (FDIV (!linenum, inccol 1));
+<INITIAL>"addf" => (ADDF (!linenum, inccol 1));
+<INITIAL>"subf" => (SUBF (!linenum, inccol 1));
+<INITIAL>"mulf" => (MULF (!linenum, inccol 1));
+<INITIAL>"divf" => (DIVF (!linenum, inccol 1));
 
 <INITIAL>"equal" => (EQUAL (!linenum, inccol 1));
 
@@ -117,10 +117,10 @@ digit=[0-9];
   (NUM (yytext, !linenum, inccol (size yytext)));
 
 
-<INITIAL>("-"|"+"){digit}+"w"("8"|"16"|"32"|"64"|"128")=>
+<INITIAL>("-"|"+")?{digit}+"w"("8"|"16"|"32"|"64"|"128")=>
   (WORD (yytext, !linenum, inccol (size yytext)));
 
-<INITIAL>("-"|"+"){digit}+("."|","){digit}+"f"("8"|"16"|"32"|"64"|"128") =>
+<INITIAL>("-"|"+")?{digit}+("."|","){digit}+"f"("8"|"16"|"32"|"64"|"128") =>
   (FLOAT (yytext, !linenum, inccol (size yytext)));
 
 <INITIAL>"`"([^"`"]|"\`")*"`" => (STRING (yytext, !linenum, inccol (size yytext)));
