@@ -30,7 +30,7 @@ The Robot Mind and Language
  (* prefix keyword allowes using fib in prefix position *)
  (* comma used to construct list without square brackets*)
 
- } .. 
+ } ; 
 
  4 ;= x . 
 

@@ -36,8 +36,8 @@ digit=[0-9];
 
 %%
 
-<INITIAL>"(*"  => (YYBEGIN COMMENT; (inccol 2); lex());
-<COMMENT>"*)"  => (YYBEGIN INITIAL; (inccol 2); lex());
+<INITIAL>"/*"  => (YYBEGIN COMMENT; (inccol 2); lex());
+<COMMENT>"*/"  => (YYBEGIN INITIAL; (inccol 2); lex());
 <COMMENT>\n => (incline (); lex ());
 <COMMENT>\r\n => (incline (); lex ());
 <COMMENT>. => ((inccol 1); lex ());
@@ -48,20 +48,13 @@ digit=[0-9];
 <INITIAL>(\ )+ => (ignore (inccol (size yytext)); lex());
 <INITIAL>"//"[^\n]*\n  => (incline (); lex());
 
-<INITIAL>";" => (SEMICOLON (!linenum, inccol 1));
+<INITIAL>";=" => (SEMIEQ (!linenum, inccol 1));
+<INITIAL>";" => (SEMI (!linenum, inccol 1));
 <INITIAL>":" => (COLON (!linenum, inccol 1));
 <INITIAL>"," => (COMMA (!linenum, inccol 1));
 <INITIAL>"\\" => (BSLASH (!linenum, inccol 1));
 <INITIAL>"." => (DOT (!linenum, inccol 1));
 <INITIAL>"|" => (BAR (!linenum, inccol 1));
-<INITIAL>"->" => (ARROW (!linenum, inccol 1));
-<INITIAL>"in" => (IN (!linenum, inccol 1));
-<INITIAL>"::" => (DCOLON (!linenum, inccol 1));
-<INITIAL>"=" => (EQ (!linenum, inccol 1));
-<INITIAL>"/\\" => (WEDGE (!linenum, inccol 1));
-<INITIAL>"\\/" => (VEE (!linenum, inccol 1));
-<INITIAL>"-->" => (LONGARROW (!linenum, inccol 1));
-<INITIAL>"<->" => (DARROW (!linenum, inccol 1));
 
 <INITIAL>"+" => (CROSS (!linenum, inccol 1));
 <INITIAL>"-" => (DASH (!linenum, inccol 1));
@@ -69,20 +62,21 @@ digit=[0-9];
 <INITIAL>"/" => (SLASH (!linenum, inccol 1));
 <INITIAL>"%" => (CIRSLASH (!linenum, inccol 1));
 
+<INITIAL>"alloc_mem" => (ALLOC_MEM (!linenum, inccol 1));
+<INITIAL>"slice" => (SLICE (!linenum, inccol 1));
+<INITIAL>"set" => (SET (!linenum, inccol 1));
+<INITIAL>"get" => (GET (!linenum, inccol 1));
+
 <INITIAL>"alloc_chan" => (ALLOC_CHAN (!linenum, inccol 1));
 <INITIAL>"send" => (SEND (!linenum, inccol 1));
 <INITIAL>"recv" => (RECV (!linenum, inccol 1));
+
 <INITIAL>"wrap" => (WRAP (!linenum, inccol 1));
 <INITIAL>"chse" => (CHSE (!linenum, inccol 1));
-<INITIAL>"spawn" => (SPAWN (!linenum, inccol 1));
 <INITIAL>"sync" => (SYNC (!linenum, inccol 1));
+<INITIAL>"spawn" => (SPAWN (!linenum, inccol 1));
 
 <INITIAL>"~" => (TILDE (!linenum, inccol 1));
-<INITIAL>"synced" => (SYNCED (!linenum, inccol 1));
-
-<INITIAL>"solve" => (SOLVE (!linenum, inccol 1));
-<INITIAL>"for" => (FOR (!linenum, inccol 1));
-
 
 <INITIAL>"[" => (LSQ (!linenum, inccol 1));
 <INITIAL>"]" => (RSQ (!linenum, inccol 1));
@@ -90,15 +84,25 @@ digit=[0-9];
 <INITIAL>"}" => (RCUR (!linenum, inccol 1));
 <INITIAL>"(" => (LPAREN (!linenum, inccol 1));
 <INITIAL>")" => (RPAREN (!linenum, inccol 1));
+<INITIAL>"<|" => (LANGBAR (!linenum, inccol 1));
+<INITIAL>"|>" => (RANGBAR (!linenum, inccol 1));
 
 <INITIAL>"_" => (LODASH (!linenum, inccol 1));
 <INITIAL>"true" => (TRUE (!linenum, inccol 1));
 <INITIAL>"false" => (FALSE (!linenum, inccol 1));
 
 <INITIAL>("-"?){digit}+(("."|","){digit}+)? =>
-  (NUMLIT (yytext, !linenum, inccol (size yytext)));
+  (NUM (yytext, !linenum, inccol (size yytext)));
 
-<INITIAL>"`"([^"`"]|"\`")*"`" => (STRINGLIT (yytext, !linenum, inccol (size yytext)));
+
+<INITIAL>("-"|"+"){digit}+"w"("8"|"16"|"32"|"64"|"128")=>
+  (WORD (yytext, !linenum, inccol (size yytext)));
+
+<INITIAL>("-"|"+"){digit}+("."|","){digit}+"f"("8"|"16"|"32"|"64"|"128") =>
+  (FLOAT (yytext, !linenum, inccol (size yytext)));
+
+<INITIAL>"`"([^"`"]|"\`")*"`" => (STRING (yytext, !linenum, inccol (size yytext)));
+<INITIAL>"#"([^"#"\s]|"\#")+ => (HASHSTRING (yytext, !linenum, inccol (size yytext)));
 
 <INITIAL>{alpha}({alpha}|{digit}|"_")* =>
   (ID (yytext, !linenum, inccol (size yytext)));
