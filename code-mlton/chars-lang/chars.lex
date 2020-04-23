@@ -63,6 +63,8 @@ digit=[0-9];
 <INITIAL>"%" => (CIRSLASH (!linenum, inccol 1));
 
 <INITIAL>"alloc_mem" => (ALLOC_MEM (!linenum, inccol 1));
+<INITIAL>"width" => (WIDTH (!linenum, inccol 1));
+<INITIAL>"length" => (LENGTH (!linenum, inccol 1));
 <INITIAL>"slice" => (SLICE (!linenum, inccol 1));
 <INITIAL>"set" => (SET (!linenum, inccol 1));
 <INITIAL>"get" => (GET (!linenum, inccol 1));
