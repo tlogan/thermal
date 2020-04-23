@@ -7,15 +7,18 @@ The Robot Mind and Language
    0 . 1 |
    [`S` n] . (S n) * (n ;= fact)
 
+ (* strings may be in back ticks *)
  (* lists do not have commas when within square braces *)
 
  even :
    0 . true |
-   [`S` n] . odd n
+   [#S n] . odd n
 
  odd :
    0 . false |
-   [`S` n] . even n 
+   [#S n] . even n 
+
+ (* strings without whitespace may use hash *)
 
  (* recursion defined within record syntax *)
 
