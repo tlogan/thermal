@@ -5,34 +5,26 @@ open Tree
 %name Spec 
 
 %term
-  SEMICOLON | COLON |
-  COMMA | DOT |
-  BSLASH | BAR | ARROW | IN |
-  DCOLON |
-  EQ | WEDGE | VEE |
-  LONGARROW | DARROW |
 
-  CROSS | DASH | STAR | SLASH | CIRSLASH |
 
-  APP |
+  SEMIEQ | COLON | COMMA |
+  DOT | BAR | 
+  CROSS | DASH | STAR | SLASH | CIRSLASH | 
+  ADDW | SUBW | MULW | DIVSW | DIVUW | REMSW | REMUW | 
+  ADDF | SUBF | MULF | DIVF | 
+  EQUAL | 
+  ALLOC_MEM | SIZE | SLICE | SET | GET
+  ALLOC_CHAN | SEND | RECV | 
+  WRAP | CHSE | SYNC | SPAWN | 
+  LSQ | RSQ | LCUR | RCUR | LPAREN | RPAREN | LANG | RANG | LODASH | 
+  SYMB | PREFIX | POSTFIX | INFIXL | INFIXR |
 
-  ALLOC_CHAN |
-  SEND | RECV | WRAP |
-  CHSE | SPAWN | SYNC |
+  NUM of string | WORD of string | FLOAT of string |
+  STRING of string | HASHSTRING of string | ID of string |
 
-  TILDE |
+  BAD | EOF
 
-  SYNCED |
-  SOLVE | FOR |
 
-  LSQ | RSQ | LCUR | RCUR | LPAREN | RPAREN |
-
-  LODASH |
-  TRUE | FALSE | 
-  NUMLIT of string | STRINGLIT of string |
-  ID of string |
-
-  EOF | BAD
 
 %nonterm
   tree_nt of term |
@@ -49,19 +41,9 @@ open Tree
 %eop EOF
 %noshift EOF
 
-
-
 %right BAR
-%right ARROW IN DOT
+%right SEMIEQ DOT
 %right COMMA
-%right SEMICOLON
-%left LONGARROW DARROW
-%left VEE 
-%left WEDGE
-%nonassoc EQ
-%left BSLASH
-%left APP
-%right DCOLON 
 
 %left CROSS DASH 
 %left STAR SLASH CIRSLASH 
@@ -72,7 +54,7 @@ open Tree
 
 %nonassoc LODASH TRUE FALSE 
 
-%nonassoc NUMLIT STRINGLIT ID
+%nonassoc NUM STRING ID
 
 
 %start tree_nt
@@ -86,51 +68,41 @@ tree_nt:
 
 
 term_nt:
-  term_nt SEMICOLON term_nt (Seq (term_nt1, term_nt2, SEMICOLONleft)) |
-  term_nt BSLASH ID (Select (term_nt, ID, BSLASHleft)) |
-  term_nt ARROW term_nt (Pipe (term_nt1, term_nt2, ARROWleft)) |
-  term_nt IN term_nt (Open (term_nt1, term_nt2, INleft)) |
-  term_nt DCOLON term_nt (Cns (term_nt1, term_nt2, DCOLONleft)) |
-  term_nt DARROW term_nt (Equiv (term_nt1, term_nt2, DARROWleft)) |
-  term_nt LONGARROW term_nt (Implies (term_nt1, term_nt2, LONGARROWleft)) |
-  term_nt VEE term_nt (Or (term_nt1, term_nt2, VEEleft)) |
-  term_nt WEDGE term_nt (And (term_nt1, term_nt2, WEDGEleft)) |
-  term_nt EQ term_nt (Equal (term_nt1, term_nt2, EQleft)) |
+  term_nt SEMIEQ term_nt (Pipe (term_nt1, term_nt2, SEMIEQleft)) |
+  term_nt COMMA term_nt (Cns (term_nt1, term_nt2, COMMAleft)) |
 
-  term_nt CROSS term_nt (Add (term_nt1, term_nt2, CROSSleft)) |
-  term_nt DASH term_nt (Sub (term_nt1, term_nt2, DASHleft)) |
-  term_nt STAR term_nt (Mult (term_nt1, term_nt2, STARleft)) |
-  term_nt SLASH term_nt (Div (term_nt1, term_nt2, SLASHleft)) |
-  term_nt CIRSLASH term_nt (Mod (term_nt1, term_nt2, CIRSLASHleft)) |
+  SELECT (Fnc ([(ID "_param", Select (ID "_param", SELECTleft))], [], [], SELECTleft)) |
+  ADD (Fnc ([(ID "_param", Add (ID "_param", ADDleft))], [], [], ADDleft)) |
+  SUB (Fnc ([(ID "_param", Sub (ID "_param", SUBleft))], [], [], SUBleft)) |
+  MUL (Fnc ([(ID "_param", Mul (ID "_param", MULleft))], [], [], MULleft)) |
+  DIV (Fnc ([(ID "_param", Div (ID "_param", DIVleft))], [], [], DIVleft)) |
+  REMV (Fnc ([(ID "_param", Rem (ID "_param", REMVleft))], [], [], REMVleft)) |
 
-  ALLOC_CHAN (AllocChan ALLOC_CHANleft) |
-  SEND term_nt (Send (term_nt, SENDleft)) |
-  RECV term_nt (Recv (term_nt, RECVleft)) |
-  WRAP term_nt (Wrap (term_nt, WRAPleft)) |
-  CHSE term_nt (Chse (term_nt, CHSEleft)) |
-  SPAWN term_nt (Spawn (term_nt, SPAWNleft)) |
-  SYNC term_nt (Spawn (term_nt, SYNCleft)) |
-  SOLVE term_nt (Solve (term_nt, SOLVEleft)) |
-  FOR term_nt (For (term_nt, FORleft)) |
+  ALLOC_CHAN (Fnc ([(ID "_param", AllocChan (ID "_param", ALLOC_CHANleft))], [], [], ALLOC_CHANleft)) |
 
-  TILDE term_nt (Not (term_nt, TILDEleft)) |
+  SEND (Fnc ([(ID "_param", Send (ID "_param", SENDleft))], [], [], SENDleft)) |
+  RECV (Fnc ([(ID "_param", Recv (ID "_param", RECVleft))], [], [], RECVleft)) |
 
-  SYNCED term_nt (Synced (term_nt, SYNCEDleft)) |
-  term_nt term_nt %prec APP (App (term_nt1, term_nt2, term_nt1left)) |
+  WRAP (Fnc ([(ID "_param", Wrap (ID "_param", WRAPleft))], [], [], WRAPleft)) |
+  CHSE (Fnc ([(ID "_param", Chse (ID "_param", CHSEleft))], [], [], CHSEleft)) |
+
+  SYNC (Fnc ([(ID "_param", Sync (ID "_param", SYNCleft))], [], [], SYNCleft)) |
+
+  SPAWN (Fnc ([(ID "_param", Spawn (ID "_param", SPAWNleft))], [], [], SPAWNleft)) |
+
   term_nt DOT term_nt (Fnc ([(term_nt1, term_nt2)], [], [], DOTleft)) |
   lams_nt (Fnc (lams_nt, [], [], lams_ntleft)) |
   LSQ terms_nt RSQ (Lst (terms_nt, LSQleft)) |
   LSQ RSQ (Lst ([], LSQleft)) |
   LCUR fields_nt RCUR (Rec (fields_nt, LCURleft)) |
   LCUR RCUR (Rec ([], LCURleft)) |
+  LANG term_nt RANG (Par (term_nt, LANGleft)) |
 
   LODASH (CatchAll LODASHleft) | 
-  TRUE (Bool (true, TRUEleft)) | 
-  FALSE (Bool (false, FALSEleft)) |
 
   ID (Id (ID, IDleft)) |
-  NUMLIT (Num (NUMLIT, NUMLITleft)) |
-  STRINGLIT (Str (STRINGLIT, STRINGLITleft)) |
+  NUM (Num (NUM, NUMleft)) |
+  STRING (Str (STRING, STRINGleft)) |
 
   LPAREN term_nt RPAREN (term_nt)
 
@@ -142,11 +114,11 @@ lams_ext_nt:
   RPAREN ([])
   
 terms_nt:
-  term_nt COMMA terms_nt (term_nt :: terms_nt) |
+  term_nt terms_nt (term_nt :: terms_nt) |
   term_nt ([term_nt])
 
 fields_nt:
-  field_nt COMMA fields_nt (field_nt :: fields_nt) |
+  field_nt fields_nt (field_nt :: fields_nt) |
   field_nt ([field_nt])
 
 field_nt:
