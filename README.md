@@ -27,7 +27,16 @@ The Robot Mind and Language
    1 . 1 |
    `S` , [`S` n] . fib [`S` n] + fib n 
 
- (* prefix keyword allowes using fib in prefix position *)
+
+ symbolic infix 8 = :
+   [a b] . [a `=` b] 
+
+ symbolic infixl 3 \/ :
+   [a b] . [a `\/` b] 
+
+ (* constraint logic precedence: EQUAL > NOT > AND > XOR > OR > EQUIV > IMP > *)
+
+ (* prefix keyword allows using fib in prefix position *)
  (* comma used to construct list without square brackets*)
 
  } ; 
@@ -36,9 +45,13 @@ The Robot Mind and Language
 
  (x ;= fact) ;= y .
  
- fib y
+ fib y ; 
 
- (* two dots opens record inside of following procedure *)
+ solve x :: x = 4 \/ x = 2 for [`Answer` x]
+
+ (* symbolic keyword wraps arguments in thunk, rather than evaluating arguments *)
+
+ (* semi opens preceding record inside or simply calls following procedure *)
  (* semi-eq applies right side to argument on left *)
 
  (* records do not have commas when within curly braces *)

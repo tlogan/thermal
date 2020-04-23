@@ -48,6 +48,8 @@ digit=[0-9];
 <INITIAL>(\ )+ => (ignore (inccol (size yytext)); lex());
 <INITIAL>"//"[^\n]*\n  => (incline (); lex());
 
+
+
 <INITIAL>";=" => (SEMIEQ (!linenum, inccol 1));
 <INITIAL>";" => (SEMI (!linenum, inccol 1));
 <INITIAL>":" => (COLON (!linenum, inccol 1));
@@ -62,9 +64,24 @@ digit=[0-9];
 <INITIAL>"/" => (SLASH (!linenum, inccol 1));
 <INITIAL>"%" => (CIRSLASH (!linenum, inccol 1));
 
+
+<INITIAL>"wadd" => (WADD (!linenum, inccol 1));
+<INITIAL>"wsub" => (WSUB (!linenum, inccol 1));
+<INITIAL>"wmul" => (WMUL (!linenum, inccol 1));
+<INITIAL>"wdiv_s" => (WDIV_S (!linenum, inccol 1));
+<INITIAL>"wdiv_u" => (WDIV_U (!linenum, inccol 1));
+<INITIAL>"wrem_s" => (WREM_S (!linenum, inccol 1));
+<INITIAL>"wrem_u" => (WREM_U (!linenum, inccol 1));
+
+<INITIAL>"fadd" => (FADD (!linenum, inccol 1));
+<INITIAL>"fsub" => (FSUB (!linenum, inccol 1));
+<INITIAL>"fmul" => (FMUL (!linenum, inccol 1));
+<INITIAL>"fdiv" => (FDIV (!linenum, inccol 1));
+
+<INITIAL>"equal" => (EQUAL (!linenum, inccol 1));
+
 <INITIAL>"alloc_mem" => (ALLOC_MEM (!linenum, inccol 1));
-<INITIAL>"width" => (WIDTH (!linenum, inccol 1));
-<INITIAL>"length" => (LENGTH (!linenum, inccol 1));
+<INITIAL>"size" => (SIZE (!linenum, inccol 1));
 <INITIAL>"slice" => (SLICE (!linenum, inccol 1));
 <INITIAL>"set" => (SET (!linenum, inccol 1));
 <INITIAL>"get" => (GET (!linenum, inccol 1));
@@ -78,7 +95,6 @@ digit=[0-9];
 <INITIAL>"sync" => (SYNC (!linenum, inccol 1));
 <INITIAL>"spawn" => (SPAWN (!linenum, inccol 1));
 
-<INITIAL>"~" => (TILDE (!linenum, inccol 1));
 
 <INITIAL>"[" => (LSQ (!linenum, inccol 1));
 <INITIAL>"]" => (RSQ (!linenum, inccol 1));
@@ -90,8 +106,12 @@ digit=[0-9];
 <INITIAL>"|>" => (RANGBAR (!linenum, inccol 1));
 
 <INITIAL>"_" => (LODASH (!linenum, inccol 1));
-<INITIAL>"true" => (TRUE (!linenum, inccol 1));
-<INITIAL>"false" => (FALSE (!linenum, inccol 1));
+
+<INITIAL>"symbolic" => (SYMB (!linenum, inccol 1));
+<INITIAL>"prefix" => (PREFIX (!linenum, inccol 1));
+<INITIAL>"postfix" => (POSTFIX (!linenum, inccol 1));
+<INITIAL>"infixl" => (INFIXL (!linenum, inccol 1));
+<INITIAL>"infixr" => (INFIXR (!linenum, inccol 1));
 
 <INITIAL>("-"?){digit}+(("."|","){digit}+)? =>
   (NUM (yytext, !linenum, inccol (size yytext)));
