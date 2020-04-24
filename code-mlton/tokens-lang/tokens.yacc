@@ -73,8 +73,8 @@ tree_nt:
 
 
 term_nt:
-  term_nt SEMI term_nt (Seq (term_nt1, term_nt2, SEMIleft)) |
   term_nt term_nt %prec APP (App (term_nt1, term_nt2, term_nt1left)) |
+  term_nt SEMI term_nt (Seq (term_nt1, term_nt2, SEMIleft)) |
   term_nt COMMA term_nt (Cns (term_nt1, term_nt2, COMMAleft)) |
   term_nt ID term_nt (Infix (ID, term_nt1, term_nt2, IDleft)) |
 
@@ -84,7 +84,7 @@ term_nt:
   SUB (Fnc ([(Id "_param", Sub (Id "_param", SUBleft))], [], [], SUBleft)) |
   MUL (Fnc ([(Id "_param", Mul (Id "_param", MULleft))], [], [], MULleft)) |
   DIV (Fnc ([(Id "_param", Div (Id "_param", DIVleft))], [], [], DIVleft)) |
-  REMV (Fnc ([(Id "_param", Rem (Id "_param", REMVleft))], [], [], REMVleft)) |
+  REM (Fnc ([(Id "_param", Rem (Id "_param", REMleft))], [], [], REMleft)) |
 
   ALLOC_CHAN (Fnc ([(Id "_param", AllocChan (Id "_param", ALLOC_CHANleft))], [], [], ALLOC_CHANleft)) |
 
