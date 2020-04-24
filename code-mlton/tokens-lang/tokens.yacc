@@ -73,8 +73,8 @@ tree_nt:
 
 
 term_nt:
-  term_nt term_nt %prec APP (App (term_nt1, term_nt2, term_nt1left)) |
   term_nt SEMI term_nt (Seq (term_nt1, term_nt2, SEMIleft)) |
+  term_nt term_nt %prec APP (App (term_nt1, term_nt2, term_nt1left)) |
   term_nt COMMA term_nt (Cns (term_nt1, term_nt2, COMMAleft)) |
   term_nt ID term_nt (Infix (ID, term_nt1, term_nt2, IDleft)) |
 

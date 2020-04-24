@@ -7,53 +7,48 @@ structure Tree = struct
   type ('a, 'b) store = ('a * 'b) list
 
   datatype term = 
-    Seq of (term * term * int) |
-    Select of (term * string * int) |
-    Pipe of (term * term * int) |
-    Open of (term * term * int) |
+
     Cns of (term * term * int) |
-    Equiv of (term * term * int) |
-    Implies of (term * term * int) |
-    Or of (term * term * int) |
-    And of (term * term * int) |
-    Equal of (term * term * int) |
+    Lst of ((term list) * int) |
 
-    Add of (term * term * int) |
-    Sub of (term * term * int) |
-    Mult of (term * term * int) |
-    Div of (term * term * int) |
-    Rem of (term * term * int) |
-  
-    AllocChan of int |
-    Send of (term * int) |
-    Recv of (term * int) |
-    Wrap of (term * int) |
-    Chse of (term * int) |
-    Spawn of (term * int) |
-    Sync of (term * int) |
-    Solve of (term * int) |
-    For of (term * int) |
-
-    Not of (term * int) |
-
-    Synced of (term * int) |
-  
-    App of (term * term * int) |
     Fnc of (
       ((term * term) list) *
       ((string, term) store) *
       ((string, (term * term) list) store) *
       int
     ) (* Fnc (lams, val_store, mutual_store, pos) *) |
-    Lst of ((term list) * int) |
+
+    App of (term * term * int) |
+
+    Seq of (term * term * int) |
+
     Rec of (((string * term) list) * int) |
+    Select of (term * string * int) |
+  
+    AllocChan of (term * int) |
+
+    Send of (term * int) |
+    Recv of (term * int) |
+
+    Wrap of (term * int) |
+    Chse of (term * int) |
+    Sync of (term * int) |
+
+    Spawn of (term * int) |
   
     CatchAll of int |
-    Bool of (bool * int) |
   
     Id of (string * int) |
-    Num of (string * int) |
+
     Str of (string * int) |
+
+    Num of (string * int) |
+
+    Add of (term * term * int) |
+    Sub of (term * term * int) |
+    Mult of (term * term * int) |
+    Div of (term * term * int) |
+    Rem of (term * term * int) |
 
     (* internal reps *)
     ChanId of int |
