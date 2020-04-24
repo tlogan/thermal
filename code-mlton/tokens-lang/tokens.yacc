@@ -7,6 +7,7 @@ open Tree
 %term
 
 
+  SEMI |
   SEMIEQ | COLON | COMMA |
   DOT | BAR | 
   CROSS | DASH | STAR | SLASH | CIRSLASH | 
@@ -17,7 +18,7 @@ open Tree
   ALLOC_CHAN | SEND | RECV | 
   WRAP | CHSE | SYNC | SPAWN | 
   LSQ | RSQ | LCUR | RCUR | LPAREN | RPAREN | LANG | RANG | LODASH | 
-  SYMB | PREFIX | POSTFIX | INFIXL | INFIXR |
+  SYM | INFIXL | INFIXR |
 
   NUM of string | WORD of string | FLOAT of string |
   STRING of string | HASHSTRING of string | ID of string |
@@ -41,21 +42,26 @@ open Tree
 %eop EOF
 %noshift EOF
 
+%right SEMI 
 %right BAR
 %right SEMIEQ DOT
 %right COMMA
 
 %left CROSS DASH 
 %left STAR SLASH CIRSLASH 
+%left APP 
 
-%nonassoc ALLOC_CHAN SEND RECV WRAP CHSE SPAWN SYNC TILDE SYNCED SOLVE FOR 
 
-%nonassoc LSQ RSQ LCUR RCUR LPAREN RPAREN 
 
-%nonassoc LODASH TRUE FALSE 
+%nonassoc ALLOC_CHAN SEND RECV WRAP CHSE SPAWN SYNC TILDE
+
+%nonassoc LSQ RSQ LCUR RCUR LPAREN RPAREN LANG RANG
+
+%nonassoc SYM 
+
+%nonassoc LODASH
 
 %nonassoc NUM STRING ID
-
 
 %start tree_nt
 
@@ -68,7 +74,8 @@ tree_nt:
 
 
 term_nt:
-  term_nt SEMIEQ term_nt (Pipe (term_nt1, term_nt2, SEMIEQleft)) |
+  term_nt SEMI term_nt (Seq (term_nt1, term_nt2, SEMIleft)) |
+  term_nt term_nt %prec APP (App (term_nt1, term_nt2, term_nt1left)) |
   term_nt COMMA term_nt (Cns (term_nt1, term_nt2, COMMAleft)) |
 
   SELECT (Fnc ([(ID "_param", Select (ID "_param", SELECTleft))], [], [], SELECTleft)) |
@@ -97,6 +104,8 @@ term_nt:
   LCUR fields_nt RCUR (Rec (fields_nt, LCURleft)) |
   LCUR RCUR (Rec ([], LCURleft)) |
   LANG term_nt RANG (Par (term_nt, LANGleft)) |
+
+  SYM term_nt (Fnc ([(CatchAll, term_nt)], [], [], SYMleft)) | 
 
   LODASH (CatchAll LODASHleft) | 
 

@@ -3,9 +3,16 @@ The Robot Mind and Language
 
 
  {
+
+ infixr 0 ;= :
+   [a f] . f a
+
+ infixl 8 * :
+   [a b] . mult [a b]
+
  fact :
    0 . 1 |
-   [`S` n] . (S n) * (n ;= fact)
+   n . n * (fact (n - 1)) 
 
  (* strings may be in back ticks *)
  (* lists do not have commas when within square braces *)
@@ -16,23 +23,23 @@ The Robot Mind and Language
 
  odd :
    0 . false |
-   [#S n] . even n 
+   [#S n] . even n
 
  (* strings without whitespace may use hash *)
 
  (* recursion defined within record syntax *)
 
- prefix fib : 
+ fib : 
    0 . 0 |
    1 . 1 |
    `S` , [`S` n] . fib [`S` n] + fib n 
 
 
- symbolic infix 8 = :
+ infix 8 = :
    [a b] . [a `=` b] 
 
- symbolic infixl 3 \/ :
-   [a b] . [a `\/` b] 
+ infixl 3 \/ :
+   [sym a sym b] . [a `\/` b] 
 
  (* constraint logic precedence: EQUAL > NOT > AND > XOR > OR > EQUIV > IMP > *)
 
@@ -43,13 +50,13 @@ The Robot Mind and Language
 
  4 ;= x . 
 
- (x ;= fact) ;= y .
+ (fact x) ;= y .
  
  fib y ; 
 
  solve x :: x = 4 \/ x = 2 for [`Answer` x]
 
- (* symbolic keyword wraps arguments in thunk, rather than evaluating arguments *)
+ (* sym keyword directs arguments for param to be wrapped in thunk, rather than evaluated *)
 
  (* semi opens preceding record inside or simply calls following procedure *)
  (* semi-eq applies right side to argument on left *)

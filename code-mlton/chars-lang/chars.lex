@@ -50,6 +50,7 @@ digit=[0-9];
 
 
 
+<INITIAL>";" => (SEMI (!linenum, inccol 1));
 <INITIAL>";=" => (SEMIEQ (!linenum, inccol 1));
 <INITIAL>":" => (COLON (!linenum, inccol 1));
 <INITIAL>"," => (COMMA (!linenum, inccol 1));
@@ -108,9 +109,7 @@ digit=[0-9];
 
 <INITIAL>"_" => (LODASH (!linenum, inccol 1));
 
-<INITIAL>"symbolic" => (SYMB (!linenum, inccol 1));
-<INITIAL>"prefix" => (PREFIX (!linenum, inccol 1));
-<INITIAL>"postfix" => (POSTFIX (!linenum, inccol 1));
+<INITIAL>"sym" => (SYM (!linenum, inccol 1));
 <INITIAL>"infixl" => (INFIXL (!linenum, inccol 1));
 <INITIAL>"infixr" => (INFIXR (!linenum, inccol 1));
 
