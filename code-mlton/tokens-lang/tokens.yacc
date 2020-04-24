@@ -73,18 +73,25 @@ tree_nt:
 
 
 term_nt:
-  term_nt SEMI term_nt (Seq (term_nt1, term_nt2, SEMIleft)) |
-  term_nt term_nt %prec APP (App (term_nt1, term_nt2, term_nt1left)) |
-  term_nt COMMA term_nt (Cns (term_nt1, term_nt2, COMMAleft)) |
-  term_nt ID term_nt (Infix (ID, term_nt1, term_nt2, IDleft)) |
 
+
+
+  term_nt COMMA term_nt (Cns (term_nt1, term_nt2, COMMAleft)) |
+  LSQ terms_nt RSQ (Lst (terms_nt, LSQleft)) |
+  LSQ RSQ (Lst ([], LSQleft)) |
+
+  term_nt FATARROW term_nt (Fnc ([(term_nt1, term_nt2)], [], [], FATARROWleft)) |
+  lams_nt (Fnc (lams_nt, [], [], lams_ntleft)) |
+
+  term_nt term_nt %prec APP (App (term_nt1, term_nt2, term_nt1left)) |
+  term_nt SEMI term_nt (Seq (term_nt1, term_nt2, SEMIleft)) |
+
+
+  LCUR fields_nt RCUR (Rec (fields_nt, LCURleft)) |
+  LCUR RCUR (Rec ([], LCURleft)) |
   term_nt DOT ID (Select (term_nt, ID, DOTleft) |
   SELECT (Fnc ([(Id "_param", Select (Id "_param", SELECTleft))], [], [], SELECTleft)) |
-  ADD (Fnc ([(Id "_param", Add (Id "_param", ADDleft))], [], [], ADDleft)) |
-  SUB (Fnc ([(Id "_param", Sub (Id "_param", SUBleft))], [], [], SUBleft)) |
-  MUL (Fnc ([(Id "_param", Mul (Id "_param", MULleft))], [], [], MULleft)) |
-  DIV (Fnc ([(Id "_param", Div (Id "_param", DIVleft))], [], [], DIVleft)) |
-  REM (Fnc ([(Id "_param", Rem (Id "_param", REMleft))], [], [], REMleft)) |
+  term_nt ID term_nt (Infix (ID, term_nt1, term_nt2, IDleft)) |
 
   ALLOC_CHAN (Fnc ([(Id "_param", AllocChan (Id "_param", ALLOC_CHANleft))], [], [], ALLOC_CHANleft)) |
 
@@ -98,12 +105,6 @@ term_nt:
 
   SPAWN (Fnc ([(Id "_param", Spawn (Id "_param", SPAWNleft))], [], [], SPAWNleft)) |
 
-  term_nt FATARROW term_nt (Fnc ([(term_nt1, term_nt2)], [], [], FATARROWleft)) |
-  lams_nt (Fnc (lams_nt, [], [], lams_ntleft)) |
-  LSQ terms_nt RSQ (Lst (terms_nt, LSQleft)) |
-  LSQ RSQ (Lst ([], LSQleft)) |
-  LCUR fields_nt RCUR (Rec (fields_nt, LCURleft)) |
-  LCUR RCUR (Rec ([], LCURleft)) |
   LANG term_nt RANG (Par (term_nt, LANGleft)) |
 
   SYM term_nt (Fnc ([(CatchAll, term_nt)], [], [], SYMleft)) | 
@@ -111,7 +112,17 @@ term_nt:
   LODASH (CatchAll LODASHleft) | 
 
   ID (Id (ID, IDleft)) |
+
   NUM (Num (NUM, NUMleft)) |
+
+  ADD (Fnc ([(Id "_param", Add (Id "_param", ADDleft))], [], [], ADDleft)) |
+  SUB (Fnc ([(Id "_param", Sub (Id "_param", SUBleft))], [], [], SUBleft)) |
+  MUL (Fnc ([(Id "_param", Mul (Id "_param", MULleft))], [], [], MULleft)) |
+  DIV (Fnc ([(Id "_param", Div (Id "_param", DIVleft))], [], [], DIVleft)) |
+  REM (Fnc ([(Id "_param", Rem (Id "_param", REMleft))], [], [], REMleft)) |
+
+
+
   STRING (Str (STRING, STRINGleft)) |
 
   LPAREN term_nt RPAREN (term_nt)

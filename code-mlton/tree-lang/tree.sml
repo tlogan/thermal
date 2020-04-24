@@ -22,8 +22,9 @@ structure Tree = struct
 
     Seq of (term * term * int) |
 
-    Rec of (((string * term) list) * int) |
+    Rec of (((string * string * term) list) * int) |
     Select of (term * string * int) |
+    Infix of (term * term * int) |
   
     AllocChan of (term * int) |
 
@@ -35,6 +36,7 @@ structure Tree = struct
     Sync of (term * int) |
 
     Spawn of (term * int) |
+    Par of (term * int) |
   
     CatchAll of int |
   
