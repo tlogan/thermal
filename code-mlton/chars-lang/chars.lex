@@ -54,6 +54,7 @@ digit=[0-9];
 <INITIAL>";=" => (SEMIEQ (!linenum, inccol 1));
 <INITIAL>":" => (COLON (!linenum, inccol 1));
 <INITIAL>"," => (COMMA (!linenum, inccol 1));
+<INITIAL>"=>" => (FATARROW (!linenum, inccol 1));
 <INITIAL>"." => (DOT (!linenum, inccol 1));
 <INITIAL>"|" => (BAR (!linenum, inccol 1));
 
