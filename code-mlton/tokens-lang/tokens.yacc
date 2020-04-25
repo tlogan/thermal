@@ -143,7 +143,6 @@ fields_nt:
   field_nt ([field_nt])
 
 field_nt:
-  INFIX ID COLON term_nt ((INFIX, ID, term_nt)) |
-  INFIXL ID COLON term_nt ((INFIXL, ID, term_nt)) |
-  INFIXR ID COLON term_nt ((INFIXR, ID, term_nt)) |
-  ID COLON term_nt (("", ID, term_nt)) |
+  INFIXL ID COLON term_nt ((InfixLeft, ID, term_nt)) |
+  INFIXR ID COLON term_nt ((InfixRight, ID, term_nt)) |
+  ID COLON term_nt ((InfixNone, ID, term_nt)) |

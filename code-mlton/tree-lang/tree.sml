@@ -6,6 +6,8 @@ structure Tree = struct
 
   type ('a, 'b) store = ('a * 'b) list
 
+  datatype infix_option = InfixLeft | InfixRight | InfixNone
+
   datatype term = 
 
     Cns of (term * term * int) |
@@ -22,7 +24,7 @@ structure Tree = struct
 
     Seq of (term * term * int) |
 
-    Rec of (((string * string * term) list) * int) |
+    Rec of (((infix_option * string * term) list) * int) |
     Select of (term * string * int) |
     Infix of (term * term * int) |
   
@@ -54,7 +56,7 @@ structure Tree = struct
 
     (* internal reps *)
     ChanId of int |
-    ThreadId of int |
+    ThreadId of int
 
   type contin = (
     ((term * term) list) *
