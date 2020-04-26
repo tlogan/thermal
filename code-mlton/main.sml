@@ -4,12 +4,11 @@ structure StringMap = MapFn(
   val sameKey = (op =)
 ) 
 
-val flagMapRef =
-  ref (StringMap.insertList (StringMap.empty, [
-    ("--lex", false),
-    ("--parse", false),
-    ("--help", false)
-    ]))
+val flagMapRef = ref (StringMap.insertList (StringMap.empty, [
+  ("--lex", false),
+  ("--parse", false),
+  ("--help", false)
+]))
 
 fun printHelp () = (
   print "Usage: ptltl [options]\n" ;
@@ -21,9 +20,9 @@ fun printHelp () = (
   print "\n"
 )
 
-fun readFile filename =
-  (TextIO.openIn filename) handle (IO.Io {name, function, cause}) =>
-    (print ("File \"" ^ name ^ "\" cannot be processed\n"); raise (Fail ""))
+fun readFile filename = (TextIO.openIn filename) handle (IO.Io {name, function, cause}) =>
+  (print ("File \"" ^ name ^ "\" cannot be processed\n"); raise (Fail "")
+)
 
 fun mkOutputFilename filename suffix = (let 
   val inStream = readFile filename
@@ -42,13 +41,13 @@ in
 end)
 
 
-fun readStream inStream n = 
-  case (TextIO.endOfStream inStream) of
-    true => "" |
-    false => TextIO.inputN (inStream, n)
+fun readStream inStream n = (case (TextIO.endOfStream inStream) of
+  true => "" |
+  false => TextIO.inputN (inStream, n)
+)
 
 
-fun lex [filename] = let
+fun lex [filename] = (let
   val inStream = readFile filename
   val lexer = Chars.makeLexer (readStream inStream)
 
@@ -61,30 +60,30 @@ fun lex [filename] = let
   end
 in
   (loop lexer; TextIO.closeIn inStream)
-end
+end)
 
 
-fun parse [filename] =
-let
+fun parse [filename] = (let
   val inStream = readFile filename
   val tokenStream = CharStream.makeTokenStream (readStream inStream)
   val (term, rem) = TokenStream.parse (15, tokenStream, printError filename)  
   val () = TextIO.closeIn inStream
 in
   print ((Tree.to_string term) ^ "\n") 
-end
+end)
 
-fun flagSet flagMap str =
-  case StringMap.lookup (flagMap, str) of
-    SOME b => b |
-    NONE => false
+fun flagSet flagMap str = (case StringMap.lookup (flagMap, str) of
+  SOME b => b |
+  NONE => false
+)
 
-fun handleRequest flagMap args = (
+fun handleRequest flagMap args = ((
   if flagSet flagMap "--lex" then lex args else ();
   if flagSet flagMap "--parse" then parse args else ()
 ) handle 
-   Fail m => print ("failed : " ^ m) |
-   x => (raise x)
+  Fail m => print ("failed : " ^ m) |
+  x => (raise x)
+)
 
 
 val argsRef = ref [] 

@@ -8,8 +8,9 @@ open Tree
 
 
   SEMI | APP | SELECT |
-  SEMIEQ | COLON | COMMA | SQ | CUR |
-  FATARROW | DOT | BAR | DIAM | 
+  SEMIEQ | COLON |
+  COMMA | SQ | CUR |
+  FATARROW | DOT | BAR |
   ADD | SUB | MUL | DIV | REM | 
   ADDW | SUBW | MULW | DIVSW | DIVUW | REMSW | REMUW | 
   ADDF | SUBF | MULF | DIVF | 
@@ -34,7 +35,7 @@ open Tree
   fields_nt of (infix_option * string * term) list |
   field_nt of (infix_option * string * term) |
   lams_nt of (term * term) list |
-  lams_ext_nt of (term * term) list
+  lam_nt of (term * term)
   
 
 %pos int
@@ -43,11 +44,10 @@ open Tree
 %noshift EOF
 
 %right SEMI 
-%right BAR
-%right SEMIEQ FATARROW
+%right SEMIEQ
 %right COMMA
-%right COLON 
-%right SQ CUR DIAM
+%right COLON BAR FATARROW
+%right SQ CUR
 
 %left DOT
 %left APP 
@@ -79,11 +79,14 @@ term_nt:
   term_nt COMMA term_nt (Cns (term_nt1, term_nt2, COMMAleft)) |
   SQ (Lst ([], SQleft)) |
 
-  lams_nt (Fnc (lams_nt, [], [], lams_ntleft)) |
+
+  lams_nt (Fnc (lams_nt, [], [], lam_ntleft)) |
 
   term_nt term_nt %prec APP (App (term_nt1, term_nt2, term_nt1left)) |
   term_nt SEMI term_nt (Seq (term_nt1, term_nt2, SEMIleft)) |
 
+
+  CUR  (Rec ([], CURleft)) |
   fields_nt (Rec (fields_nt, fields_ntleft)) |
 
   term_nt DOT ID (Select (Lst ([term_nt, Str (ID, ~1)], ~1), DOTleft)) |
@@ -125,12 +128,15 @@ term_nt:
   LPAREN term_nt RPAREN (term_nt)
 
 lams_nt:
-  term_nt FATARROW term_nt lams_nt BAR ((term_nt1, term_nt2) :: lams_nt) |
-  DIAM ([])
+  BAR lam_nt lams_nt (lam_nt :: lams_nt) |
+  BAR lam_nt ([lam_nt])
+
+lam_nt:
+  term_nt FATARROW term_nt (term_nt1, term_nt2)
   
 fields_nt:
-  field_nt COMMA fields_nt (field_nt :: fields_nt) |
-  CUR ([])
+  field_nt fields_nt %prec COLON (field_nt :: fields_nt) |
+  field_nt %prec COLON ([field_nt])
 
 field_nt:
   INFIXL ID COLON term_nt ((InfixLeft, ID, term_nt)) |

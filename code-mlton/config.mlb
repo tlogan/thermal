@@ -11,6 +11,6 @@ in
   ann
     "nonexhaustiveMatch ignore"
   in
-    app.sml
+    main.sml
   end
 end
