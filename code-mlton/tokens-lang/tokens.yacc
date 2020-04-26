@@ -76,8 +76,8 @@ tree_nt:
 
 term_nt:
 
-  term_nt COMMA term_nt (LstCns (term_nt1, term_nt2, COMMAleft)) |
-  SQ (LstNil (SQleft)) |
+  term_nt COMMA term_nt (Cns (term_nt1, term_nt2, COMMAleft)) |
+  SQ (Lst ([], SQleft)) |
 
   lams_nt (Fnc (lams_nt, [], [], lams_ntleft)) |
 
