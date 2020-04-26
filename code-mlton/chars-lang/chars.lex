@@ -54,6 +54,11 @@ digit=[0-9];
 <INITIAL>";=" => (SEMIEQ (!linenum, inccol 1));
 <INITIAL>":" => (COLON (!linenum, inccol 1));
 <INITIAL>"," => (COMMA (!linenum, inccol 1));
+
+<INITIAL>"[]" => (SQ (!linenum, inccol 1));
+<INITIAL>"{}" => (CURL (!linenum, inccol 1));
+<INITIAL>"<>" => (DIAM (!linenum, inccol 1));
+
 <INITIAL>"=>" => (FATARROW (!linenum, inccol 1));
 <INITIAL>"." => (DOT (!linenum, inccol 1));
 <INITIAL>"|" => (BAR (!linenum, inccol 1));
@@ -99,10 +104,6 @@ digit=[0-9];
 <INITIAL>"spawn" => (SPAWN (!linenum, inccol 1));
 
 
-<INITIAL>"[" => (LSQ (!linenum, inccol 1));
-<INITIAL>"]" => (RSQ (!linenum, inccol 1));
-<INITIAL>"{" => (LCUR (!linenum, inccol 1));
-<INITIAL>"}" => (RCUR (!linenum, inccol 1));
 <INITIAL>"(" => (LPAREN (!linenum, inccol 1));
 <INITIAL>")" => (RPAREN (!linenum, inccol 1));
 <INITIAL>"<|" => (LANG (!linenum, inccol 1));
