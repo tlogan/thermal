@@ -56,7 +56,7 @@ digit=[0-9];
 <INITIAL>"," => (COMMA (!linenum, inccol 1));
 
 <INITIAL>"[]" => (SQ (!linenum, inccol 1));
-<INITIAL>"{}" => (CURL (!linenum, inccol 1));
+<INITIAL>"{}" => (CUR (!linenum, inccol 1));
 <INITIAL>"<>" => (DIAM (!linenum, inccol 1));
 
 <INITIAL>"=>" => (FATARROW (!linenum, inccol 1));

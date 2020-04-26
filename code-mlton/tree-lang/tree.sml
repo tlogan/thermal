@@ -25,8 +25,8 @@ structure Tree = struct
     Seq of (term * term * int) |
 
     Rec of (((infix_option * string * term) list) * int) |
-    Select of (term * string * int) |
-    Infix of (term * term * int) |
+    Select of (term * int) |
+    Infix of (string * term * term * int) |
   
     AllocChan of (term * int) |
 
@@ -40,6 +40,8 @@ structure Tree = struct
     Spawn of (term * int) |
     Par of (term * int) |
   
+    Sym of (term * int) |
+
     CatchAll of int |
   
     Id of (string * int) |
@@ -48,11 +50,11 @@ structure Tree = struct
 
     Num of (string * int) |
 
-    Add of (term * term * int) |
-    Sub of (term * term * int) |
-    Mult of (term * term * int) |
-    Div of (term * term * int) |
-    Rem of (term * term * int) |
+    Add of (term * int) |
+    Sub of (term * int) |
+    Mul of (term * int) |
+    Div of (term * int) |
+    Rem of (term * int) |
 
     (* internal reps *)
     ChanId of int |
@@ -82,6 +84,104 @@ structure Tree = struct
     Mode_Finish of term
 
 
+
+  fun to_string t = (case t of
+    Cns (t1, t2, pos) => String.surround ("Cns@" ^ (Int.toString pos)) (
+      (to_string t1) ^ ",\n" ^ (to_string t2)) |
+
+    Lst (ts, pos) => String.surround ("Lst@" ^ (Int.toString pos)) (
+      String.concatWith ",\n" (List.map to_string ts)
+    ) |
+
+
+    Fnc (lams, fnc_store, mutual_store, pos) => String.surround ("Fnc@" ^ (Int.toString pos)) (
+      String.concatWith ",\n" (List.map to_string_from_lam lams)) |
+
+
+    App (t1, t2, pos) => String.surround ("App@" ^ (Int.toString pos)) (
+      (to_string t1) ^ ",\n" ^
+      (to_string t2)
+    ) |
+
+    Seq (t1, t2, pos) => String.surround ("Seq@" ^ (Int.toString pos)) (
+      (to_string t1) ^ ",\n" ^ (to_string t2)
+    ) |
+
+    Rec (fs, pos) => String.surround ("Rec@" ^ (Int.toString pos)) (
+      String.concatWith ",\n" (List.map to_string_from_field fs)
+    ) |
+
+    Select (t, pos) => String.surround ("Select@" ^ (Int.toString pos)) (
+      (to_string t)
+    ) |
+
+    AllocChan (t, pos) => String.surround ("AllocChan@" ^ (Int.toString pos)) (
+      to_string t
+    ) |
+
+    Send (t, pos) => String.surround ("Send@" ^ (Int.toString pos)) (
+      (to_string t)
+    ) |
+
+    Recv (t, pos) => String.surround ("Recv@" ^ (Int.toString pos)) (
+      (to_string t)
+    ) |
+
+    Wrap (t, pos) => String.surround ("Wrap@" ^ (Int.toString pos)) (
+      (to_string t)
+    ) |
+
+    Chse (t, pos) => String.surround ("Chse@" ^ (Int.toString pos)) (
+      (to_string t)
+    ) |
+
+    Sync (t, pos) => String.surround ("Sync@" ^ (Int.toString pos)) (
+      (to_string t)
+    ) |
+
+    Spawn (t, pos) => String.surround ("Spawn@" ^ (Int.toString pos)) (
+      (to_string t)
+    ) |
+  
+    CatchAll pos =>
+      "CatchAll@" ^ (Int.toString pos) |
+
+    Id (name, pos) =>
+      "(Id@" ^ (Int.toString pos) ^ " " ^ name ^ ")" |
+
+    Num (num, pos) =>
+      "(Num@" ^ (Int.toString pos) ^ " " ^ num ^ ")" |
+
+    Str (str, pos) =>
+      "(Stringit@" ^ (Int.toString pos) ^ " " ^ str ^ ")" |
+
+    ChanId i =>
+      "(ChanId " ^ (Int.toString i) ^ ")" |
+
+    ThreadId i =>
+      "(ThreadId " ^ (Int.toString i) ^ ")" |
+
+    _ =>
+      "(NOT YET IMPLEMENTED)"
+
+  )
+
+  and to_string_from_lam (t1, t2) = String.surround "Lam" (
+    (to_string t1) ^ ",\n" ^
+    (to_string t2)
+  )
+
+  and to_string_from_field (fix_op, name, t) = String.surround name (
+    (to_string_from_infix_option fix_op) ^ (to_string t)
+  )
+
+  and to_string_from_infix_option fix_op = (case fix_op of
+    InfixLeft => "INFIXL " |
+    InfixRight => "INFIXR " |
+    InfixNone => ""
+  )
+
+
 (*
 **
 **  val empty_table = [] 
@@ -108,162 +208,6 @@ structure Tree = struct
 **  ) 
 **
 **
-**  fun to_string t = (case t of
-**    Seq (t1, t2, pos) => String.surround ("Seq@" ^ (Int.toString pos)) (
-**      (to_string t1) ^ ",\n" ^ (to_string t2)
-**    ) |
-**
-**    Select (t1, name, pos) => String.surround ("Selec@" ^ (Int.toString pos)) (
-**      (to_string t1) ^ ", " ^ name
-**    ) |
-**
-**    Pipe (t1, t2, pos) => String.surround ("Pipe@" ^ (Int.toString pos)) (
-**      (to_string t1) ^ ",\n" ^ (to_string t2)
-**    ) |
-**
-**    Open (t1, t2, pos) => String.surround ("Open@" ^ (Int.toString pos)) (
-**      (to_string t1) ^ ",\n" ^ (to_string t2)
-**    ) |
-**
-**    Cns (t1, t2, pos) => String.surround ("Cns@" ^ (Int.toString pos)) (
-**      (to_string t1) ^ ",\n" ^ (to_string t2)) |
-**
-**    Equiv (t1, t2, pos) => String.surround ("Equiv@_" ^ (Int.toString pos)) (
-**      (to_string t1) ^ ",\n" ^ (to_string t2)
-**    ) |
-**
-**    Implies (t1, t2, pos) => String.surround ("Implies@" ^ (Int.toString pos)) (
-**      (to_string t1) ^ ",\n" ^ (to_string t2)
-**    ) |
-**
-**    Or (t1, t2, pos) => String.surround ("Or@" ^ (Int.toString pos)) (
-**      (to_string t1) ^ ",\n" ^ (to_string t2)
-**    ) |
-**
-**    And (t1, t2, pos) => String.surround ("And@" ^ (Int.toString pos)) (
-**      (to_string t1) ^ ",\n" ^ (to_string t2)
-**    ) |
-**
-**    Equal (t1, t2, pos) => String.surround ("Equal@" ^ (Int.toString pos)) (
-**      (to_string t1) ^ ",\n" ^ (to_string t2)
-**    ) |
-**
-**    Add (t1, t2, pos) => String.surround ("Add@" ^ (Int.toString pos)) (
-**      (to_string t1) ^ ",\n" ^ (to_string t2)
-**    ) |
-**
-**    Sub (t1, t2, pos) => String.surround ("Sub@" ^ (Int.toString pos)) (
-**      (to_string t1) ^ ",\n" ^ (to_string t2)
-**    ) |
-**
-**    Mult (t1, t2, pos) => String.surround ("Mult@" ^ (Int.toString pos)) (
-**      (to_string t1) ^ ",\n" ^ (to_string t2)
-**    ) |
-**
-**    Div (t1, t2, pos) => String.surround ("Div@" ^ (Int.toString pos)) (
-**      (to_string t1) ^ ",\n" ^ (to_string t2)
-**    ) |
-**
-**    Rem (t1, t2, pos) => String.surround ("Mod@" ^ (Int.toString pos)) (
-**      (to_string t1) ^ ",\n" ^ (to_string t2)
-**    ) |
-**
-**    AllocChan pos =>
-**      "AllocChan@" ^ (Int.toString pos) |
-**
-**    Send (t, pos) => String.surround ("Send@" ^ (Int.toString pos)) (
-**      (to_string t)
-**    ) |
-**
-**    Recv (t, pos) => String.surround ("Recv@" ^ (Int.toString pos)) (
-**      (to_string t)
-**    ) |
-**
-**    Wrap (t, pos) => String.surround ("Wrap@" ^ (Int.toString pos)) (
-**      (to_string t)
-**    ) |
-**
-**    Chse (t, pos) => String.surround ("Chse@" ^ (Int.toString pos)) (
-**      (to_string t)
-**    ) |
-**
-**    Spawn (t, pos) => String.surround ("Spawn@" ^ (Int.toString pos)) (
-**      (to_string t)
-**    ) |
-**
-**    Sync (t, pos) => String.surround ("Sync@" ^ (Int.toString pos)) (
-**      (to_string t)
-**    ) |
-**
-**    Solve (t, pos) => String.surround ("Solve@" ^ (Int.toString pos)) (
-**      (to_string t)
-**    ) |
-**
-**    For (t, pos) => String.surround ("For@" ^ (Int.toString pos)) (
-**      (to_string t)
-**    ) |
-**
-**    Not (t, pos) => String.surround ("Not@" ^ (Int.toString pos)) (
-**      (to_string t)
-**    ) |
-**
-**
-**    Synced (t, pos) => String.surround ("Synced@" ^ (Int.toString pos)) (
-**      (to_string t)
-**    ) |
-**
-**    App (t1, t2, pos) => String.surround ("App@" ^ (Int.toString pos)) (
-**      (to_string t1) ^ ",\n" ^
-**      (to_string t2)
-**    ) |
-**
-**
-**    Fnc (lams, fnc_store, mutual_store, pos) => String.surround ("Fnc@" ^ (Int.toString pos)) (
-**      String.concatWith ",\n" (List.map to_string_from_lam lams)) |
-**
-**    Lst (ts, pos) => String.surround ("Lst@" ^ (Int.toString pos)) (
-**      String.concatWith ",\n" (List.map to_string ts)
-**    ) |
-**
-**    Rec (fs, pos) => String.surround ("Rec@" ^ (Int.toString pos)) (
-**      String.concatWith ",\n" (List.map to_string_from_field fs)
-**    ) |
-**  
-**    CatchAll pos =>
-**      "CatchAll@" ^ (Int.toString pos) |
-**
-**    Bool (true, pos) =>
-**      "true@" ^ (Int.toString pos) |
-**
-**    Bool (false, pos) =>
-**      "false@" ^ (Int.toString pos) |
-**  
-**    Id (name, pos) =>
-**      "(Id@" ^ (Int.toString pos) ^ " " ^ name ^ ")" |
-**
-**    Num (num, pos) =>
-**      "(Num@" ^ (Int.toString pos) ^ " " ^ num ^ ")" |
-**
-**    Str (str, pos) =>
-**      "(Stringit@" ^ (Int.toString pos) ^ " " ^ str ^ ")" |
-**
-**    ChanId i =>
-**      "(ChanId " ^ (Int.toString i) ^ ")" |
-**
-**    ThreadId i =>
-**      "(ThreadId " ^ (Int.toString i) ^ ")" |
-**
-**    Backchain _ =>
-**      "Backchain"
-**  )
-**
-**  and to_string_from_lam (t1, t2) = String.surround "Lam" (
-**    (to_string t1) ^ ",\n" ^
-**    (to_string t2)
-**  )
-**
-**  and to_string_from_field (name, t) = String.surround name (
-**    (to_string t))
 **
 **
 **  fun fnc_equal (f1, f2) = (let
@@ -1208,8 +1152,8 @@ structure Tree = struct
 **
 **    ) |
 **
-**    Mult (t1, t2, pos) => normalize_pair_reduce (
-**      (t1, t2), fn (t1, t2) => Mult (t1, t2, pos),
+**    Mul (t1, t2, pos) => normalize_pair_reduce (
+**      (t1, t2), fn (t1, t2) => Mul (t1, t2, pos),
 **      val_store, cont_stack, thread_id,
 **      chan_store, block_store, sync_store, cnt,
 **      (fn

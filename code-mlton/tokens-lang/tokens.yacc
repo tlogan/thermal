@@ -31,8 +31,8 @@ open Tree
   tree_nt of term |
   term_nt of term |
   terms_nt of term list |
-  fields_nt of (string * string * term) list |
-  field_nt of (string * string * term) |
+  fields_nt of (infix_option * string * term) list |
+  field_nt of (infix_option * string * term) |
   lams_nt of (term * term) list |
   lams_ext_nt of (term * term) list
   
@@ -86,25 +86,25 @@ term_nt:
 
   fields_nt (Rec (fields_nt, fields_ntleft)) |
 
-  term_nt DOT ID (Select (term_nt, ID, DOTleft)) |
-  SELECT (Fnc ([(Id "_param", Select (Id "_param", SELECTleft))], [], [], SELECTleft)) |
+  term_nt DOT ID (Select (Lst ([term_nt, Str (ID, ~1)], ~1), DOTleft)) |
+  SELECT (Fnc ([(Id ("_param", ~1), Select (Id ("_param", ~1), SELECTleft))], [], [], SELECTleft)) |
   term_nt ID term_nt (Infix (ID, term_nt1, term_nt2, IDleft)) |
 
-  ALLOC_CHAN (Fnc ([(Id "_param", AllocChan (Id "_param", ALLOC_CHANleft))], [], [], ALLOC_CHANleft)) |
+  ALLOC_CHAN (Fnc ([(Id ("_param", ~1), AllocChan (Id ("_param", ~1), ALLOC_CHANleft))], [], [], ALLOC_CHANleft)) |
 
-  SEND (Fnc ([(Id "_param", Send (Id "_param", SENDleft))], [], [], SENDleft)) |
-  RECV (Fnc ([(Id "_param", Recv (Id "_param", RECVleft))], [], [], RECVleft)) |
+  SEND (Fnc ([(Id ("_param", ~1), Send (Id ("_param", ~1), SENDleft))], [], [], SENDleft)) |
+  RECV (Fnc ([(Id ("_param", ~1), Recv (Id ("_param", ~1), RECVleft))], [], [], RECVleft)) |
 
-  WRAP (Fnc ([(Id "_param", Wrap (Id "_param", WRAPleft))], [], [], WRAPleft)) |
-  CHSE (Fnc ([(Id "_param", Chse (Id "_param", CHSEleft))], [], [], CHSEleft)) |
+  WRAP (Fnc ([(Id ("_param", ~1), Wrap (Id ("_param", ~1), WRAPleft))], [], [], WRAPleft)) |
+  CHSE (Fnc ([(Id ("_param", ~1), Chse (Id ("_param", ~1), CHSEleft))], [], [], CHSEleft)) |
 
-  SYNC (Fnc ([(Id "_param", Sync (Id "_param", SYNCleft))], [], [], SYNCleft)) |
+  SYNC (Fnc ([(Id ("_param", ~1), Sync (Id ("_param", ~1), SYNCleft))], [], [], SYNCleft)) |
 
-  SPAWN (Fnc ([(Id "_param", Spawn (Id "_param", SPAWNleft))], [], [], SPAWNleft)) |
+  SPAWN (Fnc ([(Id ("_param", ~1), Spawn (Id ("_param", ~1), SPAWNleft))], [], [], SPAWNleft)) |
 
   LANG term_nt RANG (Par (term_nt, LANGleft)) |
 
-  SYM term_nt (Fnc ([(CatchAll, term_nt)], [], [], SYMleft)) | 
+  SYM term_nt (Sym (term_nt, SYMleft)) | 
 
   LODASH (CatchAll LODASHleft) | 
 
@@ -112,11 +112,11 @@ term_nt:
 
   NUM (Num (NUM, NUMleft)) |
 
-  ADD (Fnc ([(Id "_param", Add (Id "_param", ADDleft))], [], [], ADDleft)) |
-  SUB (Fnc ([(Id "_param", Sub (Id "_param", SUBleft))], [], [], SUBleft)) |
-  MUL (Fnc ([(Id "_param", Mul (Id "_param", MULleft))], [], [], MULleft)) |
-  DIV (Fnc ([(Id "_param", Div (Id "_param", DIVleft))], [], [], DIVleft)) |
-  REM (Fnc ([(Id "_param", Rem (Id "_param", REMleft))], [], [], REMleft)) |
+  ADD (Fnc ([(Id ("_param", ~1), Add (Id ("_param", ~1), ADDleft))], [], [], ADDleft)) |
+  SUB (Fnc ([(Id ("_param", ~1), Sub (Id ("_param", ~1), SUBleft))], [], [], SUBleft)) |
+  MUL (Fnc ([(Id ("_param", ~1), Mul (Id ("_param", ~1), MULleft))], [], [], MULleft)) |
+  DIV (Fnc ([(Id ("_param", ~1), Div (Id ("_param", ~1), DIVleft))], [], [], DIVleft)) |
+  REM (Fnc ([(Id ("_param", ~1), Rem (Id ("_param", ~1), REMleft))], [], [], REMleft)) |
 
 
 
