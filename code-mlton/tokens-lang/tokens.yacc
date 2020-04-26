@@ -8,8 +8,8 @@ open Tree
 
 
   SEMI | APP | SELECT |
-  SEMIEQ | COLON | COMMA | DCOLON |
-  FATARROW | DOT | BAR | 
+  SEMIEQ | COLON | COMMA | SQ | CUR |
+  FATARROW | DOT | BAR | DIAM | 
   ADD | SUB | MUL | DIV | REM | 
   ADDW | SUBW | MULW | DIVSW | DIVUW | REMSW | REMUW | 
   ADDF | SUBF | MULF | DIVF | 
@@ -46,14 +46,16 @@ open Tree
 %right BAR
 %right SEMIEQ FATARROW
 %right COMMA
-%right SQ CURL DIAM
+%right COLON 
+%right SQ CUR DIAM
 
 %left DOT
 %left APP 
 
 %right SYM 
 
-%left ALLOC_CHAN SEND RECV WRAP CHSE SPAWN SYNC ADD SUB MUL DIV REM SELECT
+%left ALLOC_CHAN SEND RECV WRAP CHSE SPAWN SYNC ADD SUB MUL DIV REM SELECT 
+%nonassoc INFIXL INFIXR
 
 %left LPAREN LANG
 %right RPAREN RANG
@@ -84,7 +86,7 @@ term_nt:
 
   fields_nt (Rec (fields_nt, fields_ntleft)) |
 
-(* term_nt DOT ID (Select (term_nt, ID, DOTleft)) | *)
+  term_nt DOT ID (Select (term_nt, ID, DOTleft)) |
   SELECT (Fnc ([(Id "_param", Select (Id "_param", SELECTleft))], [], [], SELECTleft)) |
   term_nt ID term_nt (Infix (ID, term_nt1, term_nt2, IDleft)) |
 
@@ -126,10 +128,6 @@ lams_nt:
   term_nt FATARROW term_nt lams_nt BAR ((term_nt1, term_nt2) :: lams_nt) |
   DIAM ([])
   
-terms_nt:
-  term_nt terms_nt %prec LSQ (term_nt :: terms_nt) |
-  term_nt %prec LSQ ([term_nt])
-
 fields_nt:
   field_nt COMMA fields_nt (field_nt :: fields_nt) |
   CUR ([])
