@@ -51,13 +51,8 @@ digit=[0-9];
 
 
 <INITIAL>";" => (SEMI (!linenum, inccol 1));
-<INITIAL>";=" => (SEMIEQ (!linenum, inccol 1));
 <INITIAL>":" => (COLON (!linenum, inccol 1));
-<INITIAL>"," => (COMMA (!linenum, inccol 1));
-
-<INITIAL>"[]" => (SQ (!linenum, inccol 1));
-<INITIAL>"{}" => (CUR (!linenum, inccol 1));
-<INITIAL>"<>" => (DIAM (!linenum, inccol 1));
+<INITIAL>"#" => (HASH (!linenum, inccol 1));
 
 <INITIAL>"=>" => (FATARROW (!linenum, inccol 1));
 <INITIAL>"." => (DOT (!linenum, inccol 1));
@@ -126,9 +121,8 @@ digit=[0-9];
   (FLOAT (yytext, !linenum, inccol (size yytext)));
 
 <INITIAL>"`"([^"`"]|"\`")*"`" => (STRING (yytext, !linenum, inccol (size yytext)));
-<INITIAL>"#"([^"#"\s]|"\#")+ => (HASHSTRING (yytext, !linenum, inccol (size yytext)));
 
-<INITIAL>[^"_"\s"#""`"][^\s"#""`"]* =>
+<INITIAL>[^"_"\s"`"][^\s"`"]* =>
   (ID (yytext, !linenum, inccol (size yytext)));
 
 <INITIAL>. => (BAD (!linenum, inccol (print ("BAD: " ^ yytext ^ "\n"); size yytext))); 

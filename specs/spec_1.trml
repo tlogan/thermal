@@ -4,11 +4,9 @@ alloc_chan _ ;= resp_ch ;
 spawn ( 
   loop : | cnt => (
     sync (
-      (cnt % 7 = 0) ;= (
-        true => send [req_chan, []] |
-        false => send [resp_chan, []] |
-        <>
-      )
+      (equal (cnt % 7.  0.)) ;=
+        | `true` => send (req_chan, _,)
+        | `false` => send (resp_chan, _,)
     ) ;
     loop (cnt + 1)
   );
@@ -19,15 +17,13 @@ spawn (
 spawn (
   loop : | _ => (
     sync (
-      chse [
+      chse (
         recv req_chan,
-        recv resp_chan
-      ]
+        recv resp_chan,
+      )
     ) ;
     loop _
-  ),
-
-  {} ;
+  ) ;
 
   loop
 ) ;

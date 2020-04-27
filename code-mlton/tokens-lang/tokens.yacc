@@ -8,9 +8,9 @@ open Tree
 
 
   SEMI | APP | SELECT |
-  SEMIEQ | COLON |
-  COMMA | SQ | CUR |
-  FATARROW | DOT | BAR |
+  COLON |
+  DOT |
+  FATARROW | HASH | BAR |
   ADD | SUB | MUL | DIV | REM | 
   ADDW | SUBW | MULW | DIVSW | DIVUW | REMSW | REMUW | 
   ADDF | SUBF | MULF | DIVF | 
@@ -22,7 +22,7 @@ open Tree
   SYM | INFIXL | INFIXR |
 
   NUM of string | WORD of string | FLOAT of string |
-  STRING of string | HASHSTRING of string | ID of string |
+  STRING of string | ID of string |
 
   BAD | EOF
 
@@ -44,12 +44,10 @@ open Tree
 %noshift EOF
 
 %right SEMI 
-%right SEMIEQ
-%right COMMA
+%right DOT
 %right COLON BAR FATARROW
-%right SQ CUR
 
-%left DOT
+%left HASH
 %left APP 
 
 %right SYM 
@@ -76,20 +74,17 @@ tree_nt:
 
 term_nt:
 
-  term_nt COMMA term_nt (Cns (term_nt1, term_nt2, COMMAleft)) |
-  SQ (Lst ([], SQleft)) |
-
+  term_nt DOT term_nt (Cns (term_nt1, term_nt2, DOTleft)) |
+  term_nt DOT (Cns (term_nt1, CatchAll ~1, DOTleft)) |
 
   lams_nt (Fnc (lams_nt, [], [], lam_ntleft)) |
 
   term_nt term_nt %prec APP (App (term_nt1, term_nt2, term_nt1left)) |
   term_nt SEMI term_nt (Seq (term_nt1, term_nt2, SEMIleft)) |
 
-
-  CUR  (Rec ([], CURleft)) |
   fields_nt (Rec (fields_nt, fields_ntleft)) |
 
-  term_nt DOT ID (Select (Lst ([term_nt, Str (ID, ~1)], ~1), DOTleft)) |
+  term_nt HASH ID (Select (Lst ([term_nt, Str (ID, ~1)], ~1), HASHleft)) |
   SELECT (Fnc ([(Id ("_param", ~1), Select (Id ("_param", ~1), SELECTleft))], [], [], SELECTleft)) |
   term_nt ID term_nt (Infix (ID, term_nt1, term_nt2, IDleft)) |
 
