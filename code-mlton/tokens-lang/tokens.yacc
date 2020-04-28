@@ -77,7 +77,7 @@ term_nt:
   term_nt DOT term_nt (Cns (term_nt1, term_nt2, DOTleft)) |
   term_nt DOT (Cns (term_nt1, CatchAll ~1, DOTleft)) |
 
-  lams_nt (Fnc (lams_nt, [], [], lam_ntleft)) |
+  lams_nt (Fnc (lams_nt, [], [], lams_ntleft)) |
 
   term_nt term_nt %prec APP (App (term_nt1, term_nt2, term_nt1left)) |
   term_nt SEMI term_nt (Seq (term_nt1, term_nt2, SEMIleft)) |
