@@ -51,12 +51,12 @@ digit=[0-9];
 
 
 <INITIAL>";" => (SEMI (!linenum, inccol 1));
+<INITIAL>"," => (COMMA (!linenum, inccol 1));
 <INITIAL>":" => (COLON (!linenum, inccol 1));
 <INITIAL>"\\" => (BSLASH (!linenum, inccol 1));
 <INITIAL>"[" => (LSQ (!linenum, inccol 1));
 <INITIAL>"]" => (RSQ (!linenum, inccol 1));
 
-<INITIAL>"=>" => (FATARROW (!linenum, inccol 1));
 <INITIAL>"." => (DOT (!linenum, inccol 1));
 <INITIAL>"|" => (BAR (!linenum, inccol 1));
 
