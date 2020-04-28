@@ -10,7 +10,7 @@ open Tree
   SEMI | APP | SELECT |
   COLON |
   DOT |
-  FATARROW | HASH | BAR |
+  FATARROW | BSLASH | LSQ | RSQ | BAR |
   ADD | SUB | MUL | DIV | REM | 
   ADDW | SUBW | MULW | DIVSW | DIVUW | REMSW | REMUW | 
   ADDF | SUBF | MULF | DIVF | 
@@ -47,7 +47,6 @@ open Tree
 %right DOT
 %right COLON BAR FATARROW
 
-%left HASH
 %left APP 
 
 %right SYM 
@@ -61,6 +60,10 @@ open Tree
 %left LODASH
 
 %left NUM STRING ID
+
+%left BSLASH
+%left LSQ 
+%left RSQ 
 
 %start tree_nt
 
@@ -84,8 +87,10 @@ term_nt:
 
   fields_nt (Rec (fields_nt, fields_ntleft)) |
 
-  term_nt HASH ID (Select (Lst ([term_nt, Str (ID, ~1)], ~1), HASHleft)) |
+  term_nt LSQ term_nt RSQ (Select (Lst ([term_nt1, term_nt2], ~1), LSQleft)) |
+  term_nt BSLASH ID (Select (Lst ([term_nt, Str (ID, ~1)], ~1), BSLASHleft)) |
   SELECT (Fnc ([(Id ("_param", ~1), Select (Id ("_param", ~1), SELECTleft))], [], [], SELECTleft)) |
+
   term_nt ID term_nt (Infix (ID, term_nt1, term_nt2, IDleft)) |
 
   ALLOC_CHAN (Fnc ([(Id ("_param", ~1), AllocChan (Id ("_param", ~1), ALLOC_CHANleft))], [], [], ALLOC_CHANleft)) |
