@@ -20,6 +20,8 @@ structure Tree = struct
       int
     ) (* Fnc (lams, val_store, mutual_store, pos) *) |
 
+    Compo of (term * term * int) |
+
     App of (term * term * int) |
 
     Seq of (term * term * int) |
@@ -42,7 +44,7 @@ structure Tree = struct
   
     Sym of (term * int) |
 
-    CatchAll of int |
+    Blank of int |
   
     Id of (string * int) |
 
@@ -97,6 +99,10 @@ structure Tree = struct
     Fnc (lams, fnc_store, mutual_store, pos) => String.surround ("Fnc@" ^ (Int.toString pos)) (
       String.concatWith ",\n" (List.map to_string_from_lam lams)) |
 
+    Compo (t1, t2, pos) => String.surround ("Compo@" ^ (Int.toString pos)) (
+      (to_string t1) ^ ",\n" ^
+      (to_string t2)
+    ) |
 
     App (t1, t2, pos) => String.surround ("App@" ^ (Int.toString pos)) (
       (to_string t1) ^ ",\n" ^
@@ -143,8 +149,8 @@ structure Tree = struct
       (to_string t)
     ) |
   
-    CatchAll pos =>
-      "CatchAll@" ^ (Int.toString pos) |
+    Blank pos =>
+      "Blank@" ^ (Int.toString pos) |
 
     Id (name, pos) =>
       "(Id@" ^ (Int.toString pos) ^ " " ^ name ^ ")" |
@@ -320,7 +326,7 @@ structure Tree = struct
 **      
 **    ) |
 **
-**    (CatchAll _, _) =>
+**    (Blank _, _) =>
 **      SOME val_store |
 **
 **    (Bool (b, _), Bool (bv, _)) => (
@@ -1485,7 +1491,7 @@ structure Tree = struct
 **      )
 **    end) |
 **
-**    CatchAll pos => (
+**    Blank pos => (
 **      Mode_Stick "_ in non-pattern",
 **      [], (chan_store, block_store, sync_store, cnt)
 **    ) |

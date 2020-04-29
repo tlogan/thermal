@@ -1,4 +1,8 @@
 alloc_chan _ call | req_ch ,
+
+_
+
+(*
 alloc_chan _ call | resp_ch ,
 
 spawn ( 
@@ -51,3 +55,4 @@ thm_op : prove (| _ ,
 ) ;
 
 thm_op
+*)

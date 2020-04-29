@@ -7,7 +7,7 @@ open Tree
 %term
 
 
-  SEMI | APP | SELECT |
+  SEMI | COMPO | SELECT |
   COLON |
   DOT |
   COMMA | BSLASH | LSQ | RSQ | BAR |
@@ -47,7 +47,6 @@ open Tree
 %right DOT
 %right COLON BAR COMMA
 
-%left APP 
 
 %right SYM 
 
@@ -60,6 +59,8 @@ open Tree
 %left LODASH
 
 %left NUM STRING ID
+
+%left COMPO 
 
 %left BSLASH
 %left LSQ 
@@ -78,11 +79,11 @@ tree_nt:
 term_nt:
 
   term_nt DOT term_nt (Cns (term_nt1, term_nt2, DOTleft)) |
-  term_nt DOT (Cns (term_nt1, CatchAll ~1, DOTleft)) |
+  term_nt DOT (Cns (term_nt1, Blank ~1, DOTleft)) |
 
   lams_nt (Fnc (lams_nt, [], [], lams_ntleft)) |
 
-  term_nt term_nt %prec APP (App (term_nt1, term_nt2, term_nt1left)) |
+  term_nt term_nt %prec COMPO (Compo (term_nt1, term_nt2, term_nt1left)) |
   term_nt SEMI term_nt (Seq (term_nt1, term_nt2, SEMIleft)) |
 
   fields_nt (Rec (fields_nt, fields_ntleft)) |
@@ -91,7 +92,6 @@ term_nt:
   term_nt BSLASH ID (Select (Lst ([term_nt, Str (ID, ~1)], ~1), BSLASHleft)) |
   SELECT (Fnc ([(Id ("_param", ~1), Select (Id ("_param", ~1), SELECTleft))], [], [], SELECTleft)) |
 
-  term_nt ID term_nt (Infix (ID, term_nt1, term_nt2, IDleft)) |
 
   ALLOC_CHAN (Fnc ([(Id ("_param", ~1), AllocChan (Id ("_param", ~1), ALLOC_CHANleft))], [], [], ALLOC_CHANleft)) |
 
@@ -109,7 +109,7 @@ term_nt:
 
   SYM term_nt (Sym (term_nt, SYMleft)) | 
 
-  LODASH (CatchAll LODASHleft) | 
+  LODASH (Blank LODASHleft) | 
 
   ID (Id (ID, IDleft)) |
 
