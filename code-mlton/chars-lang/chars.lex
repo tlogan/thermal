@@ -125,7 +125,7 @@ digit=[0-9];
 
 <INITIAL>"`"([^`]|"\`")*"`" => (STRING (yytext, !linenum, inccol (size yytext)));
 
-<INITIAL>[^\ \t\n_][^\ \t\n]* => (ID (yytext, !linenum, inccol (size yytext)));
+<INITIAL>[^\ \t\n`_][^\ \t\n`]* => (ID (yytext, !linenum, inccol (size yytext)));
 
 
 <INITIAL>. => (BAD (!linenum, inccol (print ("BAD: " ^ yytext ^ "\n"); size yytext))); 

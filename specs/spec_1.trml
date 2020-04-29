@@ -51,9 +51,3 @@ thm_op : prove (_ ,
 ) ;
 
 thm_op
-
-
-
-
-
-<INITIAL>[^_`][^`]* =>
