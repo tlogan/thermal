@@ -31,13 +31,12 @@ val eof = fn () =>
 
 %s COMMENT;
 
-alpha=[A-Za-z];
 digit=[0-9];
 
 %%
 
-<INITIAL>"/*"  => (YYBEGIN COMMENT; (inccol 2); lex());
-<COMMENT>"*/"  => (YYBEGIN INITIAL; (inccol 2); lex());
+<INITIAL>"(*"  => (YYBEGIN COMMENT; (inccol 2); lex());
+<COMMENT>"*)"  => (YYBEGIN INITIAL; (inccol 2); lex());
 <COMMENT>\n => (incline (); lex ());
 <COMMENT>\r\n => (incline (); lex ());
 <COMMENT>. => ((inccol 1); lex ());
@@ -91,6 +90,7 @@ digit=[0-9];
 <INITIAL>"get" => (GET (!linenum, inccol 1));
 
 <INITIAL>"alloc_chan" => (ALLOC_CHAN (!linenum, inccol 1));
+
 <INITIAL>"send" => (SEND (!linenum, inccol 1));
 <INITIAL>"recv" => (RECV (!linenum, inccol 1));
 
@@ -106,11 +106,12 @@ digit=[0-9];
 <INITIAL>"<|" => (LANG (!linenum, inccol 1));
 <INITIAL>"|>" => (RANG (!linenum, inccol 1));
 
-<INITIAL>"_" => (LODASH (!linenum, inccol 1));
 
 <INITIAL>"sym" => (SYM (!linenum, inccol 1));
 <INITIAL>"infixl" => (INFIXL (!linenum, inccol 1));
 <INITIAL>"infixr" => (INFIXR (!linenum, inccol 1));
+
+<INITIAL>"_" => (LODASH (!linenum, inccol 1));
 
 <INITIAL>("-"?){digit}+(("."|","){digit}+)? =>
   (NUM (yytext, !linenum, inccol (size yytext)));
@@ -122,9 +123,9 @@ digit=[0-9];
 <INITIAL>("-"|"+")?{digit}+("."|","){digit}+"f"("8"|"16"|"32"|"64"|"128") =>
   (FLOAT (yytext, !linenum, inccol (size yytext)));
 
-<INITIAL>"`"([^"`"]|"\`")*"`" => (STRING (yytext, !linenum, inccol (size yytext)));
+<INITIAL>"`"([^`]|"\`")*"`" => (STRING (yytext, !linenum, inccol (size yytext)));
 
-<INITIAL>[^"_"\s"`"][^\s"`"]* =>
-  (ID (yytext, !linenum, inccol (size yytext)));
+<INITIAL>[^\ \t\n_][^\ \t\n]* => (ID (yytext, !linenum, inccol (size yytext)));
+
 
 <INITIAL>. => (BAD (!linenum, inccol (print ("BAD: " ^ yytext ^ "\n"); size yytext))); 
