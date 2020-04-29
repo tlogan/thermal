@@ -148,6 +148,14 @@ structure Tree = struct
     Spawn (t, pos) => String.surround ("Spawn@" ^ (Int.toString pos)) (
       (to_string t)
     ) |
+
+    Par (t, pos) => String.surround ("Par@" ^ (Int.toString pos)) (
+      (to_string t)
+    ) |
+
+    Sym (t, pos) => String.surround ("Sym@" ^ (Int.toString pos)) (
+      (to_string t)
+    ) |
   
     Blank pos =>
       "Blank@" ^ (Int.toString pos) |

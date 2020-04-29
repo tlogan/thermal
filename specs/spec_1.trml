@@ -29,14 +29,25 @@ spawn (
   | _ , loop _
 ) ;
 
+weak_until :
+| p1. p2. , OOGA 
+
+
+
+
+always :
+| sym p , BOOGA 
+
+;
 _ 
 (*
-
-
 weak_until :
 | p1. p2. , 
   recvd p2 \/ 
   recvd p1 /\ weak_until (p1. p2.)
+
+
+
 
 always :
 | sym p , recvd p /\ always p

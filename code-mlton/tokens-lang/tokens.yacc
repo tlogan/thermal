@@ -44,13 +44,15 @@ open Tree
 %noshift EOF
 
 %right SEMI 
-%right COLON BAR COMMA
+%left COMPO 
+%left COLON
+%left BAR COMMA
 %right DOT
 
 
 %right SYM 
 
-%left ALLOC_CHAN SEND RECV WRAP CHSE SPAWN SYNC ADD SUB MUL DIV REM SELECT 
+%left ALLOC_CHAN SEND RECV WRAP CHSE SPAWN SYNC ADD SUB MUL DIV REM SELECT EQUAL
 %nonassoc INFIXL INFIXR
 
 %left LPAREN LANG
@@ -59,8 +61,6 @@ open Tree
 %left LODASH
 
 %left NUM STRING ID
-
-%left COMPO 
 
 %left BSLASH
 %left LSQ 
@@ -92,6 +92,7 @@ term_nt:
   term_nt BSLASH ID (Select (Lst ([term_nt, Str (ID, ~1)], ~1), BSLASHleft)) |
   SELECT (Fnc ([(Id ("_param", ~1), Select (Id ("_param", ~1), SELECTleft))], [], [], SELECTleft)) |
 
+  EQUAL (Fnc ([(Id ("_param", ~1), Select (Id ("_param", ~1), EQUALleft))], [], [], EQUALleft)) |
 
   ALLOC_CHAN (Fnc ([(Id ("_param", ~1), AllocChan (Id ("_param", ~1), ALLOC_CHANleft))], [], [], ALLOC_CHANleft)) |
 

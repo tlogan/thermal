@@ -124,7 +124,7 @@ symbol=[\-\^\\=+!@#$%&*:;<>/{}|?~]|"["|"]";
 <INITIAL>("-"|"+")?{digit}+("."|","){digit}+"f"("8"|"16"|"32"|"64"|"128") =>
   (FLOAT (yytext, !linenum, inccol (size yytext)));
 
-<INITIAL>"`"([^`]|"\`")*"`" => (STRING (yytext, !linenum, inccol (size yytext)));
+<INITIAL>"`"([^`]|"\\`")*"`" => (STRING (yytext, !linenum, inccol (size yytext)));
 
 <INITIAL>{symbol}|{digit}|{alpha}({symbol}|{digit}|{alpha}|_)* => (ID (yytext, !linenum, inccol (size yytext)));
 
