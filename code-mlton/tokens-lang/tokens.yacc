@@ -10,7 +10,7 @@ open Tree
   SEMI | APP | SELECT |
   COLON |
   DOT |
-  COMMA | BAR | LSQ | RSQ | BSLASH |
+  COMMA | BSLASH | LSQ | RSQ | BAR |
   ADD | SUB | MUL | DIV | REM | 
   ADDW | SUBW | MULW | DIVSW | DIVUW | REMSW | REMUW | 
   ADDF | SUBF | MULF | DIVF | 
@@ -45,7 +45,7 @@ open Tree
 
 %right SEMI 
 %right DOT
-%right COLON BSLASH COMMA
+%right COLON BAR COMMA
 
 %left APP 
 
@@ -61,7 +61,7 @@ open Tree
 
 %left NUM STRING ID
 
-%left BAR
+%left BSLASH
 %left LSQ 
 %left RSQ 
 
@@ -88,7 +88,7 @@ term_nt:
   fields_nt (Rec (fields_nt, fields_ntleft)) |
 
   term_nt LSQ term_nt RSQ (Select (Lst ([term_nt1, term_nt2], ~1), LSQleft)) |
-  term_nt BAR ID (Select (Lst ([term_nt, Str (ID, ~1)], ~1), BARleft)) |
+  term_nt BSLASH ID (Select (Lst ([term_nt, Str (ID, ~1)], ~1), BSLASHleft)) |
   SELECT (Fnc ([(Id ("_param", ~1), Select (Id ("_param", ~1), SELECTleft))], [], [], SELECTleft)) |
 
   term_nt ID term_nt (Infix (ID, term_nt1, term_nt2, IDleft)) |
@@ -128,8 +128,8 @@ term_nt:
   LPAREN term_nt RPAREN (term_nt)
 
 lams_nt:
-  BSLASH lam_nt lams_nt (lam_nt :: lams_nt) |
-  BSLASH lam_nt ([lam_nt])
+  BAR lam_nt lams_nt (lam_nt :: lams_nt) |
+  BAR lam_nt ([lam_nt])
 
 lam_nt:
   term_nt COMMA term_nt (term_nt1, term_nt2)

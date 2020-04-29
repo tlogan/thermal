@@ -1,23 +1,23 @@
-alloc_chan _ call \ req_ch ,
-alloc_chan _ call \ resp_ch ,
+alloc_chan _ call | req_ch ,
+alloc_chan _ call | resp_ch ,
 
 spawn ( 
   loop :
-  \ cnt , (
+  | cnt , (
     sync (
       (equal (cnt % 7.  0.)) call 
-      \ `true` , send (req_chan. _.)
-      \ `false` , send (resp_chan. _.)
+      | `true` , send (req_chan. _.)
+      | `false` , send (resp_chan. _.)
     ) ;
     loop (cnt + 1)
   ) ;
 
-  \ _ , loop 0
+  | _ , loop 0
 ) ;
 
 spawn (
   loop :
-  \ _ , (
+  | _ , (
     sync (chse (
       recv req_chan.
       recv resp_chan.
@@ -30,18 +30,18 @@ spawn (
 
 
 weak_until :
-\ p1. p2. , 
+| p1. p2. , 
   recvd p2 \/ 
   recvd p1 /\ weak_until (p1. p2.)
 
 always :
-\ sym p , recvd p /\ always p
+| sym p , recvd p /\ always p
 
 ;
 
 
-thm_op : prove (_ , 
-  always (ch. _. , 
+thm_op : prove (| _ , 
+  always (| ch. _. , 
     ch = resp_ch --> 
 		weak_until ( 
       (ch. _. , ~(ch = resp_ch)).
