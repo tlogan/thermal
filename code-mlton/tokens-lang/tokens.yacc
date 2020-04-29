@@ -44,8 +44,8 @@ open Tree
 %noshift EOF
 
 %right SEMI 
-%right DOT
 %right COLON BAR COMMA
+%right DOT
 
 
 %right SYM 

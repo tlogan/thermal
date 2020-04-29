@@ -1,8 +1,4 @@
 alloc_chan _ call | req_ch ,
-
-_
-
-(*
 alloc_chan _ call | resp_ch ,
 
 spawn ( 
@@ -27,10 +23,14 @@ spawn (
       recv resp_chan.
     ));
     loop _
-  ) ;
+  )
+  ;
 
-  loop
+  | _ , loop _
 ) ;
+
+_ 
+(*
 
 
 weak_until :
@@ -53,6 +53,5 @@ thm_op : prove (| _ ,
     )
   )
 ) ;
-
 thm_op
 *)
