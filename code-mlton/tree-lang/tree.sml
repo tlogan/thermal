@@ -10,7 +10,7 @@ structure Tree = struct
 
   datatype term = 
 
-    Cns of (term * term * int) |
+    Cns of (term * int) |
     Lst of ((term list) * int) |
 
     Fnc of (
@@ -59,7 +59,8 @@ structure Tree = struct
 
     (* internal reps *)
     ChanId of int |
-    ThreadId of int
+    ThreadId of int |
+    Error of string
 
   type contin = (
     ((term * term) list) *
@@ -87,8 +88,9 @@ structure Tree = struct
 
 
   fun to_string t = (case t of
-    Cns (t1, t2, pos) => String.surround ("Cns@" ^ (Int.toString pos)) (
-      (to_string t1) ^ ",\n" ^ (to_string t2)) |
+    Cns (t, pos) => String.surround ("Cns@" ^ (Int.toString pos)) (
+      (to_string t)
+    ) |
 
     Lst (ts, pos) => String.surround ("Lst@" ^ (Int.toString pos)) (
       String.concatWith ",\n" (List.map to_string ts)
@@ -276,27 +278,13 @@ structure Tree = struct
 **
 **
 **
-**  fun normalize_single_reduce (
-**    t, f,  
-**    val_store, cont_stack, thread_id,
-**    chan_store, block_store, sync_store, cnt,
-**    reduce_f
-**  ) = (case (resolve (val_store, t)) of
-**    NONE => normalize (
-**      t, fn v => (f v),
-**      val_store, cont_stack, thread_id,
-**      chan_store, block_store, sync_store, cnt
-**    ) |
-**
-**    SOME v => (reduce_f v)
-**  )
 **
 **
 **  fun normalize_single_pop (
 **    t, f, 
 **    val_store, cont_stack, thread_id,
 **    chan_store, block_store, sync_store, cnt
-**  ) = normalize_single_reduce (
+**  ) = reduce_single (
 **    t, f, 
 **    val_store, cont_stack, thread_id,
 **    chan_store, block_store, sync_store, cnt,
@@ -693,15 +681,16 @@ structure Tree = struct
 *)
 
   fun match_value_insert (val_store, pat, value) = (case (pat, value) of
-    (Cns (t1, t2, _), Lst (vs, _))  => (case vs of
-      [] => NONE |
-      v :: vs' => (Option.mapPartial
+
+    (Lst ([], _), Lst ([], _)) => SOME val_store | 
+
+    (Lst (t :: ts, _), Lst (v :: vs, _))  =>
+      (Option.mapPartial
         (fn val_store' =>
-          match_value_insert (val_store', t1, v)
+          match_value_insert (val_store', t, v)
         )
-        (match_value_insert (val_store, t2, Lst (vs', ~1)))
-      )
-    ) |
+        (match_value_insert (val_store, Lst (ts, ~1), Lst (vs, ~1)))
+      ) |
 
     _ => NONE
 
@@ -937,6 +926,32 @@ structure Tree = struct
   in
     loop ([], ts)
   end)
+  
+  fun reduce_single (
+    t, push_f, pop_f,
+    val_store, cont_stack, thread_id,
+    chan_store, block_store, sync_store, cnt
+  ) = (case (resolve (val_store, t)) of
+    NONE => push (
+      (t, ([( hole cnt, push_f (hole cnt) )], val_store, [])),
+      val_store, cont_stack, thread_id,
+      chan_store, block_store, sync_store, cnt + 1
+    ) |
+
+    SOME v => (case (pop_f v) of
+      Error msg => (
+        Mode_Stick msg,
+        [], (chan_store, block_store, sync_store, cnt)
+      ) |
+
+      result => pop (
+        result,
+        val_store, cont_stack, thread_id,
+        chan_store, block_store, sync_store, cnt
+      )
+
+    )
+  )
 
 
   fun seq_step (
@@ -945,22 +960,16 @@ structure Tree = struct
     (chan_store, block_store, sync_store, cnt)
   ) = (case t of
 
-    Cns (t1, t2, pos) => normalize_list_reduce (
-      [t1, t2], fn [t1, t2] => Cns (t1, t2, pos),
-      val_store, cont_stack, thread_id,
-      chan_store, block_store, sync_store, cnt,
+    Cns (t, pos) => reduce_single (
+      t,
+      fn t => Cns (t, pos),
       (fn
-        [v, Lst (ts, _)] => pop (
-          Lst (v :: ts, pos),
-          val_store, cont_stack, thread_id,
-          chan_store, block_store, sync_store, cnt
-        ) |
+        Cns (Lst ([v, Lst (ts, _)], _), _) => Lst (v :: ts, pos) |
 
-        _ => (
-          Mode_Stick "cons with non-list",
-          [], (chan_store, block_store, sync_store, cnt)
-        )
-      )
+        _ => Error "cons with non-list"
+      ),
+      val_store, cont_stack, thread_id,
+      chan_store, block_store, sync_store, cnt
 
     ) |
 
@@ -1065,7 +1074,7 @@ structure Tree = struct
 
     ) |
 
-    App (t_fn, t_arg, pos) => normalize_single_reduce (
+    App (t_fn, t_arg, pos) => reduce_single (
       t_fn, fn v_fn => App (t_arg, v_fn, pos),
       val_store, cont_stack, thread_id,
       chan_store, block_store, sync_store, cnt,
@@ -1083,7 +1092,7 @@ structure Tree = struct
       )
     ) |
 
-    Pipe (t_arg, t_fn, pos) => normalize_single_reduce (
+    Pipe (t_arg, t_fn, pos) => reduce_single (
       t_fn, fn v_fn => Pipe (t_arg, v_fn, pos),
       val_store, cont_stack, thread_id,
       chan_store, block_store, sync_store, cnt,
@@ -1102,7 +1111,7 @@ structure Tree = struct
     ) |
 
 
-    Open (t_rec, t_body, pos) => normalize_single_reduce (
+    Open (t_rec, t_body, pos) => reduce_single (
       t_rec, fn v_rec => Open (v_rec, t_body, pos),
       val_store, cont_stack, thread_id,
       chan_store, block_store, sync_store, cnt,
@@ -1347,7 +1356,7 @@ structure Tree = struct
       chan_store, block_store, sync_store, cnt
     ) | 
 
-    Spawn (t, pos) => normalize_single_reduce (
+    Spawn (t, pos) => reduce_single (
       t, fn v => Spawn (v, pos),  
       val_store, cont_stack, thread_id,
       chan_store, block_store, sync_store, cnt,
@@ -1374,7 +1383,7 @@ structure Tree = struct
       )
     ) |
 
-    Sync (t, pos) => normalize_single_reduce (
+    Sync (t, pos) => reduce_single (
       t, fn v => Sync (v, pos),  
       val_store, cont_stack, thread_id,
       chan_store, block_store, sync_store, cnt,
@@ -1408,7 +1417,7 @@ structure Tree = struct
       )
     ) |
 
-    Solve (t, pos) => normalize_single_reduce (
+    Solve (t, pos) => reduce_single (
       t, fn v => Solve (v, pos),  
       val_store, cont_stack, thread_id,
       chan_store, block_store, sync_store, cnt,
@@ -1464,7 +1473,7 @@ structure Tree = struct
       )
     end) |
 
-    Not (t, pos) => normalize_single_reduce (
+    Not (t, pos) => reduce_single (
       t, fn v => Not (v, pos),
       val_store, cont_stack, thread_id,
       chan_store, block_store, sync_store, cnt,
@@ -1483,7 +1492,7 @@ structure Tree = struct
 
     ) |
 
-    Synced (t, pos) => normalize_single_reduce (
+    Synced (t, pos) => reduce_single (
       t, fn v => Synced (v, pos), 
       val_store, cont_stack, thread_id,
       chan_store, block_store, sync_store, cnt,

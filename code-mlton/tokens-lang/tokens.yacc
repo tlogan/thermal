@@ -78,8 +78,8 @@ tree_nt:
 
 term_nt:
 
-  term_nt DOT term_nt (Cns (term_nt1, term_nt2, DOTleft)) |
-  term_nt DOT (Cns (term_nt1, Blank ~1, DOTleft)) |
+  term_nt DOT term_nt (Cns (Lst ([term_nt1, term_nt2], DOTleft), DOTleft)) |
+  term_nt DOT (Lst ([term_nt], DOTleft)) |
 
   LPAREN lams_nt (Fnc (lams_nt, [], [], lams_ntleft)) |
   lam_nt (Fnc ([lam_nt], [], [], lam_ntleft)) |
@@ -89,13 +89,13 @@ term_nt:
 
   LPAREN fields_nt (Rec (fields_nt, fields_ntleft)) |
 
-  term_nt LSQ term_nt RSQ (Select (Lst ([term_nt1, term_nt2], ~1), LSQleft)) |
-  term_nt HASH ID (Select (Lst ([term_nt, Str (ID, ~1)], ~1), HASHleft)) |
-  SELECT (Fnc ([(Id ("_param", ~1), Select (Id ("_param", ~1), SELECTleft))], [], [], SELECTleft)) |
+  term_nt LSQ term_nt RSQ (Select (Lst ([term_nt1, term_nt2], LSQleft), LSQleft)) |
+  term_nt HASH ID (Select (Lst ([term_nt, Str (ID, HASHleft)], HASHleft), HASHleft)) |
+  SELECT (Fnc ([(Id ("_param", ~1), Select (Id ("_param", SELECTleft), SELECTleft))], [], [], SELECTleft)) |
 
-  EQUAL (Fnc ([(Id ("_param", ~1), Select (Id ("_param", ~1), EQUALleft))], [], [], EQUALleft)) |
+  EQUAL (Fnc ([(Id ("_param", ~1), Select (Id ("_param", EQUALleft), EQUALleft))], [], [], EQUALleft)) |
 
-  ALLOC_CHAN (Fnc ([(Id ("_param", ~1), Alloc_Chan (Id ("_param", ~1), ALLOC_CHANleft))], [], [], ALLOC_CHANleft)) |
+  ALLOC_CHAN (Fnc ([(Id ("_param", ~1), Alloc_Chan (Id ("_param", ALLOC_CHANleft), ALLOC_CHANleft))], [], [], ALLOC_CHANleft)) |
 
   SEND (Fnc ([(Id ("_param", ~1), Send (Id ("_param", ~1), SENDleft))], [], [], SENDleft)) |
   RECV (Fnc ([(Id ("_param", ~1), Recv (Id ("_param", ~1), RECVleft))], [], [], RECVleft)) |
