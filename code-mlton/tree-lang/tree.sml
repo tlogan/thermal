@@ -324,30 +324,6 @@ structure Tree = struct
 **    ))
 **  )
 **
-**  fun normalize_list_reduce (
-**    ts, f,  
-**    val_store, cont_stack, thread_id,
-**    chan_store, block_store, sync_store, cnt,
-**    reduce_f
-**  ) = (let
-**
-**    fun loop (prefix, postfix) = (case postfix of
-**      [] => reduce_f prefix |
-**      x :: xs => (case (resolve (val_store, x)) of
-**
-**        NONE => normalize (
-**          x, fn v => f (prefix @ (v :: xs)),
-**          val_store, cont_stack, thread_id,
-**          chan_store, block_store, sync_store, cnt
-**        ) |
-**
-**        SOME v => loop (prefix @ [v], xs)
-**
-**      )
-**    )
-**  in
-**    loop ([], ts)
-**  end)
 **
 **  fun normalize_list_pop (
 **    ts, f, 
@@ -890,19 +866,27 @@ structure Tree = struct
 
 
 
-  fun normalize (
-    t, term_fn, val_store, cont_stack, thread_id,
-    chan_store, block_store, sync_store, cnt
+  fun mk_hole_lam (
+    term_fn, cnt
   ) = (let
     val hole = Id (sym cnt, ~1)
     val hole_lam = (hole, term_fn hole)
   in
-    push (
-      (t, ([hole_lam], val_store, [])),
-      val_store, cont_stack, thread_id,
-      chan_store, block_store, sync_store, cnt
-    )
+    hole_lam
   end)
+
+  fun hole i = Id (sym i, ~1)
+
+  fun normalize (
+    t, term_fn, val_store, cont_stack, thread_id,
+    chan_store, block_store, sync_store, cnt
+  ) = (
+    push (
+      (t, ([(hole cnt, term_fn (hole cnt))], val_store, [])),
+      val_store, cont_stack, thread_id,
+      chan_store, block_store, sync_store, cnt + 1
+    )
+  )
 
   fun normalize_pair_reduce (
     (t1, t2), f,  
@@ -912,21 +896,47 @@ structure Tree = struct
   ) = (case (
     resolve (val_store, t1), resolve (val_store, t2)
   ) of
-    (NONE, _) => normalize (
-      t1, fn v1 => f (v1, t2),
+    (NONE, _) => push (
+      (t1, ([(hole cnt, f (hole cnt, t2))], val_store, [])),
       val_store, cont_stack, thread_id,
-      chan_store, block_store, sync_store, cnt
+      chan_store, block_store, sync_store, cnt + 1
     ) |
 
-    (_, NONE) => normalize (
-      t2, fn v2 => f (t1, v2),
+    (_, NONE) => push (
+      (t2, ([(hole cnt, f (t1, hole cnt))], val_store, [])),
       val_store, cont_stack, thread_id,
-      chan_store, block_store, sync_store, cnt
+      chan_store, block_store, sync_store, cnt + 1
     ) |
 
     (SOME v1, SOME v2) => reduce_f (v1, v2)
 
   )
+
+  fun normalize_list_reduce (
+    ts, f,  
+    val_store, cont_stack, thread_id,
+    chan_store, block_store, sync_store, cnt,
+    reduce_f
+  ) = (let
+
+    fun loop (prefix, postfix) = (case postfix of
+      [] => reduce_f prefix |
+      x :: xs => (case (resolve (val_store, x)) of
+
+        NONE => push (
+          (x, ([( hole cnt, f (prefix @ (hole cnt :: xs)) )], val_store, [])),
+          val_store, cont_stack, thread_id,
+          chan_store, block_store, sync_store, cnt + 1
+        ) |
+
+        SOME v => loop (prefix @ [v], xs)
+
+      )
+    )
+
+  in
+    loop ([], ts)
+  end)
 
 
   fun seq_step (
@@ -935,12 +945,12 @@ structure Tree = struct
     (chan_store, block_store, sync_store, cnt)
   ) = (case t of
 
-    Cns (t1, t2, pos) => normalize_pair_reduce (
-      (t1, t2), fn (t1, t2) => Cns (t1, t2, pos),
+    Cns (t1, t2, pos) => normalize_list_reduce (
+      [t1, t2], fn [t1, t2] => Cns (t1, t2, pos),
       val_store, cont_stack, thread_id,
       chan_store, block_store, sync_store, cnt,
       (fn
-        (v, Lst (ts, _)) => pop (
+        [v, Lst (ts, _)] => pop (
           Lst (v :: ts, pos),
           val_store, cont_stack, thread_id,
           chan_store, block_store, sync_store, cnt
