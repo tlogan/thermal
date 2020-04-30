@@ -1,12 +1,18 @@
 (
+
+
+: or infix 8 a. b. ,
+    (equal a. `true`.) call (
+    | `true` , `true`
+    | `false`, b
+    )
+  
 : even n .
-    n = 0 \/ 
-    (odd (n - 1))
+    n = 0 or (odd (n - 1))
 
 : odd n .
-    n = 1 \/ 
-    (even (n - 1))
+    n = 1 or (even (n - 1))
 
 ) call eo ,
 
-eo \ even 2
+eo # even 2

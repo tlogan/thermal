@@ -6,10 +6,10 @@ The Robot Mind and Language
  (* my_rec\\foo 44 *)
 
  (
- : infixr 0 call
+ : call infixr 0
      a. f. , f a
 
- : infixl 8 *
+ : * infixl 8
      a. b. , mult (a. b.)
 
  : fact (
@@ -41,14 +41,13 @@ The Robot Mind and Language
    )
 
 
- : infix 8 =
+ : = infix 8
      sym a. sym b. , a `=` b
 
- : infixl 3 \\/
+ : \\/ infixl 3
      sym a. sym b. , a `\\/` b
- )
 
- ;
+ ) ;
 
  (* constraint logic precedence: EQUAL > NOT > AND > XOR > OR > EQUIV > IMP > *)
 

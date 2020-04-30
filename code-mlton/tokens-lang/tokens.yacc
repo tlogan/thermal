@@ -10,7 +10,7 @@ open Tree
   SEMI | COMPO | SELECT |
   COLON |
   DOT |
-  COMMA | BSLASH | LSQ | RSQ | BAR | HASH |
+  COMMA | HASH | LSQ | RSQ | BAR |
   ADD | SUB | MUL | DIV | REM | 
   ADDW | SUBW | MULW | DIVSW | DIVUW | REMSW | REMUW | 
   ADDF | SUBF | MULF | DIVF | 
@@ -45,7 +45,7 @@ open Tree
 
 %right SEMI 
 %right COLON
-%right BAR HASH COMMA
+%right BAR COMMA
 %left COMPO 
 %right DOT
 
@@ -62,7 +62,7 @@ open Tree
 
 %left NUM STRING ID
 
-%left BSLASH
+%left HASH
 %left LSQ 
 %left RSQ 
 
@@ -90,7 +90,7 @@ term_nt:
   LPAREN fields_nt (Rec (fields_nt, fields_ntleft)) |
 
   term_nt LSQ term_nt RSQ (Select (Lst ([term_nt1, term_nt2], ~1), LSQleft)) |
-  term_nt BSLASH ID (Select (Lst ([term_nt, Str (ID, ~1)], ~1), BSLASHleft)) |
+  term_nt HASH ID (Select (Lst ([term_nt, Str (ID, ~1)], ~1), HASHleft)) |
   SELECT (Fnc ([(Id ("_param", ~1), Select (Id ("_param", ~1), SELECTleft))], [], [], SELECTleft)) |
 
   EQUAL (Fnc ([(Id ("_param", ~1), Select (Id ("_param", ~1), EQUALleft))], [], [], EQUALleft)) |
@@ -141,6 +141,6 @@ fields_nt:
   COLON field_nt RPAREN %prec COLON ([field_nt])
 
 field_nt:
-  INFIXL ID term_nt ((InfixLeft, ID, term_nt)) |
-  INFIXR ID term_nt ((InfixRight, ID, term_nt)) |
+  ID INFIXL term_nt ((InfixLeft, ID, term_nt)) |
+  ID INFIXR term_nt ((InfixRight, ID, term_nt)) |
   ID term_nt ((InfixNone, ID, term_nt))
