@@ -6,7 +6,7 @@ structure Tree = struct
 
   type ('a, 'b) store = ('a * 'b) list
 
-  datatype infix_option = InfixLeft | InfixRight | InfixNone
+  datatype infix_option = Infix_Left | Infix_Right | Infix_None
 
   datatype term = 
 
@@ -28,9 +28,8 @@ structure Tree = struct
 
     Rec of (((infix_option * string * term) list) * int) |
     Select of (term * int) |
-    Infix of (string * term * term * int) |
   
-    AllocChan of (term * int) |
+    Alloc_Chan of (term * int) |
 
     Send of (term * int) |
     Recv of (term * int) |
@@ -121,7 +120,7 @@ structure Tree = struct
       (to_string t)
     ) |
 
-    AllocChan (t, pos) => String.surround ("AllocChan@" ^ (Int.toString pos)) (
+    Alloc_Chan (t, pos) => String.surround ("Alloc_Chan@" ^ (Int.toString pos)) (
       to_string t
     ) |
 
@@ -190,36 +189,36 @@ structure Tree = struct
   )
 
   and to_string_from_infix_option fix_op = (case fix_op of
-    InfixLeft => "INFIXL " |
-    InfixRight => "INFIXR " |
-    InfixNone => ""
+    Infix_Left => "INFIXL " |
+    Infix_Right => "INFIXR " |
+    Infix_None => ""
   )
 
 
+  val empty_table = [] 
+
+  fun insert (table, key, item) = (
+    (key, item) :: table
+  )
+  
+  
+  fun insert_table (val_store_base, val_store_top) = (
+    val_store_top @ val_store_base
+  )
+  
+  fun find (table, key) =
+  (Option.map
+    (fn (k, v) => v)
+    (List.find (fn (k, v) => k = key) table)
+  )
+  
+  fun remove (table, key) =
+  (List.filter
+    (fn k => k <> key)
+    table
+  ) 
+
 (*
-**
-**  val empty_table = [] 
-**
-**  fun insert (table, key, item) = (
-**    (key, item) :: table
-**  )
-**  
-**  
-**  fun insert_table (val_store_base, val_store_top) = (
-**    val_store_top @ val_store_base
-**  )
-**  
-**  fun find (table, key) =
-**  (Option.map
-**    (fn (k, v) => v)
-**    (List.find (fn (k, v) => k = key) table)
-**  )
-**  
-**  fun remove (table, key) =
-**  (List.filter
-**    (fn k => k <> key)
-**    table
-**  ) 
 **
 **
 **
@@ -911,707 +910,706 @@ structure Tree = struct
 **    )
 **  )
 **
-**  fun seq_step (
-**    md,
-**    (t, val_store, cont_stack, thread_id),
-**    (chan_store, block_store, sync_store, cnt)
-**  ) = (case t of
 **
-**    Seq (t1, t2, _) => normalize (
-**      t1, fn _ => t2,
-**      val_store, cont_stack, thread_id,
-**      chan_store, block_store, sync_store, cnt
-**    ) |
 **
-**    Select (t, name, pos) => (case (resolve (val_store, t)) of
 **
-**      NONE => normalize (
-**        t, fn v => Select (v, name, pos),
-**        val_store, cont_stack, thread_id,
-**        chan_store, block_store, sync_store, cnt
-**      ) |
-**
-**      SOME (Rec (fields, _)) => (let
-**        val field_op = (List.find
-**          (fn (key, v) => key = name)
-**          fields
-**        )
-**      in
-**        (case field_op of
-**          SOME (_, v) => (
-**            Mode_Reduce v,
-**            [(v, val_store, cont_stack, thread_id)],
-**            (chan_store, block_store, sync_store, cnt)
-**          ) |
-**
-**          NONE => (
-**            Mode_Stick "selection from non-record",
-**            [], (chan_store, block_store, sync_store, cnt)
-**          )
-**        )
-**      end) |
-**
-**      _ => (
-**        Mode_Stick "selection from non-record",
-**        [], (chan_store, block_store, sync_store, cnt)
-**      )
-**
-**    ) |
-**
-**    App (t_fn, t_arg, pos) => normalize_single_reduce (
-**      t_fn, fn v_fn => App (t_arg, v_fn, pos),
-**      val_store, cont_stack, thread_id,
-**      chan_store, block_store, sync_store, cnt,
-**      (fn
-**        (t_arg, Fnc (lams, fnc_store, mutual_store, _)) => push (
-**          (t_arg, (lams, fnc_store, mutual_store)),
-**          val_store, cont_stack, thread_id,
-**          chan_store, block_store, sync_store, cnt
-**        ) |
-**
-**        _ => (
-**          Mode_Stick "application of non-function",
-**          [], (chan_store, block_store, sync_store, cnt)
-**        )
-**      )
-**    ) |
-**
-**    Pipe (t_arg, t_fn, pos) => normalize_single_reduce (
-**      t_fn, fn v_fn => Pipe (t_arg, v_fn, pos),
-**      val_store, cont_stack, thread_id,
-**      chan_store, block_store, sync_store, cnt,
-**      (fn
-**        (t_arg, Fnc (lams, fnc_store, mutual_store, _)) => push (
-**          (t_arg, (lams, fnc_store, mutual_store)),
-**          val_store, cont_stack, thread_id,
-**          chan_store, block_store, sync_store, cnt
-**        ) |
-**
-**        _ => (
-**          Mode_Stick "pipe into non-function",
-**          [], (chan_store, block_store, sync_store, cnt)
-**        )
-**      )
-**    ) |
-**
-**
-**    Open (t_rec, t_body, pos) => normalize_single_reduce (
-**      t_rec, fn v_rec => Open (v_rec, t_body, pos),
-**      val_store, cont_stack, thread_id,
-**      chan_store, block_store, sync_store, cnt,
-**      (fn
-**        (Rec (fields, _), t_body) => (let
-**          val val_store' = insert_table (val_store, fields)
-**        in
-**          (
-**            Mode_Upkeep,
-**            [(t_body, val_store', cont_stack, thread_id)],
-**            (chan_store, block_store, sync_store, cnt)
-**          )
-**        end) |
-**
-**        _ => (
-**          Mode_Stick "open of non-record",
-**          [], (chan_store, block_store, sync_store, cnt)
-**        )
-**      )
-**    ) |
-**
-**    Cns (t1, t2, pos) => normalize_pair_reduce (
-**      (t1, t2), fn (t1, t2) => Cns (t1, t2, pos),
-**      val_store, cont_stack, thread_id,
-**      chan_store, block_store, sync_store, cnt,
-**      (fn
-**        (v, Lst (ts, _)) => pop (
-**          Lst (v :: ts, pos),
-**          val_store, cont_stack, thread_id,
-**          chan_store, block_store, sync_store, cnt
-**        ) |
-**
-**        _ => (
-**          Mode_Stick "cons with non-list",
-**          [], (chan_store, block_store, sync_store, cnt)
-**        )
-**      )
-**
-**    ) |
-**
-**    Equiv (t1, t2, pos) => normalize_pair_reduce (
-**      (t1, t2), fn (t1, t2) => Equiv (t1, t2, pos),
-**      val_store, cont_stack, thread_id,
-**      chan_store, block_store, sync_store, cnt,
-**      (fn
-**        (Bool (b1, _), Bool (b2, _)) => pop (
-**          Bool (b1 = b2, pos),
-**          val_store, cont_stack, thread_id,
-**          chan_store, block_store, sync_store, cnt
-**        ) |
-**
-**        _ => (
-**          Mode_Stick "<-> with non-boolean",
-**          [], (chan_store, block_store, sync_store, cnt)
-**        )
-**      )
-**
-**    ) |
-**
-**    Implies (t1, t2, pos) => normalize_pair_reduce (
-**      (t1, t2), fn (t1, t2) => Implies (t1, t2, pos),
-**      val_store, cont_stack, thread_id,
-**      chan_store, block_store, sync_store, cnt,
-**      (fn
-**        (Bool (b1, _), Bool (b2, _)) => pop (
-**          Bool (not b1 orelse b2, pos),
-**          val_store, cont_stack, thread_id,
-**          chan_store, block_store, sync_store, cnt
-**        ) |
-**
-**        _ => (
-**          Mode_Stick "--> with non-boolean",
-**          [], (chan_store, block_store, sync_store, cnt)
-**        )
-**      )
-**
-**    ) |
-**
-**    Or (t1, t2, pos) => normalize_pair_reduce (
-**      (t1, t2), fn (t1, t2) => Or (t1, t2, pos),
-**      val_store, cont_stack, thread_id,
-**      chan_store, block_store, sync_store, cnt,
-**      (fn
-**        (Bool (b1, _), Bool (b2, _)) => pop (
-**          Bool (b1 orelse b2, pos),
-**          val_store, cont_stack, thread_id,
-**          chan_store, block_store, sync_store, cnt
-**        ) |
-**
-**        _ => (
-**          Mode_Stick "\\/ with non-boolean",
-**          [], (chan_store, block_store, sync_store, cnt)
-**        )
-**      )
-**
-**    ) |
-**
-**    And (t1, t2, pos) => normalize_pair_reduce (
-**      (t1, t2), fn (t1, t2) => And (t1, t2, pos),
-**      val_store, cont_stack, thread_id,
-**      chan_store, block_store, sync_store, cnt,
-**      (fn
-**        (Bool (b1, _), Bool (b2, _)) => pop (
-**          Bool (b1 andalso b2, pos),
-**          val_store, cont_stack, thread_id,
-**          chan_store, block_store, sync_store, cnt
-**        ) |
-**
-**        _ => (
-**          Mode_Stick "/\\ with non-boolean",
-**          [], (chan_store, block_store, sync_store, cnt)
-**        )
-**      )
-**
-**    ) |
-**
-**    Equal (t1, t2, pos) => normalize_pair_reduce (
-**      (t1, t2), fn (t1, t2) => Equal (t1, t2, pos),
-**      val_store, cont_stack, thread_id,
-**      chan_store, block_store, sync_store, cnt,
-**      (fn
-**
-**        (v1, v2) => pop (
-**          Bool (term_equal (v1, v2), pos),
-**          val_store, cont_stack, thread_id,
-**          chan_store, block_store, sync_store, cnt
-**        )
-**
-**      )
-**
-**    ) |
-**
-**    Add (t1, t2, pos) => normalize_pair_reduce (
-**      (t1, t2), fn (t1, t2) => Add (t1, t2, pos),
-**      val_store, cont_stack, thread_id,
-**      chan_store, block_store, sync_store, cnt,
-**      (fn
-**        (Num n1, Num n2) => pop (
-**          Num (num_add (n1, n2)),
-**          val_store, cont_stack, thread_id,
-**          chan_store, block_store, sync_store, cnt
-**        ) |
-**
-**        _ => (
-**          Mode_Stick "+ with non-number",
-**          [], (chan_store, block_store, sync_store, cnt)
-**        )
-**      )
-**
-**    ) |
-**
-**    Sub (t1, t2, pos) => normalize_pair_reduce (
-**      (t1, t2), fn (t1, t2) => Sub (t1, t2, pos),
-**      val_store, cont_stack, thread_id,
-**      chan_store, block_store, sync_store, cnt,
-**      (fn
-**        (Num n1, Num n2) => pop (
-**          Num (num_sub (n1, n2)),
-**          val_store, cont_stack, thread_id,
-**          chan_store, block_store, sync_store, cnt
-**        ) |
-**
-**        _ => (
-**          Mode_Stick "- with non-number",
-**          [], (chan_store, block_store, sync_store, cnt)
-**        )
-**      )
-**
-**    ) |
-**
-**    Mul (t1, t2, pos) => normalize_pair_reduce (
-**      (t1, t2), fn (t1, t2) => Mul (t1, t2, pos),
-**      val_store, cont_stack, thread_id,
-**      chan_store, block_store, sync_store, cnt,
-**      (fn
-**        (Num n1, Num n2) => pop (
-**          Num (num_mult (n1, n2)),
-**          val_store, cont_stack, thread_id,
-**          chan_store, block_store, sync_store, cnt
-**        ) |
-**
-**        _ => (
-**          Mode_Stick "* with non-number",
-**          [], (chan_store, block_store, sync_store, cnt)
-**        )
-**      )
-**
-**    ) |
-**
-**
-**    Div (t1, t2, pos) => normalize_pair_reduce (
-**      (t1, t2), fn (t1, t2) => Div (t1, t2, pos),
-**      val_store, cont_stack, thread_id,
-**      chan_store, block_store, sync_store, cnt,
-**      (fn
-**        (Num n1, Num n2) => pop (
-**          Num (num_div (n1, n2)),
-**          val_store, cont_stack, thread_id,
-**          chan_store, block_store, sync_store, cnt
-**        ) |
-**
-**        _ => (
-**          Mode_Stick "/ with non-number",
-**          [], (chan_store, block_store, sync_store, cnt)
-**        )
-**      )
-**
-**    ) |
-**
-**    Rem (t1, t2, pos) => normalize_pair_reduce (
-**      (t1, t2), fn (t1, t2) => Rem (t1, t2, pos),
-**      val_store, cont_stack, thread_id,
-**      chan_store, block_store, sync_store, cnt,
-**      (fn
-**        (Num n1, Num n2) => pop (
-**          Num (num_mod (n1, n2)),
-**          val_store, cont_stack, thread_id,
-**          chan_store, block_store, sync_store, cnt
-**        ) |
-**
-**        _ => (
-**          Mode_Stick "% with non-number",
-**          [], (chan_store, block_store, sync_store, cnt)
-**        )
-**      )
-**
-**    ) |
-**
-**    AllocChan i => (let
-**      val chan_store' = insert (chan_store, cnt, ([], []))
-**      val cnt' = cnt + 1
-**    in
-**      pop (
-**        ChanId cnt,
-**        val_store, cont_stack, thread_id,
-**        chan_store', block_store, sync_store, cnt'
-**      )
-**    end) |
-**
-**    Send (t, pos) => normalize_single_pop (
-**      t, fn v => Send (v, pos), 
-**      val_store, cont_stack, thread_id,
-**      chan_store, block_store, sync_store, cnt
-**    ) | 
-**
-**    Recv (t, pos) => normalize_single_pop (
-**      t, fn v => Recv (v, pos) ,
-**      val_store, cont_stack, thread_id,
-**      chan_store, block_store, sync_store, cnt
-**    ) | 
-**
-**    Wrap (t, pos) => normalize_single_pop (
-**      t, fn v => Wrap (v, pos),
-**      val_store, cont_stack, thread_id,
-**      chan_store, block_store, sync_store, cnt
-**    ) | 
-**
-**    Chse (t, pos) => normalize_single_pop (
-**      t, fn v => Chse (v, pos),
-**      val_store, cont_stack, thread_id,
-**      chan_store, block_store, sync_store, cnt
-**    ) | 
-**
-**    Spawn (t, pos) => normalize_single_reduce (
-**      t, fn v => Spawn (v, pos),  
-**      val_store, cont_stack, thread_id,
-**      chan_store, block_store, sync_store, cnt,
-**      (fn
-**
-**        (Fnc ([(Lst ([], _), t_body)], fnc_store, mutual_store, _)) => (let
-**          val spawn_id = cnt
-**          val cnt' = cnt + 1
-**        in
-**          (
-**            Mode_Spawn t_body,
-**            [
-**              (Lst ([], pos), val_store, cont_stack, thread_id),
-**              (t_body, val_store, [], spawn_id)
-**            ],
-**            (chan_store, block_store, sync_store, cnt')
-**          )
-**        end) |
-**
-**        _ => (
-**          Mode_Stick "spawn with non-function",
-**          [], (chan_store, block_store, sync_store, cnt)
-**        )
-**      )
-**    ) |
-**
-**    Sync (t, pos) => normalize_single_reduce (
-**      t, fn v => Sync (v, pos),  
-**      val_store, cont_stack, thread_id,
-**      chan_store, block_store, sync_store, cnt,
-**      (fn v => if (is_event v) then
-**        (let
-**
-**          val bevts = mk_base_events (v, []) 
-**          
-**          val (active_bevt_op, chan_store') = (
-**            find_active_base_event (bevts, chan_store, block_store)
-**          )
-**        in
-**          (case active_bevt_op of
-**            SOME bevt =>
-**              transact (
-**                bevt, cont_stack, thread_id,
-**                (chan_store', block_store, sync_store, cnt)
-**              ) |
-**            NONE =>
-**              block (
-**                bevts, cont_stack, thread_id,
-**                (chan_store', block_store, sync_store, cnt)
-**              )
-**          )
-**        end)
-**      else
-**        (
-**          Mode_Stick "sync with non-event",
-**          [], (chan_store, block_store, sync_store, cnt)
-**        )
-**      )
-**    ) |
-**
-**    Solve (t, pos) => normalize_single_reduce (
-**      t, fn v => Solve (v, pos),  
-**      val_store, cont_stack, thread_id,
-**      chan_store, block_store, sync_store, cnt,
-**      (fn
-**        Fnc (lams, fnc_store, mutual_store, pos_f) => (let
-**          val chan_id = cnt
-**          val chan_store' = insert (chan_store, chan_id, ([], []))
-**          val thread_id' = cnt + 1
-**          val cnt' = cnt + 2 
-**
-**          val env = empty_table
-**          val result_id = sym cnt' 
-**          val cnt'' = cnt' + 1
-**
-**          val bkchn_id = cnt''
-**          val cnt''' = cnt'' + 1
-**
-**          val sync_store' = insert (sync_store, (thread_id, bkchn_id), [])
-**
-**          val prop = mk_prop (result_id, lams)
-**
-**        in
-**          (
-**            Mode_Reduce (ChanId cnt),
-**            [(
-**              Backchain ([prop], thread_id, env),
-**              val_store, [], thread_id'
-**            )],
-**            (chan_store, block_store, sync_store', cnt''')
-**          )
-**        end) |
-**
-**        _ => (
-**          Mode_Stick "solve with non-predicate",
-**          [], (chan_store, block_store, sync_store, cnt)
-**        )
-**      ) 
-**    ) |
-**
-**    For (t, pos) => (let
-**      val empty_term = (
-**        Not (Equal (
-**          Solution Sol_Empty,
-**          Solve (t, pos),
-**          ~1
-**        ), ~1)
-**      )
-**    in
-**      (
-**        Mode_Upkeep,
-**        [(empty_term, val_store, cont_stack, thread_id)],
-**        (chan_store, block_store, sync_store, cnt)
-**      )
-**    end) |
-**
-**    Not (t, pos) => normalize_single_reduce (
-**      t, fn v => Not (v, pos),
-**      val_store, cont_stack, thread_id,
-**      chan_store, block_store, sync_store, cnt,
-**      (fn
-**        Bool (b, _) => pop (
-**          Bool (not b, pos),
-**          val_store, cont_stack, thread_id,
-**          chan_store, block_store, sync_store, cnt
-**        ) |
-**
-**        _ => (
-**          Mode_Stick "~ with non-boolean",
-**          [], (chan_store, block_store, sync_store, cnt)
-**        )
-**      )
-**
-**    ) |
-**
-**    Synced (t, pos) => normalize_single_reduce (
-**      t, fn v => Synced (v, pos), 
-**      val_store, cont_stack, thread_id,
-**      chan_store, block_store, sync_store, cnt,
-**      (fn
-**        Fnc (lams, fnc_store, mutual_store, _) => (case md of
-**          Mode_Sync (chan_id, msg, send_id, recv_id) => (
-**            if (send_id = thread_id) then (
-**              push (
-**                (
-**                  Send (Lst ([ChanId chan_id, msg], ~1), ~1),
-**                  (lams, fnc_store, mutual_store)
-**                ),
-**                val_store, cont_stack, thread_id,
-**                chan_store, block_store, sync_store, cnt
-**              )
-**              
-**
-**            ) else if (recv_id = thread_id) then (
-**              push (
-**                (
-**                  Recv (Lst ([ChanId chan_id, msg], ~1), ~1),
-**                  (lams, fnc_store, mutual_store)
-**                ),
-**                val_store, cont_stack, thread_id,
-**                chan_store, block_store, sync_store, cnt
-**              )
-**
-**            ) else (
-**              pop (
-**                Bool (false, pos),
-**                val_store, cont_stack, thread_id,
-**                chan_store, block_store, sync_store, cnt
-**              )
-**
-**            )
-**          ) |
-**
-**          _ => pop (
-**            Bool (false, pos),
-**            val_store, cont_stack, thread_id,
-**            chan_store, block_store, sync_store, cnt
-**          )
-**
-**        ) | 
-**
-**        _ => (
-**          Mode_Stick "synced with non-predicate",
-**          [], (chan_store, block_store, sync_store, cnt)
-**        )
-**      )
-**    ) | 
-**
-**
-**    Fnc (lams, [], mutual_store, pos) => pop (
-**      Fnc (lams, val_store, mutual_store, pos),
-**      val_store, cont_stack, thread_id,
-**      chan_store, block_store, sync_store, cnt
-**    ) |
-**
-**    Fnc (lams, fnc_store, mutual_store, pos) => pop (
-**      Fnc (lams, fnc_store, mutual_store, pos),
-**      val_store, cont_stack, thread_id,
-**      chan_store, block_store, sync_store, cnt
-**    ) |
-**
-**    Lst (ts, pos) => normalize_list_pop (
-**      ts, fn ts => Lst (ts, pos), 
-**      val_store, cont_stack, thread_id,
-**      chan_store, block_store, sync_store, cnt
-**    ) | 
-**
-**    Rec (fields, pos) => (let
-**      val keys = (map (fn (k, t) => k) fields)
-**      val ts = (map (fn (k, t) => t) fields)
-**
-**      val mutual_store = (List.mapPartial
-**        (fn
-**          (k, Fnc (lams, [], [], _)) => 
-**            SOME (k, lams) |
-**          _ => NONE
-**        )
-**        fields
-**      )
-**
-**      (* embed mutual ids into ts' functions *)
-**      val ts' =
-**      (map
-**        (fn
-**          Fnc (lams, [], [], pos) =>
-**            Fnc (lams, val_store, mutual_store, pos) 
-**        | t => t 
-**        )
-**        ts
-**      )
-**
-**    in
-**      normalize_list_pop (
-**        ts, fn ts => Rec (ListPair.zip (keys, ts'), pos), 
-**        val_store, cont_stack, thread_id,
-**        chan_store, block_store, sync_store, cnt
-**      )
-**    end) |
-**
-**    Blank pos => (
-**      Mode_Stick "_ in non-pattern",
-**      [], (chan_store, block_store, sync_store, cnt)
-**    ) |
-**
-**    Bool (b, pos) => pop (
-**      Bool (b, pos),
-**      val_store, cont_stack, thread_id,
-**      chan_store, block_store, sync_store, cnt
-**    ) |
-**
-**    Id (str, pos) => pop (
-**      Id (str, pos),
-**      val_store, cont_stack, thread_id,
-**      chan_store, block_store, sync_store, cnt
-**    ) |
-**
-**    Num (str, pos) => pop (
-**      Num (str, pos),
-**      val_store, cont_stack, thread_id,
-**      chan_store, block_store, sync_store, cnt
-**    ) |
-**
-**    Str (str, pos) => pop (
-**      Str (str, pos),
-**      val_store, cont_stack, thread_id,
-**      chan_store, block_store, sync_store, cnt
-**    ) |
-**
-**    ChanId i => pop (
-**      ChanId i,
-**      val_store, cont_stack, thread_id,
-**      chan_store, block_store, sync_store, cnt
-**    ) |
-**
-**    ThreadId i => pop (
-**      ThreadId i,
-**      val_store, cont_stack, thread_id,
-**      chan_store, block_store, sync_store, cnt
-**    ) |
-**
-**    Backchain (goals, monitee_thread_id, env) => (
-**      backchain (
-**        goals, monitee_thread_id, env,
-**        val_store, cont_stack, thread_id,
-**        chan_store, block_store, sync_store, cnt
-**      )
-**    ) |
-**
-**    _ => (
-**      Mode_Stick "TODO",
-**      [], (chan_store, block_store, sync_store, cnt)
-**    )
-**
-**    (* **TODO**
-**    Solution of solution
-**    Sol_Empty | Sol_Val of term | Sol_Abs of term
-**    *)
-**
-**  )
-**
-**  fun string_from_mode md = (case md of
-**    (* **TODO **)
-**    _ => ""
-**    (*
-**    *)
-**  )
-**
-**
-**  fun concur_step (
-**    md, threads, env 
-**  
-**  ) = (case threads of
-**    [] => (print "all done!\n"; NONE) |
-**    thread :: threads' => (let
-**      val (md', seq_threads, env') = (seq_step (md, thread, env)) 
-**      val _ = print ((string_from_mode md) ^ "\n")
-**    in
-**      SOME (md', threads' @ seq_threads, env')
-**    end)
-**  )
-**
-**
-**
-**  fun run t = (let
-**
-**    val val_store = empty_table 
-**    val cont_stack = []
-**    val thread_id = 0
-**    val thread = (t, val_store, cont_stack, thread_id)
-**
-**
-**    val chan_store = empty_table
-**    val block_store = empty_table
-**    val sync_store = empty_table (* of ((thread_id, query_id) -> event_list) *)
-**    val cnt = 1
-**
-**
-**    fun loop cfg = (case (concur_step cfg) of
-**      NONE => () |
-**      SOME (cfg') =>
-**        loop cfg' 
-**    )
-**  
-**  in
-**    loop (
-**      Mode_Start,
-**      [thread],
-**      (chan_store, block_store, sync_store, cnt)
-**    )
-**  end)
 **
 **
 *)
+  fun seq_step (
+    md,
+    (t, val_store, cont_stack, thread_id),
+    (chan_store, block_store, sync_store, cnt)
+  ) = (case t of
+
+    _ => (
+      Mode_Stick "TODO",
+      [], (chan_store, block_store, sync_store, cnt)
+    )
+
+    (* **TODO**
+
+    Seq (t1, t2, _) => normalize (
+      t1, fn _ => t2,
+      val_store, cont_stack, thread_id,
+      chan_store, block_store, sync_store, cnt
+    ) |
+
+    Select (t, name, pos) => (case (resolve (val_store, t)) of
+
+      NONE => normalize (
+        t, fn v => Select (v, name, pos),
+        val_store, cont_stack, thread_id,
+        chan_store, block_store, sync_store, cnt
+      ) |
+
+      SOME (Rec (fields, _)) => (let
+        val field_op = (List.find
+          (fn (key, v) => key = name)
+          fields
+        )
+      in
+        (case field_op of
+          SOME (_, v) => (
+            Mode_Reduce v,
+            [(v, val_store, cont_stack, thread_id)],
+            (chan_store, block_store, sync_store, cnt)
+          ) |
+
+          NONE => (
+            Mode_Stick "selection from non-record",
+            [], (chan_store, block_store, sync_store, cnt)
+          )
+        )
+      end) |
+
+      _ => (
+        Mode_Stick "selection from non-record",
+        [], (chan_store, block_store, sync_store, cnt)
+      )
+
+    ) |
+
+    App (t_fn, t_arg, pos) => normalize_single_reduce (
+      t_fn, fn v_fn => App (t_arg, v_fn, pos),
+      val_store, cont_stack, thread_id,
+      chan_store, block_store, sync_store, cnt,
+      (fn
+        (t_arg, Fnc (lams, fnc_store, mutual_store, _)) => push (
+          (t_arg, (lams, fnc_store, mutual_store)),
+          val_store, cont_stack, thread_id,
+          chan_store, block_store, sync_store, cnt
+        ) |
+
+        _ => (
+          Mode_Stick "application of non-function",
+          [], (chan_store, block_store, sync_store, cnt)
+        )
+      )
+    ) |
+
+    Pipe (t_arg, t_fn, pos) => normalize_single_reduce (
+      t_fn, fn v_fn => Pipe (t_arg, v_fn, pos),
+      val_store, cont_stack, thread_id,
+      chan_store, block_store, sync_store, cnt,
+      (fn
+        (t_arg, Fnc (lams, fnc_store, mutual_store, _)) => push (
+          (t_arg, (lams, fnc_store, mutual_store)),
+          val_store, cont_stack, thread_id,
+          chan_store, block_store, sync_store, cnt
+        ) |
+
+        _ => (
+          Mode_Stick "pipe into non-function",
+          [], (chan_store, block_store, sync_store, cnt)
+        )
+      )
+    ) |
+
+
+    Open (t_rec, t_body, pos) => normalize_single_reduce (
+      t_rec, fn v_rec => Open (v_rec, t_body, pos),
+      val_store, cont_stack, thread_id,
+      chan_store, block_store, sync_store, cnt,
+      (fn
+        (Rec (fields, _), t_body) => (let
+          val val_store' = insert_table (val_store, fields)
+        in
+          (
+            Mode_Upkeep,
+            [(t_body, val_store', cont_stack, thread_id)],
+            (chan_store, block_store, sync_store, cnt)
+          )
+        end) |
+
+        _ => (
+          Mode_Stick "open of non-record",
+          [], (chan_store, block_store, sync_store, cnt)
+        )
+      )
+    ) |
+
+    Cns (t1, t2, pos) => normalize_pair_reduce (
+      (t1, t2), fn (t1, t2) => Cns (t1, t2, pos),
+      val_store, cont_stack, thread_id,
+      chan_store, block_store, sync_store, cnt,
+      (fn
+        (v, Lst (ts, _)) => pop (
+          Lst (v :: ts, pos),
+          val_store, cont_stack, thread_id,
+          chan_store, block_store, sync_store, cnt
+        ) |
+
+        _ => (
+          Mode_Stick "cons with non-list",
+          [], (chan_store, block_store, sync_store, cnt)
+        )
+      )
+
+    ) |
+
+    Equiv (t1, t2, pos) => normalize_pair_reduce (
+      (t1, t2), fn (t1, t2) => Equiv (t1, t2, pos),
+      val_store, cont_stack, thread_id,
+      chan_store, block_store, sync_store, cnt,
+      (fn
+        (Bool (b1, _), Bool (b2, _)) => pop (
+          Bool (b1 = b2, pos),
+          val_store, cont_stack, thread_id,
+          chan_store, block_store, sync_store, cnt
+        ) |
+
+        _ => (
+          Mode_Stick "<-> with non-boolean",
+          [], (chan_store, block_store, sync_store, cnt)
+        )
+      )
+
+    ) |
+
+    Implies (t1, t2, pos) => normalize_pair_reduce (
+      (t1, t2), fn (t1, t2) => Implies (t1, t2, pos),
+      val_store, cont_stack, thread_id,
+      chan_store, block_store, sync_store, cnt,
+      (fn
+        (Bool (b1, _), Bool (b2, _)) => pop (
+          Bool (not b1 orelse b2, pos),
+          val_store, cont_stack, thread_id,
+          chan_store, block_store, sync_store, cnt
+        ) |
+
+        _ => (
+          Mode_Stick "--> with non-boolean",
+          [], (chan_store, block_store, sync_store, cnt)
+        )
+      )
+
+    ) |
+
+    Or (t1, t2, pos) => normalize_pair_reduce (
+      (t1, t2), fn (t1, t2) => Or (t1, t2, pos),
+      val_store, cont_stack, thread_id,
+      chan_store, block_store, sync_store, cnt,
+      (fn
+        (Bool (b1, _), Bool (b2, _)) => pop (
+          Bool (b1 orelse b2, pos),
+          val_store, cont_stack, thread_id,
+          chan_store, block_store, sync_store, cnt
+        ) |
+
+        _ => (
+          Mode_Stick "\\/ with non-boolean",
+          [], (chan_store, block_store, sync_store, cnt)
+        )
+      )
+
+    ) |
+
+    And (t1, t2, pos) => normalize_pair_reduce (
+      (t1, t2), fn (t1, t2) => And (t1, t2, pos),
+      val_store, cont_stack, thread_id,
+      chan_store, block_store, sync_store, cnt,
+      (fn
+        (Bool (b1, _), Bool (b2, _)) => pop (
+          Bool (b1 andalso b2, pos),
+          val_store, cont_stack, thread_id,
+          chan_store, block_store, sync_store, cnt
+        ) |
+
+        _ => (
+          Mode_Stick "/\\ with non-boolean",
+          [], (chan_store, block_store, sync_store, cnt)
+        )
+      )
+
+    ) |
+
+    Equal (t1, t2, pos) => normalize_pair_reduce (
+      (t1, t2), fn (t1, t2) => Equal (t1, t2, pos),
+      val_store, cont_stack, thread_id,
+      chan_store, block_store, sync_store, cnt,
+      (fn
+
+        (v1, v2) => pop (
+          Bool (term_equal (v1, v2), pos),
+          val_store, cont_stack, thread_id,
+          chan_store, block_store, sync_store, cnt
+        )
+
+      )
+
+    ) |
+
+    Add (t1, t2, pos) => normalize_pair_reduce (
+      (t1, t2), fn (t1, t2) => Add (t1, t2, pos),
+      val_store, cont_stack, thread_id,
+      chan_store, block_store, sync_store, cnt,
+      (fn
+        (Num n1, Num n2) => pop (
+          Num (num_add (n1, n2)),
+          val_store, cont_stack, thread_id,
+          chan_store, block_store, sync_store, cnt
+        ) |
+
+        _ => (
+          Mode_Stick "+ with non-number",
+          [], (chan_store, block_store, sync_store, cnt)
+        )
+      )
+
+    ) |
+
+    Sub (t1, t2, pos) => normalize_pair_reduce (
+      (t1, t2), fn (t1, t2) => Sub (t1, t2, pos),
+      val_store, cont_stack, thread_id,
+      chan_store, block_store, sync_store, cnt,
+      (fn
+        (Num n1, Num n2) => pop (
+          Num (num_sub (n1, n2)),
+          val_store, cont_stack, thread_id,
+          chan_store, block_store, sync_store, cnt
+        ) |
+
+        _ => (
+          Mode_Stick "- with non-number",
+          [], (chan_store, block_store, sync_store, cnt)
+        )
+      )
+
+    ) |
+
+    Mul (t1, t2, pos) => normalize_pair_reduce (
+      (t1, t2), fn (t1, t2) => Mul (t1, t2, pos),
+      val_store, cont_stack, thread_id,
+      chan_store, block_store, sync_store, cnt,
+      (fn
+        (Num n1, Num n2) => pop (
+          Num (num_mult (n1, n2)),
+          val_store, cont_stack, thread_id,
+          chan_store, block_store, sync_store, cnt
+        ) |
+
+        _ => (
+          Mode_Stick "* with non-number",
+          [], (chan_store, block_store, sync_store, cnt)
+        )
+      )
+
+    ) |
+
+
+    Div (t1, t2, pos) => normalize_pair_reduce (
+      (t1, t2), fn (t1, t2) => Div (t1, t2, pos),
+      val_store, cont_stack, thread_id,
+      chan_store, block_store, sync_store, cnt,
+      (fn
+        (Num n1, Num n2) => pop (
+          Num (num_div (n1, n2)),
+          val_store, cont_stack, thread_id,
+          chan_store, block_store, sync_store, cnt
+        ) |
+
+        _ => (
+          Mode_Stick "/ with non-number",
+          [], (chan_store, block_store, sync_store, cnt)
+        )
+      )
+
+    ) |
+
+    Rem (t1, t2, pos) => normalize_pair_reduce (
+      (t1, t2), fn (t1, t2) => Rem (t1, t2, pos),
+      val_store, cont_stack, thread_id,
+      chan_store, block_store, sync_store, cnt,
+      (fn
+        (Num n1, Num n2) => pop (
+          Num (num_mod (n1, n2)),
+          val_store, cont_stack, thread_id,
+          chan_store, block_store, sync_store, cnt
+        ) |
+
+        _ => (
+          Mode_Stick "% with non-number",
+          [], (chan_store, block_store, sync_store, cnt)
+        )
+      )
+
+    ) |
+
+    Alloc_Chan i => (let
+      val chan_store' = insert (chan_store, cnt, ([], []))
+      val cnt' = cnt + 1
+    in
+      pop (
+        ChanId cnt,
+        val_store, cont_stack, thread_id,
+        chan_store', block_store, sync_store, cnt'
+      )
+    end) |
+
+    Send (t, pos) => normalize_single_pop (
+      t, fn v => Send (v, pos), 
+      val_store, cont_stack, thread_id,
+      chan_store, block_store, sync_store, cnt
+    ) | 
+
+    Recv (t, pos) => normalize_single_pop (
+      t, fn v => Recv (v, pos) ,
+      val_store, cont_stack, thread_id,
+      chan_store, block_store, sync_store, cnt
+    ) | 
+
+    Wrap (t, pos) => normalize_single_pop (
+      t, fn v => Wrap (v, pos),
+      val_store, cont_stack, thread_id,
+      chan_store, block_store, sync_store, cnt
+    ) | 
+
+    Chse (t, pos) => normalize_single_pop (
+      t, fn v => Chse (v, pos),
+      val_store, cont_stack, thread_id,
+      chan_store, block_store, sync_store, cnt
+    ) | 
+
+    Spawn (t, pos) => normalize_single_reduce (
+      t, fn v => Spawn (v, pos),  
+      val_store, cont_stack, thread_id,
+      chan_store, block_store, sync_store, cnt,
+      (fn
+
+        (Fnc ([(Lst ([], _), t_body)], fnc_store, mutual_store, _)) => (let
+          val spawn_id = cnt
+          val cnt' = cnt + 1
+        in
+          (
+            Mode_Spawn t_body,
+            [
+              (Lst ([], pos), val_store, cont_stack, thread_id),
+              (t_body, val_store, [], spawn_id)
+            ],
+            (chan_store, block_store, sync_store, cnt')
+          )
+        end) |
+
+        _ => (
+          Mode_Stick "spawn with non-function",
+          [], (chan_store, block_store, sync_store, cnt)
+        )
+      )
+    ) |
+
+    Sync (t, pos) => normalize_single_reduce (
+      t, fn v => Sync (v, pos),  
+      val_store, cont_stack, thread_id,
+      chan_store, block_store, sync_store, cnt,
+      (fn v => if (is_event v) then
+        (let
+
+          val bevts = mk_base_events (v, []) 
+          
+          val (active_bevt_op, chan_store') = (
+            find_active_base_event (bevts, chan_store, block_store)
+          )
+        in
+          (case active_bevt_op of
+            SOME bevt =>
+              transact (
+                bevt, cont_stack, thread_id,
+                (chan_store', block_store, sync_store, cnt)
+              ) |
+            NONE =>
+              block (
+                bevts, cont_stack, thread_id,
+                (chan_store', block_store, sync_store, cnt)
+              )
+          )
+        end)
+      else
+        (
+          Mode_Stick "sync with non-event",
+          [], (chan_store, block_store, sync_store, cnt)
+        )
+      )
+    ) |
+
+    Solve (t, pos) => normalize_single_reduce (
+      t, fn v => Solve (v, pos),  
+      val_store, cont_stack, thread_id,
+      chan_store, block_store, sync_store, cnt,
+      (fn
+        Fnc (lams, fnc_store, mutual_store, pos_f) => (let
+          val chan_id = cnt
+          val chan_store' = insert (chan_store, chan_id, ([], []))
+          val thread_id' = cnt + 1
+          val cnt' = cnt + 2 
+
+          val env = empty_table
+          val result_id = sym cnt' 
+          val cnt'' = cnt' + 1
+
+          val bkchn_id = cnt''
+          val cnt''' = cnt'' + 1
+
+          val sync_store' = insert (sync_store, (thread_id, bkchn_id), [])
+
+          val prop = mk_prop (result_id, lams)
+
+        in
+          (
+            Mode_Reduce (ChanId cnt),
+            [(
+              Backchain ([prop], thread_id, env),
+              val_store, [], thread_id'
+            )],
+            (chan_store, block_store, sync_store', cnt''')
+          )
+        end) |
+
+        _ => (
+          Mode_Stick "solve with non-predicate",
+          [], (chan_store, block_store, sync_store, cnt)
+        )
+      ) 
+    ) |
+
+    For (t, pos) => (let
+      val empty_term = (
+        Not (Equal (
+          Solution Sol_Empty,
+          Solve (t, pos),
+          ~1
+        ), ~1)
+      )
+    in
+      (
+        Mode_Upkeep,
+        [(empty_term, val_store, cont_stack, thread_id)],
+        (chan_store, block_store, sync_store, cnt)
+      )
+    end) |
+
+    Not (t, pos) => normalize_single_reduce (
+      t, fn v => Not (v, pos),
+      val_store, cont_stack, thread_id,
+      chan_store, block_store, sync_store, cnt,
+      (fn
+        Bool (b, _) => pop (
+          Bool (not b, pos),
+          val_store, cont_stack, thread_id,
+          chan_store, block_store, sync_store, cnt
+        ) |
+
+        _ => (
+          Mode_Stick "~ with non-boolean",
+          [], (chan_store, block_store, sync_store, cnt)
+        )
+      )
+
+    ) |
+
+    Synced (t, pos) => normalize_single_reduce (
+      t, fn v => Synced (v, pos), 
+      val_store, cont_stack, thread_id,
+      chan_store, block_store, sync_store, cnt,
+      (fn
+        Fnc (lams, fnc_store, mutual_store, _) => (case md of
+          Mode_Sync (chan_id, msg, send_id, recv_id) => (
+            if (send_id = thread_id) then (
+              push (
+                (
+                  Send (Lst ([ChanId chan_id, msg], ~1), ~1),
+                  (lams, fnc_store, mutual_store)
+                ),
+                val_store, cont_stack, thread_id,
+                chan_store, block_store, sync_store, cnt
+              )
+              
+
+            ) else if (recv_id = thread_id) then (
+              push (
+                (
+                  Recv (Lst ([ChanId chan_id, msg], ~1), ~1),
+                  (lams, fnc_store, mutual_store)
+                ),
+                val_store, cont_stack, thread_id,
+                chan_store, block_store, sync_store, cnt
+              )
+
+            ) else (
+              pop (
+                Bool (false, pos),
+                val_store, cont_stack, thread_id,
+                chan_store, block_store, sync_store, cnt
+              )
+
+            )
+          ) |
+
+          _ => pop (
+            Bool (false, pos),
+            val_store, cont_stack, thread_id,
+            chan_store, block_store, sync_store, cnt
+          )
+
+        ) | 
+
+        _ => (
+          Mode_Stick "synced with non-predicate",
+          [], (chan_store, block_store, sync_store, cnt)
+        )
+      )
+    ) | 
+
+
+    Fnc (lams, [], mutual_store, pos) => pop (
+      Fnc (lams, val_store, mutual_store, pos),
+      val_store, cont_stack, thread_id,
+      chan_store, block_store, sync_store, cnt
+    ) |
+
+    Fnc (lams, fnc_store, mutual_store, pos) => pop (
+      Fnc (lams, fnc_store, mutual_store, pos),
+      val_store, cont_stack, thread_id,
+      chan_store, block_store, sync_store, cnt
+    ) |
+
+    Lst (ts, pos) => normalize_list_pop (
+      ts, fn ts => Lst (ts, pos), 
+      val_store, cont_stack, thread_id,
+      chan_store, block_store, sync_store, cnt
+    ) | 
+
+    Rec (fields, pos) => (let
+      val keys = (map (fn (k, t) => k) fields)
+      val ts = (map (fn (k, t) => t) fields)
+
+      val mutual_store = (List.mapPartial
+        (fn
+          (k, Fnc (lams, [], [], _)) => 
+            SOME (k, lams) |
+          _ => NONE
+        )
+        fields
+      )
+
+      (* embed mutual ids into ts' functions *)
+      val ts' =
+      (map
+        (fn
+          Fnc (lams, [], [], pos) =>
+            Fnc (lams, val_store, mutual_store, pos) 
+        | t => t 
+        )
+        ts
+      )
+
+    in
+      normalize_list_pop (
+        ts, fn ts => Rec (ListPair.zip (keys, ts'), pos), 
+        val_store, cont_stack, thread_id,
+        chan_store, block_store, sync_store, cnt
+      )
+    end) |
+
+    Blank pos => (
+      Mode_Stick "_ in non-pattern",
+      [], (chan_store, block_store, sync_store, cnt)
+    ) |
+
+    Bool (b, pos) => pop (
+      Bool (b, pos),
+      val_store, cont_stack, thread_id,
+      chan_store, block_store, sync_store, cnt
+    ) |
+
+    Id (str, pos) => pop (
+      Id (str, pos),
+      val_store, cont_stack, thread_id,
+      chan_store, block_store, sync_store, cnt
+    ) |
+
+    Num (str, pos) => pop (
+      Num (str, pos),
+      val_store, cont_stack, thread_id,
+      chan_store, block_store, sync_store, cnt
+    ) |
+
+    Str (str, pos) => pop (
+      Str (str, pos),
+      val_store, cont_stack, thread_id,
+      chan_store, block_store, sync_store, cnt
+    ) |
+
+    ChanId i => pop (
+      ChanId i,
+      val_store, cont_stack, thread_id,
+      chan_store, block_store, sync_store, cnt
+    ) |
+
+    ThreadId i => pop (
+      ThreadId i,
+      val_store, cont_stack, thread_id,
+      chan_store, block_store, sync_store, cnt
+    ) |
+
+    Backchain (goals, monitee_thread_id, env) => (
+      backchain (
+        goals, monitee_thread_id, env,
+        val_store, cont_stack, thread_id,
+        chan_store, block_store, sync_store, cnt
+      )
+    ) |
+
+    *)
+
+  )
+
+  fun string_from_mode md = (case md of
+    (* **TODO **)
+    _ => ""
+    (*
+    *)
+  )
+
+  fun concur_step (
+    md, threads, env 
+  
+  ) = (case threads of
+    [] => (print "all done!\n"; NONE) |
+    thread :: threads' => (let
+      val (md', seq_threads, env') = (seq_step (md, thread, env)) 
+      val _ = print ((string_from_mode md) ^ "\n")
+    in
+      SOME (md', threads' @ seq_threads, env')
+    end)
+  )
+
+  fun run t = (let
+
+    val val_store = empty_table 
+    val cont_stack = []
+    val thread_id = 0
+    val thread = (t, val_store, cont_stack, thread_id)
+
+
+    val chan_store = empty_table
+    val block_store = empty_table
+    val sync_store = empty_table (* of ((thread_id, query_id) -> event_list) *)
+    val cnt = 1
+
+
+    fun loop cfg = (case (concur_step cfg) of
+      NONE => () |
+      SOME (cfg') =>
+        loop cfg' 
+    )
+  
+  in
+    loop (
+      Mode_Start,
+      [thread],
+      (chan_store, block_store, sync_store, cnt)
+    )
+  end)
 
 end

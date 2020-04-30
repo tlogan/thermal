@@ -95,7 +95,7 @@ term_nt:
 
   EQUAL (Fnc ([(Id ("_param", ~1), Select (Id ("_param", ~1), EQUALleft))], [], [], EQUALleft)) |
 
-  ALLOC_CHAN (Fnc ([(Id ("_param", ~1), AllocChan (Id ("_param", ~1), ALLOC_CHANleft))], [], [], ALLOC_CHANleft)) |
+  ALLOC_CHAN (Fnc ([(Id ("_param", ~1), Alloc_Chan (Id ("_param", ~1), ALLOC_CHANleft))], [], [], ALLOC_CHANleft)) |
 
   SEND (Fnc ([(Id ("_param", ~1), Send (Id ("_param", ~1), SENDleft))], [], [], SENDleft)) |
   RECV (Fnc ([(Id ("_param", ~1), Recv (Id ("_param", ~1), RECVleft))], [], [], RECVleft)) |
@@ -141,6 +141,6 @@ fields_nt:
   COLON field_nt RPAREN %prec COLON ([field_nt])
 
 field_nt:
-  ID INFIXL term_nt ((InfixLeft, ID, term_nt)) |
-  ID INFIXR term_nt ((InfixRight, ID, term_nt)) |
-  ID term_nt ((InfixNone, ID, term_nt))
+  ID INFIXL term_nt ((Infix_Left, ID, term_nt)) |
+  ID INFIXR term_nt ((Infix_Right, ID, term_nt)) |
+  ID term_nt ((Infix_None, ID, term_nt))
