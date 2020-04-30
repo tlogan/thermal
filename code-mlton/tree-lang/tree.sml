@@ -269,189 +269,12 @@ structure Tree = struct
 **
 **
 **
-**  fun match_value_insert (val_store, pat, value) = (case (pat, value) of
-**    (Cns (t1, t2, _), Lst (vs, _))  => (case vs of
-**      [] => NONE |
-**      v :: vs' => (Option.mapPartial
-**        (fn val_store' =>
-**          match_value_insert (val_store', t1, v)
-**        )
-**        (match_value_insert (val_store, t2, Lst (vs', ~1)))
-**      )
-**    ) |
 **
-**    (Send (t, _), Send (v, _)) =>
-**      match_value_insert (val_store, t, v) |
-**
-**    (Recv (t, _), Recv (v, _)) =>
-**      match_value_insert (val_store, t, v) |
-**
-**    (Fnc p_fnc, Fnc v_fnc) => (
-**      if fnc_equal (p_fnc, v_fnc) then
-**        SOME val_store
-**      else
-**        NONE
-**    ) |
-**
-**    (Lst (ts, _), Lst (vs, _)) => (case (ts, vs) of
-**      ([], []) =>
-**        SOME val_store |
-**
-**      (t :: ts', v :: vs') => (Option.mapPartial
-**        (fn val_store' =>
-**          match_value_insert (val_store', t, v)
-**        )
-**        (match_value_insert (val_store, Lst (ts', ~1), Lst (vs', ~1)))
-**      ) |
-**
-**      _ =>
-**        NONE
-**    ) |
-**
-**    (Rec (p_fields, _), Rec (v_fields, _)) => (case (p_fields, v_fields) of
-**      ([], []) =>
-**        SOME val_store |
-**
-**      ((pk, t) :: ps, _ :: _) => (let
-**        val (match, remainder) = (List.partition  
-**          (fn (k, v) => k = pk)
-**          v_fields
-**        )
-**      in
-**        (case match of
-**          [(k, v)] => (Option.mapPartial
-**            (fn val_store' => match_value_insert (val_store', t, v))
-**            (match_value_insert (val_store, Rec (ps, ~1), Rec (remainder, ~1)))
-**          ) |
-**
-**          _ => NONE
-**        )
-**      end) |
-**
-**      _ =>
-**        NONE
-**      
-**    ) |
-**
-**    (Blank _, _) =>
-**      SOME val_store |
-**
-**    (Bool (b, _), Bool (bv, _)) => (
-**      if b = bv then
-**        SOME val_store
-**      else
-**        NONE
-**    ) |
-**
-**    (Id (str, _), v) =>
-**      SOME (insert (val_store, str, v)) |
-**
-**    (Num (n, _), Num (nv, _)) => (
-**      if n = nv then
-**        SOME val_store
-**      else
-**        NONE
-**    ) |
-**
-**    (Str (str, _), Str (strv, _)) => (
-**      if str = strv then
-**        SOME val_store
-**      else
-**        NONE
-**    ) |
-**
-**    _ => NONE 
-**
-**  )
-**
-**  fun push (
-**    (t_arg, (lams, fnc_store, mutual_store)),
-**    val_store, cont_stack, thread_id,
-**    chan_store, block_store, sync_store, cnt
-**  ) = (let
-**    val cont = (lams, fnc_store, mutual_store)
-**    val cont_stack' = cont :: cont_stack
-**  in
-**    (
-**      Mode_Upkeep,
-**      [(t_arg, val_store, cont_stack', thread_id)],
-**      (chan_store, block_store, sync_store, cnt)
-**    )
-**  end)
 **  
 **  
-**  fun sym i = "_g_" ^ (Int.toString i)
-**
-**  fun normalize (
-**    t, term_fn, val_store, cont_stack, thread_id,
-**    chan_store, block_store, sync_store, cnt
-**  ) = (let
-**    val hole = Id (sym cnt, ~1)
-**    val hole_lam = (hole, term_fn hole)
-**  in
-**    push (
-**      (t, ([hole_lam], val_store, [])),
-**      val_store, cont_stack, thread_id,
-**      chan_store, block_store, sync_store, cnt
-**    )
-**  end)
 **
 **
-**  fun pop (
-**    result,
-**    val_store, cont_stack, thread_id,
-**    chan_store, block_store, sync_store, cnt
-**  ) = (let
-**    val (threads, md) = (case cont_stack of
-**      [] => ([], Mode_Finish result) |
-**      (lams, val_store', mutual_store) :: cont_stack' => (let
 **
-**        (* embed mutual_store within self's functions *)
-**        val fnc_store = (map 
-**          (fn (k, lams) =>
-**            (k, Fnc (lams, val_store', mutual_store, ~1))
-**          )
-**          mutual_store
-**        )
-**
-**        val val_store'' = insert_table (val_store', fnc_store)
-**
-**        fun match_first lams = (case lams of
-**          [] => NONE |
-**          (p, t) :: lams' =>
-**            (case (match_value_insert (val_store'', p, result)) of
-**              NONE => match_first lams' |
-**              SOME val_store'' => SOME (t, val_store'')
-**            )
-**        )
-**
-**      in
-**        (case (match_first lams) of
-**
-**          NONE => (
-**            [], Mode_Stick "result does not match continuation hole pattern"
-**          ) |
-**
-**          SOME (t_body, val_store'') => (
-**            [(t_body, val_store'', cont_stack', thread_id)],
-**            Mode_Reduce t_body  
-**          )
-**
-**        )
-**      end)
-**    )
-**  in
-**    (
-**      md,
-**      threads,
-**      (chan_store, block_store, sync_store, cnt)
-**    ) 
-**  end)
-**
-**  fun resolve (val_store, t) = (case t of
-**    _ => NONE
-**    (* **TODO** *)
-**  )
 **
 **  fun normalize_single_reduce (
 **    t, f,  
@@ -484,30 +307,6 @@ structure Tree = struct
 **    ))
 **  )
 **
-**  fun normalize_pair_reduce (
-**    (t1, t2), f,  
-**    val_store, cont_stack, thread_id,
-**    chan_store, block_store, sync_store, cnt,
-**    reduce_f
-**  ) = (case (
-**    resolve (val_store, t1),
-**    resolve (val_store, t2)
-**  ) of
-**    (NONE, _) => normalize (
-**      t1, fn v1 => f (v1, t2),
-**      val_store, cont_stack, thread_id,
-**      chan_store, block_store, sync_store, cnt
-**    ) |
-**
-**    (_, NONE) => normalize (
-**      t2, fn v2 => f (t1, v2),
-**      val_store, cont_stack, thread_id,
-**      chan_store, block_store, sync_store, cnt
-**    ) |
-**
-**    (SOME v1, SOME v2) => reduce_f (v1, v2)
-**
-**  )
 **
 **
 **  fun normalize_pair_pop (
@@ -916,11 +715,245 @@ structure Tree = struct
 **
 **
 *)
+
+  fun match_value_insert (val_store, pat, value) = (case (pat, value) of
+    (Cns (t1, t2, _), Lst (vs, _))  => (case vs of
+      [] => NONE |
+      v :: vs' => (Option.mapPartial
+        (fn val_store' =>
+          match_value_insert (val_store', t1, v)
+        )
+        (match_value_insert (val_store, t2, Lst (vs', ~1)))
+      )
+    ) |
+
+    _ => NONE
+
+    (* **TODO**
+
+    (Send (t, _), Send (v, _)) =>
+      match_value_insert (val_store, t, v) |
+
+    (Recv (t, _), Recv (v, _)) =>
+      match_value_insert (val_store, t, v) |
+
+    (Fnc p_fnc, Fnc v_fnc) => (
+      if fnc_equal (p_fnc, v_fnc) then
+        SOME val_store
+      else
+        NONE
+    ) |
+
+    (Lst (ts, _), Lst (vs, _)) => (case (ts, vs) of
+      ([], []) =>
+        SOME val_store |
+
+      (t :: ts', v :: vs') => (Option.mapPartial
+        (fn val_store' =>
+          match_value_insert (val_store', t, v)
+        )
+        (match_value_insert (val_store, Lst (ts', ~1), Lst (vs', ~1)))
+      ) |
+
+      _ =>
+        NONE
+    ) |
+
+    (Rec (p_fields, _), Rec (v_fields, _)) => (case (p_fields, v_fields) of
+      ([], []) =>
+        SOME val_store |
+
+      ((pk, t) :: ps, _ :: _) => (let
+        val (match, remainder) = (List.partition  
+          (fn (k, v) => k = pk)
+          v_fields
+        )
+      in
+        (case match of
+          [(k, v)] => (Option.mapPartial
+            (fn val_store' => match_value_insert (val_store', t, v))
+            (match_value_insert (val_store, Rec (ps, ~1), Rec (remainder, ~1)))
+          ) |
+
+          _ => NONE
+        )
+      end) |
+
+      _ =>
+        NONE
+      
+    ) |
+
+    (Blank _, _) =>
+      SOME val_store |
+
+    (Bool (b, _), Bool (bv, _)) => (
+      if b = bv then
+        SOME val_store
+      else
+        NONE
+    ) |
+
+    (Id (str, _), v) =>
+      SOME (insert (val_store, str, v)) |
+
+    (Num (n, _), Num (nv, _)) => (
+      if n = nv then
+        SOME val_store
+      else
+        NONE
+    ) |
+
+    (Str (str, _), Str (strv, _)) => (
+      if str = strv then
+        SOME val_store
+      else
+        NONE
+    ) |
+
+    *)
+  )
+
+  fun resolve (val_store, t) = (case t of
+    _ => NONE
+    (* **TODO** *)
+  )
+
+  fun sym i = "_g_" ^ (Int.toString i)
+
+
+  fun push (
+    (t_arg, (lams, fnc_store, mutual_store)),
+    val_store, cont_stack, thread_id,
+    chan_store, block_store, sync_store, cnt
+  ) = (let
+    val cont = (lams, fnc_store, mutual_store)
+    val cont_stack' = cont :: cont_stack
+  in
+    (
+      Mode_Upkeep,
+      [(t_arg, val_store, cont_stack', thread_id)],
+      (chan_store, block_store, sync_store, cnt)
+    )
+  end)
+
+  fun pop (
+    result,
+    val_store, cont_stack, thread_id,
+    chan_store, block_store, sync_store, cnt
+  ) = (let
+    val (threads, md) = (case cont_stack of
+      [] => ([], Mode_Finish result) |
+      (lams, val_store', mutual_store) :: cont_stack' => (let
+
+        (* embed mutual_store within self's functions *)
+        val fnc_store = (map 
+          (fn (k, lams) =>
+            (k, Fnc (lams, val_store', mutual_store, ~1))
+          )
+          mutual_store
+        )
+
+        val val_store'' = insert_table (val_store', fnc_store)
+
+        fun match_first lams = (case lams of
+          [] => NONE |
+          (p, t) :: lams' =>
+            (case (match_value_insert (val_store'', p, result)) of
+              NONE => match_first lams' |
+              SOME val_store'' => SOME (t, val_store'')
+            )
+        )
+
+      in
+        (case (match_first lams) of
+
+          NONE => (
+            [], Mode_Stick "result does not match continuation hole pattern"
+          ) |
+
+          SOME (t_body, val_store'') => (
+            [(t_body, val_store'', cont_stack', thread_id)],
+            Mode_Reduce t_body  
+          )
+
+        )
+      end)
+    )
+  in
+    (
+      md,
+      threads,
+      (chan_store, block_store, sync_store, cnt)
+    ) 
+  end)
+
+
+
+  fun normalize (
+    t, term_fn, val_store, cont_stack, thread_id,
+    chan_store, block_store, sync_store, cnt
+  ) = (let
+    val hole = Id (sym cnt, ~1)
+    val hole_lam = (hole, term_fn hole)
+  in
+    push (
+      (t, ([hole_lam], val_store, [])),
+      val_store, cont_stack, thread_id,
+      chan_store, block_store, sync_store, cnt
+    )
+  end)
+
+  fun normalize_pair_reduce (
+    (t1, t2), f,  
+    val_store, cont_stack, thread_id,
+    chan_store, block_store, sync_store, cnt,
+    reduce_f
+  ) = (case (
+    resolve (val_store, t1), resolve (val_store, t2)
+  ) of
+    (NONE, _) => normalize (
+      t1, fn v1 => f (v1, t2),
+      val_store, cont_stack, thread_id,
+      chan_store, block_store, sync_store, cnt
+    ) |
+
+    (_, NONE) => normalize (
+      t2, fn v2 => f (t1, v2),
+      val_store, cont_stack, thread_id,
+      chan_store, block_store, sync_store, cnt
+    ) |
+
+    (SOME v1, SOME v2) => reduce_f (v1, v2)
+
+  )
+
+
   fun seq_step (
     md,
     (t, val_store, cont_stack, thread_id),
     (chan_store, block_store, sync_store, cnt)
   ) = (case t of
+
+    Cns (t1, t2, pos) => normalize_pair_reduce (
+      (t1, t2), fn (t1, t2) => Cns (t1, t2, pos),
+      val_store, cont_stack, thread_id,
+      chan_store, block_store, sync_store, cnt,
+      (fn
+        (v, Lst (ts, _)) => pop (
+          Lst (v :: ts, pos),
+          val_store, cont_stack, thread_id,
+          chan_store, block_store, sync_store, cnt
+        ) |
+
+        _ => (
+          Mode_Stick "cons with non-list",
+          [], (chan_store, block_store, sync_store, cnt)
+        )
+      )
+
+    ) |
+
 
     _ => (
       Mode_Stick "TODO",
@@ -928,6 +961,58 @@ structure Tree = struct
     )
 
     (* **TODO**
+
+    Lst of ((term list) * int) |
+
+    Fnc of (
+      ((term * term) list) *
+      ((string, term) store) *
+      ((string, (term * term) list) store) *
+      int
+    ) (* Fnc (lams, val_store, mutual_store, pos) *) |
+
+    Compo of (term * term * int) |
+
+    App of (term * term * int) |
+
+    Seq of (term * term * int) |
+
+    Rec of (((infix_option * string * term) list) * int) |
+    Select of (term * int) |
+  
+    Alloc_Chan of (term * int) |
+
+    Send of (term * int) |
+    Recv of (term * int) |
+
+    Wrap of (term * int) |
+    Chse of (term * int) |
+    Sync of (term * int) |
+
+    Spawn of (term * int) |
+    Par of (term * int) |
+  
+    Sym of (term * int) |
+
+    Blank of int |
+  
+    Id of (string * int) |
+
+    Str of (string * int) |
+
+    Num of (string * int) |
+
+    Add of (term * int) |
+    Sub of (term * int) |
+    Mul of (term * int) |
+    Div of (term * int) |
+    Rem of (term * int) |
+
+    (* internal reps *)
+    ChanId of int |
+    ThreadId of int
+
+
 
     Seq (t1, t2, _) => normalize (
       t1, fn _ => t2,
@@ -1027,25 +1112,6 @@ structure Tree = struct
           [], (chan_store, block_store, sync_store, cnt)
         )
       )
-    ) |
-
-    Cns (t1, t2, pos) => normalize_pair_reduce (
-      (t1, t2), fn (t1, t2) => Cns (t1, t2, pos),
-      val_store, cont_stack, thread_id,
-      chan_store, block_store, sync_store, cnt,
-      (fn
-        (v, Lst (ts, _)) => pop (
-          Lst (v :: ts, pos),
-          val_store, cont_stack, thread_id,
-          chan_store, block_store, sync_store, cnt
-        ) |
-
-        _ => (
-          Mode_Stick "cons with non-list",
-          [], (chan_store, block_store, sync_store, cnt)
-        )
-      )
-
     ) |
 
     Equiv (t1, t2, pos) => normalize_pair_reduce (
