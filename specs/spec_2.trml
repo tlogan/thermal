@@ -1,17 +1,18 @@
 (
 
+: call infixl 9 a. f. , f a
 
-: or infix 8 a. b. ,
+: or infixl 8 a. b. ,
     (equal a. `true`.) call (
     | `true` , `true`
     | `false`, b
     )
   
-: even n .
-    n = 0 or (odd (n - 1))
+: even n , 
+    equal (n. 0.) or (odd (n - 1))
 
-: odd n .
-    n = 1 or (even (n - 1))
+: odd n ,
+    equal (n. 1.) or (even (n - 1))
 
 ) call eo ,
 
