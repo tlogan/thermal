@@ -5,42 +5,48 @@ The Robot Mind and Language
  (* my_rec[`foo`] 44 *)
  (* my_rec\\foo 44 *)
 
- infixr 0 call :
- | a. f. , f a
+ (
+ : infixr 0 call
+     a. f. , f a
 
- infixl 8 * :
- | a. b. , mult (a. b.)
+ : infixl 8 *
+     a. b. , mult (a. b.)
 
- fact :
- | 0 , 1
- | n , n * (fact (n - 1))
+ : fact (
+   | 0 , 1
+   | n , n * (fact (n - 1))
+   )
 
  (* strings may be in back ticks *)
  (* lists do not have commas when within square braces *)
 
- even :
- | 0 , `true`
- | `S`. n. , odd n
+ : even (
+   | 0 , `true`
+   | `S`. n. , odd n
+   )
 
- odd :
- | 0 , `false`
- | `S`. n. , even n
+ : odd ( 
+   | 0 , `false`
+   | `S`. n. , even n
+   )
 
  (* strings without whitespace may use hash *)
 
  (* recursion defined within record syntax *)
 
- fib : 
- | 0 , 0
- | 1 , 1
- | `S`. `S`. n. , fib (`S`. n.) + fib n
+ : fib ( 
+   | 0 , 0
+   | 1 , 1
+   | `S`. `S`. n. , fib (`S`. n.) + fib n
+   )
 
 
- infix 8 = :
- | sym a. sym b. , a `=` b
+ : infix 8 =
+     sym a. sym b. , a `=` b
 
- infixl 3 \\/ :
- | sym a. sym b. , a `\\/` b
+ : infixl 3 \\/
+     sym a. sym b. , a `\\/` b
+ )
 
  ;
 
@@ -50,13 +56,13 @@ The Robot Mind and Language
  (* comma used to construct list without square brackets*)
 
 
- 4 call | x , 
+ 4 call x , 
 
- (fact x) call | y , 
+ (fact x) call y , 
  
  fib y ; 
 
- | x , x = 4 \\/ x = 2 ::> (`Answer`. x.)
+ x , x = 4 \\/ x = 2 ::> (`Answer`. x.)
 
  (* sym keyword directs arguments for param to be wrapped in thunk, rather than evaluated *)
 

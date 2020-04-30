@@ -10,7 +10,7 @@ open Tree
   SEMI | COMPO | SELECT |
   COLON |
   DOT |
-  COMMA | BSLASH | LSQ | RSQ | BAR |
+  COMMA | BSLASH | LSQ | RSQ | BAR | HASH |
   ADD | SUB | MUL | DIV | REM | 
   ADDW | SUBW | MULW | DIVSW | DIVUW | REMSW | REMUW | 
   ADDF | SUBF | MULF | DIVF | 
@@ -44,9 +44,9 @@ open Tree
 %noshift EOF
 
 %right SEMI 
+%right COLON
+%right BAR HASH COMMA
 %left COMPO 
-%left COLON
-%left BAR COMMA
 %right DOT
 
 
@@ -81,12 +81,13 @@ term_nt:
   term_nt DOT term_nt (Cns (term_nt1, term_nt2, DOTleft)) |
   term_nt DOT (Cns (term_nt1, Blank ~1, DOTleft)) |
 
-  lams_nt (Fnc (lams_nt, [], [], lams_ntleft)) |
+  LPAREN lams_nt (Fnc (lams_nt, [], [], lams_ntleft)) |
+  lam_nt (Fnc ([lam_nt], [], [], lam_ntleft)) |
 
   term_nt term_nt %prec COMPO (Compo (term_nt1, term_nt2, term_nt1left)) |
   term_nt SEMI term_nt (Seq (term_nt1, term_nt2, SEMIleft)) |
 
-  fields_nt (Rec (fields_nt, fields_ntleft)) |
+  LPAREN fields_nt (Rec (fields_nt, fields_ntleft)) |
 
   term_nt LSQ term_nt RSQ (Select (Lst ([term_nt1, term_nt2], ~1), LSQleft)) |
   term_nt BSLASH ID (Select (Lst ([term_nt, Str (ID, ~1)], ~1), BSLASHleft)) |
@@ -130,16 +131,16 @@ term_nt:
 
 lams_nt:
   BAR lam_nt lams_nt (lam_nt :: lams_nt) |
-  BAR lam_nt ([lam_nt])
+  BAR lam_nt RPAREN ([lam_nt])
 
 lam_nt:
-  term_nt COMMA term_nt (term_nt1, term_nt2)
-  
+  term_nt COMMA term_nt ((term_nt1, term_nt2))
+
 fields_nt:
-  field_nt fields_nt %prec COLON (field_nt :: fields_nt) |
-  field_nt %prec COLON ([field_nt])
+  COLON field_nt fields_nt %prec COLON (field_nt :: fields_nt) |
+  COLON field_nt RPAREN %prec COLON ([field_nt])
 
 field_nt:
-  INFIXL ID COLON term_nt ((InfixLeft, ID, term_nt)) |
-  INFIXR ID COLON term_nt ((InfixRight, ID, term_nt)) |
-  ID COLON term_nt ((InfixNone, ID, term_nt))
+  INFIXL ID term_nt ((InfixLeft, ID, term_nt)) |
+  INFIXR ID term_nt ((InfixRight, ID, term_nt)) |
+  ID term_nt ((InfixNone, ID, term_nt))

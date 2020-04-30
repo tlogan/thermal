@@ -167,7 +167,7 @@ structure Tree = struct
       "(Num@" ^ (Int.toString pos) ^ " " ^ num ^ ")" |
 
     Str (str, pos) =>
-      "(Stringit@" ^ (Int.toString pos) ^ " " ^ str ^ ")" |
+      "(Str@" ^ (Int.toString pos) ^ " " ^ str ^ ")" |
 
     ChanId i =>
       "(ChanId " ^ (Int.toString i) ^ ")" |

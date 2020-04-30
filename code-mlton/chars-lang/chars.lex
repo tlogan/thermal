@@ -32,7 +32,7 @@ val eof = fn () =>
 %s COMMENT;
 alpha=[a-zA-Z];
 digit=[0-9];
-symbol=[\-\^\\=+!@#$%&*:;<>/{}|?~]|"["|"]";
+symbol=[\-\^\\=+!@#$%&*<>/{}|?~]|"["|"]";
 
 %%
 
@@ -59,6 +59,7 @@ symbol=[\-\^\\=+!@#$%&*:;<>/{}|?~]|"["|"]";
 
 <INITIAL>"." => (DOT (!linenum, inccol 1));
 <INITIAL>"|" => (BAR (!linenum, inccol 1));
+<INITIAL>"#" => (HASH (!linenum, inccol 1));
 
 <INITIAL>"select" => (SELECT (!linenum, inccol 1));
 
@@ -126,7 +127,7 @@ symbol=[\-\^\\=+!@#$%&*:;<>/{}|?~]|"["|"]";
 
 <INITIAL>"`"([^`]|"\\`")*"`" => (STRING (yytext, !linenum, inccol (size yytext)));
 
-<INITIAL>{symbol}|{digit}|{alpha}({symbol}|{digit}|{alpha}|_)* => (ID (yytext, !linenum, inccol (size yytext)));
+<INITIAL>({symbol}|{digit}|{alpha})({symbol}|{digit}|{alpha}|_)* => (ID (yytext, !linenum, inccol (size yytext)));
 
 
 <INITIAL>. => (BAD (!linenum, inccol (print ("BAD: " ^ yytext ^ "\n"); size yytext))); 
