@@ -1,12 +1,12 @@
-{
-  even : n .
+(
+: even n .
     n = 0 \/ 
-    odd (n - 1),
+    (odd (n - 1))
 
-  odd : n .
+: odd n .
     n = 1 \/ 
-    even (n - 1)
+    (even (n - 1))
 
-} -> eo .
+) call eo ,
 
-eo\even 2
+eo \ even 2
