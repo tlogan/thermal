@@ -317,7 +317,7 @@ structure Tree = struct
 **    ts, f, 
 **    val_store, cont_stack, thread_id,
 **    chan_store, block_store, sync_store, cnt
-**  ) = normalize_list_reduce (
+**  ) = reduce_list (
 **    ts, f, 
 **    val_store, cont_stack, thread_id,
 **    chan_store, block_store, sync_store, cnt,
@@ -901,19 +901,31 @@ structure Tree = struct
 
   )
 
-  fun normalize_list_reduce (
-    ts, f,  
+  fun reduce_list (
+    ts, push_f, pop_f,
     val_store, cont_stack, thread_id,
-    chan_store, block_store, sync_store, cnt,
-    reduce_f
+    chan_store, block_store, sync_store, cnt
   ) = (let
 
     fun loop (prefix, postfix) = (case postfix of
-      [] => reduce_f prefix |
+      [] => (case (pop_f prefix) of 
+        Error msg => (
+          Mode_Stick msg,
+          [], (chan_store, block_store, sync_store, cnt)
+        ) |
+
+        result => pop (
+          result,
+          val_store, cont_stack, thread_id,
+          chan_store, block_store, sync_store, cnt
+        )
+
+      ) |
+
       x :: xs => (case (resolve (val_store, x)) of
 
         NONE => push (
-          (x, ([( hole cnt, f (prefix @ (hole cnt :: xs)) )], val_store, [])),
+          (x, ([( hole cnt, push_f (prefix @ (hole cnt :: xs)) )], val_store, [])),
           val_store, cont_stack, thread_id,
           chan_store, block_store, sync_store, cnt + 1
         ) |
