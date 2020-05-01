@@ -313,22 +313,6 @@ structure Tree = struct
 **  )
 **
 **
-**  fun normalize_list_pop (
-**    ts, f, 
-**    val_store, cont_stack, thread_id,
-**    chan_store, block_store, sync_store, cnt
-**  ) = reduce_list (
-**    ts, f, 
-**    val_store, cont_stack, thread_id,
-**    chan_store, block_store, sync_store, cnt,
-**    (fn vs => pop (
-**      (f vs),
-**      val_store, cont_stack, thread_id,
-**      chan_store, block_store, sync_store, cnt
-**    ))
-**  )
-**
-**
 **  fun mk_base_events (evt, cont_stack) = (case evt of
 **  
 **    Send (Lst ([ChanId i, msg], _), pos) =>
@@ -965,7 +949,6 @@ structure Tree = struct
     )
   )
 
-
   fun seq_step (
     md,
     (t, val_store, cont_stack, thread_id),
@@ -985,6 +968,23 @@ structure Tree = struct
 
     ) |
 
+    Lst (ts, pos) => reduce_list (
+      ts, fn vs => Lst (vs, pos), fn vs => Lst (vs, pos),
+      val_store, cont_stack, thread_id,
+      chan_store, block_store, sync_store, cnt
+    ) |
+
+    Fnc (lams, [], mutual_store, pos) => pop (
+      Fnc (lams, val_store, mutual_store, pos),
+      val_store, cont_stack, thread_id,
+      chan_store, block_store, sync_store, cnt
+    ) |
+
+    Fnc (lams, fnc_store, mutual_store, pos) => pop (
+      Fnc (lams, fnc_store, mutual_store, pos),
+      val_store, cont_stack, thread_id,
+      chan_store, block_store, sync_store, cnt
+    ) |
 
     _ => (
       Mode_Stick "TODO",
@@ -992,8 +992,6 @@ structure Tree = struct
     )
 
     (* **TODO**
-
-    Lst of ((term list) * int) |
 
     Fnc of (
       ((term * term) list) *
@@ -1558,24 +1556,6 @@ structure Tree = struct
     ) | 
 
 
-    Fnc (lams, [], mutual_store, pos) => pop (
-      Fnc (lams, val_store, mutual_store, pos),
-      val_store, cont_stack, thread_id,
-      chan_store, block_store, sync_store, cnt
-    ) |
-
-    Fnc (lams, fnc_store, mutual_store, pos) => pop (
-      Fnc (lams, fnc_store, mutual_store, pos),
-      val_store, cont_stack, thread_id,
-      chan_store, block_store, sync_store, cnt
-    ) |
-
-    Lst (ts, pos) => normalize_list_pop (
-      ts, fn ts => Lst (ts, pos), 
-      val_store, cont_stack, thread_id,
-      chan_store, block_store, sync_store, cnt
-    ) | 
-
     Rec (fields, pos) => (let
       val keys = (map (fn (k, t) => k) fields)
       val ts = (map (fn (k, t) => t) fields)
@@ -1600,9 +1580,10 @@ structure Tree = struct
         ts
       )
 
+      val term_f = fn ts => Rec (ListPair.zip (keys, ts'), pos)
     in
-      normalize_list_pop (
-        ts, fn ts => Rec (ListPair.zip (keys, ts'), pos), 
+      reduce_list (
+        ts, term_f, term_f, 
         val_store, cont_stack, thread_id,
         chan_store, block_store, sync_store, cnt
       )
