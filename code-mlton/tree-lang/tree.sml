@@ -15,8 +15,8 @@ structure Tree = struct
 
     Fnc of (
       ((term * term) list) *
-      ((string, term) store) *
-      ((string, (term * term) list) store) *
+      ((string, infix_option * term) store) *
+      ((string, infix_option * ((term * term) list)) store) *
       int
     ) (* Fnc (lams, val_store, mutual_store, pos) *) |
 
@@ -797,8 +797,8 @@ structure Tree = struct
 
         (* embed mutual_store within self's functions *)
         val fnc_store = (map 
-          (fn (k, lams) =>
-            (k, Fnc (lams, val_store', mutual_store, ~1))
+          (fn (k, (fix_op, lams)) =>
+            (k, (fix_op, Fnc (lams, val_store', mutual_store, ~1)))
           )
           mutual_store
         )
@@ -986,21 +986,51 @@ structure Tree = struct
       chan_store, block_store, sync_store, cnt
     ) |
 
+
+
+    Compo (t1, t2, pos) => (
+      Mode_Upkeep,
+      [(App (t1, t2, pos), val_store, cont_stack, thread_id)],
+      (chan_store, block_store, sync_store, cnt)
+    ) |
+
     _ => (
       Mode_Stick "TODO",
       [], (chan_store, block_store, sync_store, cnt)
     )
 
+
+
     (* **TODO**
 
-    Fnc of (
-      ((term * term) list) *
-      ((string, term) store) *
-      ((string, (term * term) list) store) *
-      int
-    ) (* Fnc (lams, val_store, mutual_store, pos) *) |
 
-    Compo of (term * term * int) |
+    Compo (Compo (t1, ID (id, _), t2, pos) => (let
+
+      val term = (case (find (val_store, id)) of
+        SOME (Infix_Left, v) => App (v, Lst ([t1, t2], pos), pos)
+        SOME (Infix_Right, v) => App (v, Lst ([t1, t2], pos), pos)
+    in
+
+    end)
+
+    App (t_fn, t_arg, pos) => reduce_single (
+      t_fn, fn v_fn => App (t_arg, v_fn, pos),
+      val_store, cont_stack, thread_id,
+      chan_store, block_store, sync_store, cnt,
+      (fn
+        (t_arg, Fnc (lams, fnc_store, mutual_store, _)) => push (
+          (t_arg, (lams, fnc_store, mutual_store)),
+          val_store, cont_stack, thread_id,
+          chan_store, block_store, sync_store, cnt
+        ) |
+
+        _ => (
+          Mode_Stick "application of non-function",
+          [], (chan_store, block_store, sync_store, cnt)
+        )
+      )
+    ) |
+
 
     App of (term * term * int) |
 
@@ -1084,23 +1114,6 @@ structure Tree = struct
 
     ) |
 
-    App (t_fn, t_arg, pos) => reduce_single (
-      t_fn, fn v_fn => App (t_arg, v_fn, pos),
-      val_store, cont_stack, thread_id,
-      chan_store, block_store, sync_store, cnt,
-      (fn
-        (t_arg, Fnc (lams, fnc_store, mutual_store, _)) => push (
-          (t_arg, (lams, fnc_store, mutual_store)),
-          val_store, cont_stack, thread_id,
-          chan_store, block_store, sync_store, cnt
-        ) |
-
-        _ => (
-          Mode_Stick "application of non-function",
-          [], (chan_store, block_store, sync_store, cnt)
-        )
-      )
-    ) |
 
     Pipe (t_arg, t_fn, pos) => reduce_single (
       t_fn, fn v_fn => Pipe (t_arg, v_fn, pos),
