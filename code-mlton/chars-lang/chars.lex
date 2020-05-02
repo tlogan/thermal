@@ -111,6 +111,7 @@ symbol=[\-\^\\=+!@#$%&*<>/{}|?~:]|"["|"]";
 <INITIAL>"sym" => (SYM (!linenum, inccol 1));
 <INITIAL>"infixl" => (INFIXL (!linenum, inccol 1));
 <INITIAL>"infixr" => (INFIXR (!linenum, inccol 1));
+<INITIAL>{digit} => (DIGIT ((valOf o Int.fromString) yytext, !linenum, inccol 1));
 
 <INITIAL>"_" => (LODASH (!linenum, inccol 1));
 

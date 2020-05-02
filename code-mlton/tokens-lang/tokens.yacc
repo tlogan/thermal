@@ -6,7 +6,6 @@ open Tree
 
 %term
 
-
   SEMI | COMPO | SELECT |
   COLON |
   DOT |
@@ -19,7 +18,7 @@ open Tree
   ALLOC_CHAN | SEND | RECV | 
   WRAP | CHSE | SYNC | SPAWN | 
   LPAREN | RPAREN | LANG | RANG | LODASH | 
-  SYM | INFIXL | INFIXR |
+  SYM | INFIXL | INFIXR | DIGIT of int |
 
   NUM of string | WORD of string | FLOAT of string |
   STRING of string | ID of string |
@@ -32,8 +31,8 @@ open Tree
   tree_nt of term |
   term_nt of term |
   terms_nt of term list |
-  fields_nt of (left_right option * string * term) list |
-  field_nt of (left_right option * string * term) |
+  fields_nt of ((left_right * int) option * string * term) list |
+  field_nt of ((left_right * int) option * string * term) |
   lams_nt of (term * term) list |
   lam_nt of (term * term)
   
@@ -53,7 +52,7 @@ open Tree
 %right SYM 
 
 %left ALLOC_CHAN SEND RECV WRAP CHSE SPAWN SYNC ADD SUB MUL DIV REM SELECT EQUAL
-%nonassoc INFIXL INFIXR
+%nonassoc INFIXL INFIXR DIGIT
 
 %left LPAREN LANG
 %right RPAREN RANG
@@ -141,6 +140,8 @@ fields_nt:
   COLON field_nt RPAREN %prec COLON ([field_nt])
 
 field_nt:
-  ID INFIXL term_nt ((SOME Left, ID, term_nt)) |
-  ID INFIXR term_nt ((SOME Right, ID, term_nt)) |
+  ID INFIXL DIGIT term_nt
+    ((SOME (Left, DIGIT), ID, term_nt)) |
+  ID INFIXR DIGIT term_nt
+    ((SOME (Right, DIGIT), ID, term_nt)) |
   ID term_nt ((NONE, ID, term_nt))
