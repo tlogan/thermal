@@ -951,6 +951,31 @@ structure Tree = struct
     )
   )
 
+
+  fun apply (
+    t_fn, t_arg, pos,
+    val_store, cont_stack, thread_id,
+    chan_store, block_store, sync_store, cnt
+  ) = (case (resolve (val_store, t_fn)) of
+    NONE => push (
+      (t_fn, ([( hole cnt, App (hole cnt, t_arg, pos) )], val_store, [])),
+      val_store, cont_stack, thread_id,
+      chan_store, block_store, sync_store, cnt + 1
+    ) |
+
+    SOME (Fnc (lams, fnc_store, mutual_store, _)) => push (
+      (t_arg, (lams, fnc_store, mutual_store)),
+      val_store, cont_stack, thread_id,
+      chan_store, block_store, sync_store, cnt
+    ) |
+    
+    _ => (
+      Mode_Stick "application of non-function",
+      [], (chan_store, block_store, sync_store, cnt)
+    )
+
+  )
+
   fun seq_step (
     md,
     (t, val_store, cont_stack, thread_id),
@@ -1028,37 +1053,18 @@ structure Tree = struct
       (chan_store, block_store, sync_store, cnt)
     ) |
 
+
+    App (t_fn, t_arg, pos) => apply (
+      t_fn, t_arg, pos,
+      val_store, cont_stack, thread_id,
+      chan_store, block_store, sync_store, cnt
+    ) |
+
     _ => (
       Mode_Stick "TODO",
       [], (chan_store, block_store, sync_store, cnt)
     )
-
-
-
     (* **TODO**
-
-
-
-    App (t_fn, t_arg, pos) => reduce_single (
-      t_fn, fn v_fn => App (t_arg, v_fn, pos),
-      val_store, cont_stack, thread_id,
-      chan_store, block_store, sync_store, cnt,
-      (fn
-        (t_arg, Fnc (lams, fnc_store, mutual_store, _)) => push (
-          (t_arg, (lams, fnc_store, mutual_store)),
-          val_store, cont_stack, thread_id,
-          chan_store, block_store, sync_store, cnt
-        ) |
-
-        _ => (
-          Mode_Stick "application of non-function",
-          [], (chan_store, block_store, sync_store, cnt)
-        )
-      )
-    ) |
-
-
-    App of (term * term * int) |
 
     Seq of (term * term * int) |
 
