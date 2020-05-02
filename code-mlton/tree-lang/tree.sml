@@ -1060,11 +1060,69 @@ structure Tree = struct
       chan_store, block_store, sync_store, cnt
     ) |
 
+    (* TODO: Seq Rec *)
+    (*
+    Seq (Rec (fields, _), t2, _) => 
+    *)
+
     Seq (t1, t2, _) => push (
       (t1, ([(hole cnt, t2)], val_store, [])),
       val_store, cont_stack, thread_id,
       chan_store, block_store, sync_store, cnt + 1
     ) |
+
+    Rec (fields, pos) => (let
+      val ts = (map (fn (fix_op, k, t) => t) fields)
+
+
+      fun push_f ts = (let
+        val fields' = (List.map
+          (fn ((fix_op, key, _), t) => (fix_op, key, t))
+          (ListPair.zip (fields, ts))
+        )
+      in
+        Rec (fields', pos)
+      end)
+
+      fun pop_f ts = (let
+
+        val mutual_store = (List.mapPartial
+          (fn
+            (fix_op, k, Fnc (lams, [], [], _)) => 
+              SOME (k, (fix_op, lams)) |
+            _ => NONE
+          )
+          fields
+        )
+
+        (* embed mutual ids into ts' functions *)
+        val ts' =
+        (map
+          (fn
+            Fnc (lams, [], [], pos) =>
+              Fnc (lams, val_store, mutual_store, pos) 
+          | t => t 
+          )
+          ts
+        )
+
+        val fields' = (List.map
+          (fn ((fix_op, key, _), t) => (fix_op, key, t))
+          (ListPair.zip (fields, ts'))
+        )
+
+      in
+        Rec (fields', pos)
+      end)
+
+    in
+      reduce_list (
+        ts, push_f, pop_f, 
+        val_store, cont_stack, thread_id,
+        chan_store, block_store, sync_store, cnt
+      )
+    end) |
+
 
     _ => (
       Mode_Stick "TODO",
@@ -1072,7 +1130,6 @@ structure Tree = struct
     )
     (* **TODO**
 
-    Rec of (((infix_option * string * term) list) * int) |
     Select of (term * int) |
   
     Alloc_Chan of (term * int) |
@@ -1600,39 +1657,6 @@ structure Tree = struct
       )
     ) | 
 
-
-    Rec (fields, pos) => (let
-      val keys = (map (fn (k, t) => k) fields)
-      val ts = (map (fn (k, t) => t) fields)
-
-      val mutual_store = (List.mapPartial
-        (fn
-          (k, Fnc (lams, [], [], _)) => 
-            SOME (k, lams) |
-          _ => NONE
-        )
-        fields
-      )
-
-      (* embed mutual ids into ts' functions *)
-      val ts' =
-      (map
-        (fn
-          Fnc (lams, [], [], pos) =>
-            Fnc (lams, val_store, mutual_store, pos) 
-        | t => t 
-        )
-        ts
-      )
-
-      val term_f = fn ts => Rec (ListPair.zip (keys, ts'), pos)
-    in
-      reduce_list (
-        ts, term_f, term_f, 
-        val_store, cont_stack, thread_id,
-        chan_store, block_store, sync_store, cnt
-      )
-    end) |
 
     Blank pos => (
       Mode_Stick "_ in non-pattern",
