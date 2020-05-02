@@ -1060,13 +1060,17 @@ structure Tree = struct
       chan_store, block_store, sync_store, cnt
     ) |
 
+    Seq (t1, t2, _) => push (
+      (t1, ([(hole cnt, t2)], val_store, [])),
+      val_store, cont_stack, thread_id,
+      chan_store, block_store, sync_store, cnt + 1
+    ) |
+
     _ => (
       Mode_Stick "TODO",
       [], (chan_store, block_store, sync_store, cnt)
     )
     (* **TODO**
-
-    Seq of (term * term * int) |
 
     Rec of (((infix_option * string * term) list) * int) |
     Select of (term * int) |
@@ -1106,12 +1110,6 @@ structure Tree = struct
     ThreadId of int
 
 
-
-    Seq (t1, t2, _) => normalize (
-      t1, fn _ => t2,
-      val_store, cont_stack, thread_id,
-      chan_store, block_store, sync_store, cnt
-    ) |
 
     Select (t, name, pos) => (case (resolve (val_store, t)) of
 
