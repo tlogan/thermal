@@ -26,7 +26,12 @@ structure Tree = struct
 
     Seq of (term * term * int) |
 
-    Rec of (((infix_option * string * term) list) * int) |
+    Rec of (
+      ((infix_option * string * term) list) *
+      bool *
+      int
+    ) (* Rec (fields, mutual_calls_active, pos) *) |
+
     Select of (term * int) |
   
     Alloc_Chan of (term * int) |
@@ -116,7 +121,7 @@ structure Tree = struct
       (to_string t1) ^ ",\n" ^ (to_string t2)
     ) |
 
-    Rec (fs, pos) => String.surround ("Rec@" ^ (Int.toString pos)) (
+    Rec (fs, _, pos) => String.surround ("Rec@" ^ (Int.toString pos)) (
       String.concatWith ",\n" (List.map to_string_from_field fs)
     ) |
 
@@ -1013,6 +1018,9 @@ structure Tree = struct
       chan_store, block_store, sync_store, cnt
     ) |
 
+
+    (* TODO: figure out infix precedence *)
+
     Compo (Compo (t1, Id (id, pos), _), t2, _) => (let
 
       val term = (case (find (val_store, id)) of
@@ -1071,53 +1079,48 @@ structure Tree = struct
       chan_store, block_store, sync_store, cnt + 1
     ) |
 
-    Rec (fields, pos) => (let
+    Rec (fields, false, pos) => (let
+      val mutual_store = (List.mapPartial
+        (fn
+          (fix_op, k, Fnc (lams, [], [], _)) => 
+            SOME (k, (fix_op, lams)) |
+          _ => NONE
+        )
+        fields
+      )
+      
+      (* embed mutual ids into ts' functions *)
+      val fields' = (map
+        (fn
+          (fix_op, k, Fnc (lams, [], [], pos)) =>
+            (fix_op, k, Fnc (lams, val_store, mutual_store, pos)) |
+          field => field 
+        )
+       fields 
+      )
+    in
+      (
+        Mode_Upkeep,
+        [(Rec (fields', true, pos), val_store, cont_stack, thread_id)],
+        (chan_store, block_store, sync_store, cnt)
+      )
+    end) |
+    
+    Rec (fields, true, pos) => (let
       val ts = (map (fn (fix_op, k, t) => t) fields)
 
-
-      fun push_f ts = (let
+      fun f ts = (let
         val fields' = (List.map
           (fn ((fix_op, key, _), t) => (fix_op, key, t))
           (ListPair.zip (fields, ts))
         )
       in
-        Rec (fields', pos)
-      end)
-
-      fun pop_f ts = (let
-
-        val mutual_store = (List.mapPartial
-          (fn
-            (fix_op, k, Fnc (lams, [], [], _)) => 
-              SOME (k, (fix_op, lams)) |
-            _ => NONE
-          )
-          fields
-        )
-
-        (* embed mutual ids into ts' functions *)
-        val ts' =
-        (map
-          (fn
-            Fnc (lams, [], [], pos) =>
-              Fnc (lams, val_store, mutual_store, pos) 
-          | t => t 
-          )
-          ts
-        )
-
-        val fields' = (List.map
-          (fn ((fix_op, key, _), t) => (fix_op, key, t))
-          (ListPair.zip (fields, ts'))
-        )
-
-      in
-        Rec (fields', pos)
+        Rec (fields',true,  pos)
       end)
 
     in
       reduce_list (
-        ts, push_f, pop_f, 
+        ts, f, f, 
         val_store, cont_stack, thread_id,
         chan_store, block_store, sync_store, cnt
       )

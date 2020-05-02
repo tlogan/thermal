@@ -87,7 +87,7 @@ term_nt:
   term_nt term_nt %prec COMPO (Compo (term_nt1, term_nt2, term_nt1left)) |
   term_nt SEMI term_nt (Seq (term_nt1, term_nt2, SEMIleft)) |
 
-  LPAREN fields_nt (Rec (fields_nt, fields_ntleft)) |
+  LPAREN fields_nt (Rec (fields_nt, false, fields_ntleft)) |
 
   term_nt LSQ term_nt RSQ (Select (Lst ([term_nt1, term_nt2], LSQleft), LSQleft)) |
   term_nt HASH ID (Select (Lst ([term_nt, Str (ID, HASHleft)], HASHleft), HASHleft)) |
