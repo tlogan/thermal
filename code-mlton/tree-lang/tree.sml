@@ -57,6 +57,8 @@ structure Tree = struct
     Div of (term * int) |
     Rem of (term * int) |
 
+    Assoc of (term * int) |
+
     (* internal reps *)
     ChanId of int |
     ThreadId of int |
@@ -986,7 +988,39 @@ structure Tree = struct
       chan_store, block_store, sync_store, cnt
     ) |
 
+    Compo (Compo (t1, Id (id, pos), _), t2, _) => (let
 
+      val term = (case (find (val_store, id)) of
+        SOME (Infix_Left, v) =>
+          App (v, Lst ([t1, t2], pos), pos) |
+        SOME (Infix_Right, v) => (let
+
+          fun associate_right t pos acc = (case t of 
+            Compo (Compo (t1', Id (id', pos'), _), t2', _) =>
+            (if (id' = id) then
+              associate_right t1' pos' (
+                App (v, Lst ([t2', acc], pos), pos)
+              )  
+            else
+              App (v, Lst ([t, acc], pos), pos)
+            ) |
+
+            _ =>
+              App (v, Lst ([t, acc], pos), pos)
+          )
+        in
+          associate_right t1 pos t2
+        end) |
+        _ => App (t1, t2, pos)
+      )
+
+    in
+      (
+        Mode_Upkeep,
+        [(term, val_store, cont_stack, thread_id)],
+        (chan_store, block_store, sync_store, cnt)
+      )
+    end) |
 
     Compo (t1, t2, pos) => (
       Mode_Upkeep,
@@ -1004,14 +1038,6 @@ structure Tree = struct
     (* **TODO**
 
 
-    Compo (Compo (t1, ID (id, _), t2, pos) => (let
-
-      val term = (case (find (val_store, id)) of
-        SOME (Infix_Left, v) => App (v, Lst ([t1, t2], pos), pos)
-        SOME (Infix_Right, v) => App (v, Lst ([t1, t2], pos), pos)
-    in
-
-    end)
 
     App (t_fn, t_arg, pos) => reduce_single (
       t_fn, fn v_fn => App (t_arg, v_fn, pos),
@@ -1066,6 +1092,8 @@ structure Tree = struct
     Mul of (term * int) |
     Div of (term * int) |
     Rem of (term * int) |
+
+    Assoc of (term * int) |
 
     (* internal reps *)
     ChanId of int |

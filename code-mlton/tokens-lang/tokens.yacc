@@ -127,7 +127,7 @@ term_nt:
 
   STRING (Str (STRING, STRINGleft)) |
 
-  LPAREN term_nt RPAREN (term_nt)
+  LPAREN term_nt RPAREN (Assoc (term_nt, LPARENleft))
 
 lams_nt:
   BAR lam_nt lams_nt (lam_nt :: lams_nt) |
