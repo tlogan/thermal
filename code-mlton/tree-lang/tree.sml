@@ -6,7 +6,7 @@ structure Tree = struct
 
   type ('a, 'b) store = ('a * 'b) list
 
-  datatype infix_option = Infix_Left | Infix_Right | Infix_None
+  datatype left_right = Left | Right
 
   datatype term = 
 
@@ -15,8 +15,8 @@ structure Tree = struct
 
     Fnc of (
       ((term * term) list) *
-      ((string, infix_option * term) store) *
-      ((string, infix_option * ((term * term) list)) store) *
+      ((string, left_right option * term) store) *
+      ((string, left_right option * ((term * term) list)) store) *
       int
     ) (* Fnc (lams, val_store, mutual_store, pos) *) |
 
@@ -27,7 +27,7 @@ structure Tree = struct
     Seq of (term * term * int) |
 
     Rec of (
-      ((infix_option * string * term) list) *
+      ((left_right option * string * term) list) *
       bool *
       int
     ) (* Rec (fields, mutual_calls_active, pos) *) |
@@ -194,13 +194,13 @@ structure Tree = struct
   )
 
   and to_string_from_field (fix_op, name, t) = String.surround name (
-    (to_string_from_infix_option fix_op) ^ (to_string t)
+    (to_string_from_left_right_option fix_op) ^ (to_string t)
   )
 
-  and to_string_from_infix_option fix_op = (case fix_op of
-    Infix_Left => "INFIXL " |
-    Infix_Right => "INFIXR " |
-    Infix_None => ""
+  and to_string_from_left_right_option fix_op = (case fix_op of
+    SOME Left => "INFIXL " |
+    SOME Right => "INFIXR " |
+    NONE => ""
   )
 
 
@@ -1024,9 +1024,9 @@ structure Tree = struct
     Compo (Compo (t1, Id (id, pos), _), t2, _) => (let
 
       val term = (case (find (val_store, id)) of
-        SOME (Infix_Left, v) =>
+        SOME (SOME Left, v) =>
           App (v, Lst ([t1, t2], pos), pos) |
-        SOME (Infix_Right, v) => (let
+        SOME (SOME Right, v) => (let
 
           fun associate_right t pos acc = (case t of 
             Compo (Compo (t1', Id (id', pos'), _), t2', _) =>

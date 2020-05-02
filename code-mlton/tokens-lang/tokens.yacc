@@ -32,8 +32,8 @@ open Tree
   tree_nt of term |
   term_nt of term |
   terms_nt of term list |
-  fields_nt of (infix_option * string * term) list |
-  field_nt of (infix_option * string * term) |
+  fields_nt of (left_right option * string * term) list |
+  field_nt of (left_right option * string * term) |
   lams_nt of (term * term) list |
   lam_nt of (term * term)
   
@@ -141,6 +141,6 @@ fields_nt:
   COLON field_nt RPAREN %prec COLON ([field_nt])
 
 field_nt:
-  ID INFIXL term_nt ((Infix_Left, ID, term_nt)) |
-  ID INFIXR term_nt ((Infix_Right, ID, term_nt)) |
-  ID term_nt ((Infix_None, ID, term_nt))
+  ID INFIXL term_nt ((SOME Left, ID, term_nt)) |
+  ID INFIXR term_nt ((SOME Right, ID, term_nt)) |
+  ID term_nt ((NONE, ID, term_nt))
