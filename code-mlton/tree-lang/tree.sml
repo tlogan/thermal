@@ -983,7 +983,7 @@ structure Tree = struct
 
 
   fun associate_right val_store (t1, id, rator, direc, prec, pos, t2) = (case t1 of 
-    Compo (Compo (t1', Id (id', pos'), _), t2', _) =>
+    Compo (Compo (t1', Id (id', pos'), p1'), t2', p2') =>
     (if (id' = id) then
       (if direc = Right then
         associate_right val_store (
@@ -1006,7 +1006,7 @@ structure Tree = struct
         App (rator, Lst ([t1, t2], pos), pos)
       ) |
 
-      _ => App (rator, Lst ([t1, t2], pos), pos)
+      _ => Compo (App (t1', Id (id', pos'), p1'), t2', p2')
     )) |
 
     _ =>
@@ -1053,7 +1053,7 @@ structure Tree = struct
 
     (* TODO: debug infix precedence *)
 
-    Compo (Compo (t1, Id (id, pos), _), t2, _) => (let
+    Compo (Compo (t1, Id (id, pos), p1), t2, p2) => (let
 
 
       val term = (case (find (val_store, id)) of
@@ -1061,7 +1061,7 @@ structure Tree = struct
           associate_right val_store (t1, id, rator, direc, prec, pos, t2)
         ) |
 
-        _ => App (t1, t2, pos)
+        _ => Compo (App (t1, Id (id, pos), p1), t2, p2)
       )
 
     in
