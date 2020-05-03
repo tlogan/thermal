@@ -1019,31 +1019,46 @@ structure Tree = struct
     ) |
 
 
-    (* TODO: figure out infix precedence *)
+    (* TODO: debug infix precedence *)
 
     Compo (Compo (t1, Id (id, pos), _), t2, _) => (let
 
-      val term = (case (find (val_store, id)) of
-        SOME (SOME (Left, _), v) =>
-          App (v, Lst ([t1, t2], pos), pos) |
-        SOME (SOME (Right, _), v) => (let
-
-          fun associate_right t pos acc = (case t of 
-            Compo (Compo (t1', Id (id', pos'), _), t2', _) =>
-            (if (id' = id) then
-              associate_right t1' pos' (
-                App (v, Lst ([t2', acc], pos), pos)
-              )  
-            else
-              App (v, Lst ([t, acc], pos), pos)
-            ) |
-
-            _ =>
-              App (v, Lst ([t, acc], pos), pos)
+      fun associate_right (t1, id, rator, direc, prec, pos, t2) = (case t1 of 
+        Compo (Compo (t1', Id (id', pos'), _), t2', _) =>
+        (if (id' = id) then
+          (if direc = Right then
+            associate_right (
+              t1',
+              id, rator, direc, prec, pos',
+              App (rator, Lst ([t2', t2], pos), pos)
+            )  
+          else 
+            App (rator, Lst ([t1, t2], pos), pos)
           )
-        in
-          associate_right t1 pos t2
-        end) |
+        else (case (find (val_store, id')) of
+          SOME (SOME (_, prec'), rator') =>
+          (if (prec > prec')
+            associate_right (
+              t1',
+              id', rator', direc', prec', pos',
+              App (rator, Lst ([t2', t2], pos), pos)
+            )  
+          else
+            App (rator, Lst ([t1, t2], pos), pos)
+          ) |
+
+          _ => App (rator, Lst ([t1, t2], pos), pos)
+        ))
+
+        _ =>
+          App (rator, Lst ([t1, t2], pos), pos)
+      )
+
+      val term = (case (find (val_store, id)) of
+        SOME (SOME (direc, prec), rator) =>  (
+          associate_right (t1, id, rator, direc, prec, pos, t2)
+        ) |
+
         _ => App (t1, t2, pos)
       )
 
