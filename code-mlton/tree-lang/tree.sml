@@ -981,6 +981,38 @@ structure Tree = struct
 
   )
 
+
+  fun associate_right val_store (t1, id, rator, direc, prec, pos, t2) = (case t1 of 
+    Compo (Compo (t1', Id (id', pos'), _), t2', _) =>
+    (if (id' = id) then
+      (if direc = Right then
+        associate_right val_store (
+          t1',
+          id, rator, direc, prec, pos',
+          App (rator, Lst ([t2', t2], pos), pos)
+        )  
+      else 
+        App (rator, Lst ([t1, t2], pos), pos)
+      )
+    else (case (find (val_store, id')) of
+      SOME (SOME (direc', prec'), rator') =>
+      (if (prec > prec') then
+        associate_right val_store (
+          t1',
+          id', rator', direc', prec', pos',
+          App (rator, Lst ([t2', t2], pos), pos)
+        )  
+      else
+        App (rator, Lst ([t1, t2], pos), pos)
+      ) |
+
+      _ => App (rator, Lst ([t1, t2], pos), pos)
+    )) |
+
+    _ =>
+      App (rator, Lst ([t1, t2], pos), pos)
+  )
+
   fun seq_step (
     md,
     (t, val_store, cont_stack, thread_id),
@@ -1023,40 +1055,10 @@ structure Tree = struct
 
     Compo (Compo (t1, Id (id, pos), _), t2, _) => (let
 
-      fun associate_right (t1, id, rator, direc, prec, pos, t2) = (case t1 of 
-        Compo (Compo (t1', Id (id', pos'), _), t2', _) =>
-        (if (id' = id) then
-          (if direc = Right then
-            associate_right (
-              t1',
-              id, rator, direc, prec, pos',
-              App (rator, Lst ([t2', t2], pos), pos)
-            )  
-          else 
-            App (rator, Lst ([t1, t2], pos), pos)
-          )
-        else (case (find (val_store, id')) of
-          SOME (SOME (_, prec'), rator') =>
-          (if (prec > prec')
-            associate_right (
-              t1',
-              id', rator', direc', prec', pos',
-              App (rator, Lst ([t2', t2], pos), pos)
-            )  
-          else
-            App (rator, Lst ([t1, t2], pos), pos)
-          ) |
-
-          _ => App (rator, Lst ([t1, t2], pos), pos)
-        ))
-
-        _ =>
-          App (rator, Lst ([t1, t2], pos), pos)
-      )
 
       val term = (case (find (val_store, id)) of
         SOME (SOME (direc, prec), rator) =>  (
-          associate_right (t1, id, rator, direc, prec, pos, t2)
+          associate_right val_store (t1, id, rator, direc, prec, pos, t2)
         ) |
 
         _ => App (t1, t2, pos)
