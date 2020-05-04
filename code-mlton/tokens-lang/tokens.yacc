@@ -31,8 +31,8 @@ open Tree
   tree_nt of term |
   term_nt of term |
   terms_nt of term list |
-  fields_nt of ((left_right * int) option * string * term) list |
-  field_nt of ((left_right * int) option * string * term) |
+  fields_nt of (string * (infix_option * term)) list |
+  field_nt of (string * (infix_option * term)) |
   lams_nt of (term * term) list |
   lam_nt of (term * term)
   
@@ -140,7 +140,7 @@ fields_nt:
 
 field_nt:
   ID INFIXL DIGIT term_nt
-    ((SOME (Left, DIGIT), ID, term_nt)) |
+    (ID, (SOME (Left, DIGIT), term_nt)) |
   ID INFIXR DIGIT term_nt
-    ((SOME (Right, DIGIT), ID, term_nt)) |
-  ID term_nt ((NONE, ID, term_nt))
+    (ID, (SOME (Right, DIGIT), term_nt)) |
+  ID term_nt (ID, (NONE, term_nt))

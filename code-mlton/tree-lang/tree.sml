@@ -8,6 +8,8 @@ structure Tree = struct
 
   datatype left_right = Left | Right
 
+  type infix_option = (left_right * int) option
+
   datatype term = 
     Assoc of (term * int) |
     Cns of (term * int) |
@@ -15,8 +17,8 @@ structure Tree = struct
 
     Fnc of (
       ((term * term) list) *
-      ((string, (left_right * int) option * term) store) *
-      ((string, (left_right * int) option * ((term * term) list)) store) *
+      ((string, infix_option * term) store) *
+      ((string, infix_option * ((term * term) list)) store) *
       int
     ) (* Fnc (lams, val_store, mutual_store, pos) *) |
 
@@ -27,7 +29,7 @@ structure Tree = struct
     Seq of (term * term * int) |
 
     Rec of (
-      (((left_right * int) option * string * term) list) *
+      ((string * (infix_option * term)) list) *
       bool *
       int
     ) (* Rec (fields, mutual_calls_active, pos) *) |
@@ -194,11 +196,11 @@ structure Tree = struct
     (to_string t2)
   )
 
-  and to_string_from_field (fix_op, name, t) = String.surround name (
-    (to_string_from_left_right_option fix_op) ^ (to_string t)
+  and to_string_from_field (name, (fix_op, t)) = String.surround name (
+    (to_string_from_infix_option fix_op) ^ (to_string t)
   )
 
-  and to_string_from_left_right_option fix_op = (case fix_op of
+  and to_string_from_infix_option fix_op = (case fix_op of
     SOME (Left, _) => "INFIXL " |
     SOME (Right, _) => "INFIXR " |
     NONE => ""
@@ -788,36 +790,6 @@ structure Tree = struct
     )
   end)
 
-
-
-(*
-
-*** This relies on resolve reducing the record to the appropriate form ***
-*** it's clear how much work resolve should do instead of seq_step ***
-*** better to merge these concepts together ****
-    Open (t_rec, t_body, pos) => reduce_single (
-      t_rec, fn v_rec => Open (v_rec, t_body, pos),
-      val_store, cont_stack, thread_id,
-      chan_store, block_store, sync_store, cnt,
-      (fn
-        (Rec (fields, _), t_body) => (let
-          val val_store' = insert_table (val_store, fields)
-        in
-          (
-            Mode_Upkeep,
-            [(t_body, val_store', cont_stack, thread_id)],
-            (chan_store, block_store, sync_store, cnt)
-          )
-        end) |
-
-        _ => (
-          Mode_Stick "open of non-record",
-          [], (chan_store, block_store, sync_store, cnt)
-        )
-      )
-    ) |
-*)
-
   fun pop (
     result,
     val_store, cont_stack, thread_id,
@@ -828,7 +800,7 @@ structure Tree = struct
       (cmode, lams, val_store', mutual_store) :: cont_stack' => (let
 
         val val_store'' = (case result of
-          Rec (fields, _) => (if cmode = Contin_Seq then
+          Rec (fields, _, _) => (if cmode = Contin_Seq then
             insert_table (val_store', fields)
           else
             val_store'
@@ -925,15 +897,23 @@ structure Tree = struct
 
       x :: xs => (case x of
         (Id (id, _)) => (case (find (val_store, id)) of
-          SOME v => loop (prefix @ [v], xs)
+          SOME (NONE, v) => loop (prefix @ [v], xs) |
           _ => (
             Mode_Stick "ID in list cannot be resolved",
             [], (chan_store, block_store, sync_store, cnt)
-          ) |
+          )
         ) |
 
         _ => push (
-          (x, (Contin_Norm, [( hole cnt, push_f (prefix @ (hole cnt :: xs)) )], val_store, [])),
+          (
+            x,
+            (
+              Contin_Norm,
+              [( hole cnt, push_f (prefix @ (hole cnt :: xs)) )],
+              val_store,
+              []
+            )
+          ),
           val_store, cont_stack, thread_id,
           chan_store, block_store, sync_store, cnt + 1
         )
@@ -949,8 +929,8 @@ structure Tree = struct
     val_store, cont_stack, thread_id,
     chan_store, block_store, sync_store, cnt
   ) = (case t of
-    (Id (id, _)) => (case (find (val_store, _)) of
-      SOME v => (case (pop_f v) of
+    (Id (id, _)) => (case (find (val_store, id)) of
+      SOME (NONE, v) => (case (pop_f v) of
         Error msg => (
           Mode_Stick msg,
           [], (chan_store, block_store, sync_store, cnt)
@@ -971,8 +951,8 @@ structure Tree = struct
     ) |
 
     _ => push (
-      (t, ([( hole cnt, push_f (hole cnt) )], val_store, [])),
-      val_store,econt_stack, thread_id,
+      (t, (Contin_Norm, [( hole cnt, push_f (hole cnt) )], val_store, [])),
+      val_store, cont_stack, thread_id,
       chan_store, block_store, sync_store, cnt + 1
     )
   )
@@ -984,7 +964,7 @@ structure Tree = struct
     chan_store, block_store, sync_store, cnt
   ) = (case t_fn of
     (Id (id, _)) => (case (find (val_store, id)) of
-      SOME (Fnc (lams, fnc_store, mutual_store, _)) => push (
+      SOME (NONE, Fnc (lams, fnc_store, mutual_store, _)) => push (
         (t_arg, (Contin_App, lams, fnc_store, mutual_store)),
         val_store, cont_stack, thread_id,
         chan_store, block_store, sync_store, cnt
@@ -1139,7 +1119,7 @@ structure Tree = struct
     Rec (fields, false, pos) => (let
       val mutual_store = (List.mapPartial
         (fn
-          (fix_op, k, Fnc (lams, [], [], _)) => 
+          (k, (fix_op,  Fnc (lams, [], [], _))) => 
             SOME (k, (fix_op, lams)) |
           _ => NONE
         )
@@ -1149,8 +1129,8 @@ structure Tree = struct
       (* embed mutual ids into ts' functions *)
       val fields' = (map
         (fn
-          (fix_op, k, Fnc (lams, [], [], pos)) =>
-            (fix_op, k, Fnc (lams, val_store, mutual_store, pos)) |
+          (k, (fix_op, Fnc (lams, [], [], pos))) =>
+            (k, (fix_op, Fnc (lams, val_store, mutual_store, pos))) |
           field => field 
         )
        fields 
@@ -1164,11 +1144,11 @@ structure Tree = struct
     end) |
     
     Rec (fields, true, pos) => (let
-      val ts = (map (fn (fix_op, k, t) => t) fields)
+      val ts = (map (fn (k, (fix_op, t)) => t) fields)
 
       fun f ts = (let
         val fields' = (List.map
-          (fn ((fix_op, key, _), t) => (fix_op, key, t))
+          (fn ((key, (fix_op, _)), t) => (key, (fix_op, t)))
           (ListPair.zip (fields, ts))
         )
       in
@@ -1182,7 +1162,6 @@ structure Tree = struct
         chan_store, block_store, sync_store, cnt
       )
     end) |
-
 
     _ => (
       Mode_Stick "TODO",
