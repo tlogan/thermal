@@ -67,7 +67,10 @@ structure Tree = struct
     ThreadId of int |
     Error of string
 
+  datatype contin_mode = Contin_Seq | Contin_Norm | Contin_App
+
   type contin = (
+    contin_mode * 
     ((term * term) list) *
     ((string, term) store) *
     ((string, (term * term) list) store)
@@ -772,11 +775,10 @@ structure Tree = struct
 
 
   fun push (
-    (t_arg, (lams, fnc_store, mutual_store)),
+    (t_arg, cont),
     val_store, cont_stack, thread_id,
     chan_store, block_store, sync_store, cnt
   ) = (let
-    val cont = (lams, fnc_store, mutual_store)
     val cont_stack' = cont :: cont_stack
   in
     (
@@ -786,6 +788,36 @@ structure Tree = struct
     )
   end)
 
+
+
+(*
+
+*** This relies on resolve reducing the record to the appropriate form ***
+*** it's clear how much work resolve should do instead of seq_step ***
+*** better to merge these concepts together ****
+    Open (t_rec, t_body, pos) => reduce_single (
+      t_rec, fn v_rec => Open (v_rec, t_body, pos),
+      val_store, cont_stack, thread_id,
+      chan_store, block_store, sync_store, cnt,
+      (fn
+        (Rec (fields, _), t_body) => (let
+          val val_store' = insert_table (val_store, fields)
+        in
+          (
+            Mode_Upkeep,
+            [(t_body, val_store', cont_stack, thread_id)],
+            (chan_store, block_store, sync_store, cnt)
+          )
+        end) |
+
+        _ => (
+          Mode_Stick "open of non-record",
+          [], (chan_store, block_store, sync_store, cnt)
+        )
+      )
+    ) |
+*)
+
   fun pop (
     result,
     val_store, cont_stack, thread_id,
@@ -793,22 +825,31 @@ structure Tree = struct
   ) = (let
     val (threads, md) = (case cont_stack of
       [] => ([], Mode_Finish result) |
-      (lams, val_store', mutual_store) :: cont_stack' => (let
+      (cmode, lams, val_store', mutual_store) :: cont_stack' => (let
+
+        val val_store'' = (case result of
+          Rec (fields, _) => (if cmode = Contin_Seq then
+            insert_table (val_store', fields)
+          else
+            val_store'
+          ) |
+          _ => val_store'
+        )
 
         (* embed mutual_store within self's functions *)
         val fnc_store = (map 
           (fn (k, (fix_op, lams)) =>
-            (k, (fix_op, Fnc (lams, val_store', mutual_store, ~1)))
+            (k, (fix_op, Fnc (lams, val_store'', mutual_store, ~1)))
           )
           mutual_store
         )
 
-        val val_store'' = insert_table (val_store', fnc_store)
+        val val_store''' = insert_table (val_store'', fnc_store)
 
         fun match_first lams = (case lams of
           [] => NONE |
           (p, t) :: lams' =>
-            (case (match_value_insert (val_store'', p, result)) of
+            (case (match_value_insert (val_store''', p, result)) of
               NONE => match_first lams' |
               SOME val_store'' => SOME (t, val_store'')
             )
@@ -821,8 +862,8 @@ structure Tree = struct
             [], Mode_Stick "result does not match continuation hole pattern"
           ) |
 
-          SOME (t_body, val_store'') => (
-            [(t_body, val_store'', cont_stack', thread_id)],
+          SOME (t_body, val_store''') => (
+            [(t_body, val_store''', cont_stack', thread_id)],
             Mode_Reduce t_body  
           )
 
@@ -855,7 +896,7 @@ structure Tree = struct
     chan_store, block_store, sync_store, cnt
   ) = (
     push (
-      (t, ([(hole cnt, term_fn (hole cnt))], val_store, [])),
+      (t, (Contin_Norm, [(hole cnt, term_fn (hole cnt))], val_store, [])),
       val_store, cont_stack, thread_id,
       chan_store, block_store, sync_store, cnt + 1
     )
@@ -892,7 +933,7 @@ structure Tree = struct
         ) |
 
         _ => push (
-          (x, ([( hole cnt, push_f (prefix @ (hole cnt :: xs)) )], val_store, [])),
+          (x, (Contin_Norm, [( hole cnt, push_f (prefix @ (hole cnt :: xs)) )], val_store, [])),
           val_store, cont_stack, thread_id,
           chan_store, block_store, sync_store, cnt + 1
         )
@@ -944,7 +985,7 @@ structure Tree = struct
   ) = (case t_fn of
     (Id (id, _)) => (case (find (val_store, id)) of
       SOME (Fnc (lams, fnc_store, mutual_store, _)) => push (
-        (t_arg, (lams, fnc_store, mutual_store)),
+        (t_arg, (Contin_App, lams, fnc_store, mutual_store)),
         val_store, cont_stack, thread_id,
         chan_store, block_store, sync_store, cnt
       ) |
@@ -961,7 +1002,7 @@ structure Tree = struct
     ) |
 
     _ => push (
-      (t_fn, ([( hole cnt, App (hole cnt, t_arg, pos) )], val_store, [])),
+      (t_fn, (Contin_Norm, [( hole cnt, App (hole cnt, t_arg, pos) )], val_store, [])),
       val_store, cont_stack, thread_id,
       chan_store, block_store, sync_store, cnt + 1
     )
@@ -1057,10 +1098,7 @@ structure Tree = struct
     ) |
 
 
-    (* TODO: debug infix precedence *)
-
     Compo (Compo (t1, Id (id, pos), p1), t2, p2) => (let
-
 
       val term = (case (find (val_store, id)) of
         SOME (SOME (direc, prec), rator) =>  (
@@ -1092,43 +1130,12 @@ structure Tree = struct
     ) |
 
 
-(*
-
-*** This relies on resolve reducing the record to the appropriate form ***
-*** it's clear how much work resolve should do instead of seq_step ***
-*** better to merge these concepts together ****
-    Open (t_rec, t_body, pos) => reduce_single (
-      t_rec, fn v_rec => Open (v_rec, t_body, pos),
-      val_store, cont_stack, thread_id,
-      chan_store, block_store, sync_store, cnt,
-      (fn
-        (Rec (fields, _), t_body) => (let
-          val val_store' = insert_table (val_store, fields)
-        in
-          (
-            Mode_Upkeep,
-            [(t_body, val_store', cont_stack, thread_id)],
-            (chan_store, block_store, sync_store, cnt)
-          )
-        end) |
-
-        _ => (
-          Mode_Stick "open of non-record",
-          [], (chan_store, block_store, sync_store, cnt)
-        )
-      )
-    ) |
-*)
-
-
-    (* TODO: modify cont stack with cont mode: Cont_Seq or Cont_App *)
     Seq (t1, t2, _) => push (
-      (t1, ([(hole cnt, t2)], val_store, [])),
+      (t1, (Contin_Seq, [(hole cnt, t2)], val_store, [])),
       val_store, cont_stack, thread_id,
       chan_store, block_store, sync_store, cnt + 1
     ) |
 
-    (* TODO: modify rec pop with openining in Cont_Seq mode *)
     Rec (fields, false, pos) => (let
       val mutual_store = (List.mapPartial
         (fn
@@ -1165,7 +1172,7 @@ structure Tree = struct
           (ListPair.zip (fields, ts))
         )
       in
-        Rec (fields',true,  pos)
+        Rec (fields', true,  pos)
       end)
 
     in
