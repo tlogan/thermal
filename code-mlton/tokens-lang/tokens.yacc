@@ -8,8 +8,8 @@ open Tree
 
   SEMI | COMPO | SELECT |
   COLON |
-  DOT |
-  COMMA | HASH | LSQ | RSQ | BAR |
+  HASH |
+  COMMA | DOT | LSQ | RSQ | BAR |
   ADD | SUB | MUL | DIV | REM | 
   ADDW | SUBW | MULW | DIVSW | DIVUW | REMSW | REMUW | 
   ADDF | SUBF | MULF | DIVF | 
@@ -46,7 +46,7 @@ open Tree
 %right COLON
 %right BAR COMMA
 %left COMPO 
-%right DOT
+%right HASH
 
 
 %right SYM 
@@ -61,7 +61,7 @@ open Tree
 
 %left NUM STRING ID
 
-%left HASH
+%left DOT
 %left LSQ 
 %left RSQ 
 
@@ -79,8 +79,8 @@ term_nt:
 
   LPAREN term_nt RPAREN (Assoc (term_nt, LPARENleft)) |
 
-  term_nt DOT term_nt (Cns (Lst ([term_nt1, term_nt2], DOTleft), DOTleft)) |
-  term_nt DOT (Lst ([term_nt], DOTleft)) |
+  term_nt HASH term_nt (Cns (Lst ([term_nt1, term_nt2], HASHleft), HASHleft)) |
+  term_nt HASH (Lst ([term_nt], HASHleft)) |
 
   LPAREN lams_nt (Fnc (lams_nt, [], [], lams_ntleft)) |
   lam_nt (Fnc ([lam_nt], [], [], lam_ntleft)) |
@@ -91,7 +91,7 @@ term_nt:
   LPAREN fields_nt (Rec (fields_nt, false, fields_ntleft)) |
 
   term_nt LSQ term_nt RSQ (Select (Lst ([term_nt1, term_nt2], LSQleft), LSQleft)) |
-  term_nt HASH ID (Select (Lst ([term_nt, Str (ID, HASHleft)], HASHleft), HASHleft)) |
+  term_nt DOT ID (Select (Lst ([term_nt, Str (ID, DOTleft)], DOTleft), DOTleft)) |
   SELECT (Fnc ([(Id ("_param", ~1), Select (Id ("_param", SELECTleft), SELECTleft))], [], [], SELECTleft)) |
 
   EQUAL (Fnc ([(Id ("_param", ~1), Select (Id ("_param", EQUALleft), EQUALleft))], [], [], EQUALleft)) |

@@ -1089,17 +1089,14 @@ structure Tree = struct
       chan_store, block_store, sync_store, cnt
     ) |
 
-    (* TODO: Seq Rec *)
-    (*
-    Seq (Rec (fields, _), t2, _) => 
-    *)
-
+    (* TODO: modify cont stack with cont mode: Cont_Seq or Cont_App *)
     Seq (t1, t2, _) => push (
       (t1, ([(hole cnt, t2)], val_store, [])),
       val_store, cont_stack, thread_id,
       chan_store, block_store, sync_store, cnt + 1
     ) |
 
+    (* TODO: modify rec pop with openining in Cont_Seq mode *)
     Rec (fields, false, pos) => (let
       val mutual_store = (List.mapPartial
         (fn

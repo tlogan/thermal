@@ -4,7 +4,7 @@ The Robot Mind and Language
 ```
  (
  : call infixr 0  
-     a. f. , f a 
+     a # f # , f a 
  ) ;
  
  (    
@@ -12,13 +12,13 @@ The Robot Mind and Language
  ) call my_rec ,
  
  my_rec[`foo`] 44 ;
- my_rec # foo 44 ;
+ my_rec.foo 44 ;
 
  (  
 
  : * infixl 8  
-     a. b. , mult (a. b.)
-
+     a # b # , mult (a # b #)
+       
  : fact (
    | 0 , 1  
    | n , n * (fact (n - 1))  
@@ -29,12 +29,12 @@ The Robot Mind and Language
 
  : even (  
    | 0 , `true`  
-   | `S`. n. , odd n  
+   | `S` # n # , odd n  
    )  
 
  : odd (   
    | 0 , `false`    
-   | `S`. n. , even n  
+   | `S` # n # , even n  
    )
 
  (* strings without whitespace may use hash *)  
@@ -44,15 +44,15 @@ The Robot Mind and Language
  : fib (  
    | 0 , 0  
    | 1 , 1  
-   | `S`. `S`. n. , fib (`S`. n.) + fib n  
+   | `S` # `S` # n # , fib (`S`. n.) + fib n  
    )  
 
 
  : = infix 8  
-     sym a. sym b. , a `=` b   
+     sym a # sym b # , a `=` b   
 
  : \/ infixl 3
-     sym a. sym b. , a `\/` b
+     sym a # sym b # , a `\/` b
 
  ) ;  
 
@@ -68,7 +68,7 @@ The Robot Mind and Language
  
  fib y ;  
 
- x , x = 4 \/ x = 2 ::> (`Answer`. x.)
+ x , x = 4 \/ x = 2 ::> (`Answer` # x #)
 
  (* sym keyword directs arguments for param to be wrapped in thunk, rather than evaluated *)  
 
