@@ -931,7 +931,7 @@ structure Tree = struct
 
     _ => push (
       (t, ([( hole cnt, push_f (hole cnt) )], val_store, [])),
-      val_store, cont_stack, thread_id,
+      val_store,econt_stack, thread_id,
       chan_store, block_store, sync_store, cnt + 1
     )
   )
