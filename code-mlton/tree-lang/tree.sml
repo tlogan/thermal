@@ -861,30 +861,6 @@ structure Tree = struct
     )
   )
 
-  fun normalize_pair_reduce (
-    (t1, t2), f,  
-    val_store, cont_stack, thread_id,
-    chan_store, block_store, sync_store, cnt,
-    reduce_f
-  ) = (case (
-    resolve (val_store, t1), resolve (val_store, t2)
-  ) of
-    (NONE, _) => push (
-      (t1, ([(hole cnt, f (hole cnt, t2))], val_store, [])),
-      val_store, cont_stack, thread_id,
-      chan_store, block_store, sync_store, cnt + 1
-    ) |
-
-    (_, NONE) => push (
-      (t2, ([(hole cnt, f (t1, hole cnt))], val_store, [])),
-      val_store, cont_stack, thread_id,
-      chan_store, block_store, sync_store, cnt + 1
-    ) |
-
-    (SOME v1, SOME v2) => reduce_f (v1, v2)
-
-  )
-
   fun reduce_list (
     ts, push_f, pop_f,
     val_store, cont_stack, thread_id,
@@ -906,16 +882,20 @@ structure Tree = struct
 
       ) |
 
-      x :: xs => (case (resolve (val_store, x)) of
+      x :: xs => (case x of
+        (Id (id, _)) => (case (find (val_store, id)) of
+          SOME v => loop (prefix @ [v], xs)
+          _ => (
+            Mode_Stick "ID in list cannot be resolved",
+            [], (chan_store, block_store, sync_store, cnt)
+          ) |
+        ) |
 
-        NONE => push (
+        _ => push (
           (x, ([( hole cnt, push_f (prefix @ (hole cnt :: xs)) )], val_store, [])),
           val_store, cont_stack, thread_id,
           chan_store, block_store, sync_store, cnt + 1
-        ) |
-
-        SOME v => loop (prefix @ [v], xs)
-
+        )
       )
     )
 
@@ -987,8 +967,6 @@ structure Tree = struct
     )
 
   )
-
-  (* TODO: get rid of resolve *)
 
 
   fun associate_right val_store (t1, id, rator, direc, prec, pos, t2) = (case t1 of 
