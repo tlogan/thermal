@@ -9,7 +9,7 @@ structure Tree = struct
   datatype left_right = Left | Right
 
   datatype term = 
-
+    Assoc of (term * int) |
     Cns of (term * int) |
     Lst of ((term list) * int) |
 
@@ -61,8 +61,6 @@ structure Tree = struct
     Mul of (term * int) |
     Div of (term * int) |
     Rem of (term * int) |
-
-    Assoc of (term * int) |
 
     (* internal reps *)
     ChanId of int |
@@ -1019,6 +1017,12 @@ structure Tree = struct
     (chan_store, block_store, sync_store, cnt)
   ) = (case t of
 
+    Assoc (term, pos) => (
+      Mode_Upkeep,
+      [(term, val_store, cont_stack, thread_id)],
+      (chan_store, block_store, sync_store, cnt)
+    ) |
+
     Cns (t, pos) => reduce_single (
       t,
       fn t => Cns (t, pos),
@@ -1179,8 +1183,6 @@ structure Tree = struct
     Mul of (term * int) |
     Div of (term * int) |
     Rem of (term * int) |
-
-    Assoc of (term * int) |
 
     (* internal reps *)
     ChanId of int |

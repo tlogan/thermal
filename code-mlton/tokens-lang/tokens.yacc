@@ -77,6 +77,8 @@ tree_nt:
 
 term_nt:
 
+  LPAREN term_nt RPAREN (Assoc (term_nt, LPARENleft)) |
+
   term_nt DOT term_nt (Cns (Lst ([term_nt1, term_nt2], DOTleft), DOTleft)) |
   term_nt DOT (Lst ([term_nt], DOTleft)) |
 
@@ -122,11 +124,8 @@ term_nt:
   DIV (Fnc ([(Id ("_param", ~1), Div (Id ("_param", ~1), DIVleft))], [], [], DIVleft)) |
   REM (Fnc ([(Id ("_param", ~1), Rem (Id ("_param", ~1), REMleft))], [], [], REMleft)) |
 
+  STRING (Str (STRING, STRINGleft))
 
-
-  STRING (Str (STRING, STRINGleft)) |
-
-  LPAREN term_nt RPAREN (Assoc (term_nt, LPARENleft))
 
 lams_nt:
   BAR lam_nt lams_nt (lam_nt :: lams_nt) |
