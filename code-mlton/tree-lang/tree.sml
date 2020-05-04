@@ -1089,6 +1089,36 @@ structure Tree = struct
       chan_store, block_store, sync_store, cnt
     ) |
 
+
+(*
+
+*** This relies on resolve reducing the record to the appropriate form ***
+*** it's clear how much work resolve should do instead of seq_step ***
+*** better to merge these concepts together ****
+    Open (t_rec, t_body, pos) => reduce_single (
+      t_rec, fn v_rec => Open (v_rec, t_body, pos),
+      val_store, cont_stack, thread_id,
+      chan_store, block_store, sync_store, cnt,
+      (fn
+        (Rec (fields, _), t_body) => (let
+          val val_store' = insert_table (val_store, fields)
+        in
+          (
+            Mode_Upkeep,
+            [(t_body, val_store', cont_stack, thread_id)],
+            (chan_store, block_store, sync_store, cnt)
+          )
+        end) |
+
+        _ => (
+          Mode_Stick "open of non-record",
+          [], (chan_store, block_store, sync_store, cnt)
+        )
+      )
+    ) |
+*)
+
+
     (* TODO: modify cont stack with cont mode: Cont_Seq or Cont_App *)
     Seq (t1, t2, _) => push (
       (t1, ([(hole cnt, t2)], val_store, [])),
@@ -1241,28 +1271,6 @@ structure Tree = struct
       )
     ) |
 
-
-    Open (t_rec, t_body, pos) => reduce_single (
-      t_rec, fn v_rec => Open (v_rec, t_body, pos),
-      val_store, cont_stack, thread_id,
-      chan_store, block_store, sync_store, cnt,
-      (fn
-        (Rec (fields, _), t_body) => (let
-          val val_store' = insert_table (val_store, fields)
-        in
-          (
-            Mode_Upkeep,
-            [(t_body, val_store', cont_stack, thread_id)],
-            (chan_store, block_store, sync_store, cnt)
-          )
-        end) |
-
-        _ => (
-          Mode_Stick "open of non-record",
-          [], (chan_store, block_store, sync_store, cnt)
-        )
-      )
-    ) |
 
     Equiv (t1, t2, pos) => normalize_pair_reduce (
       (t1, t2), fn (t1, t2) => Equiv (t1, t2, pos),
