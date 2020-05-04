@@ -768,11 +768,6 @@ structure Tree = struct
     *)
   )
 
-  fun resolve (val_store, t) = (case t of
-    _ => NONE
-    (* **TODO** *)
-  )
-
   fun sym i = "_g_" ^ (Int.toString i)
 
 
@@ -932,25 +927,32 @@ structure Tree = struct
     t, push_f, pop_f,
     val_store, cont_stack, thread_id,
     chan_store, block_store, sync_store, cnt
-  ) = (case (resolve (val_store, t)) of
-    NONE => push (
+  ) = (case t of
+    (Id (id, _)) => (case (find (val_store, _)) of
+      SOME v => (case (pop_f v) of
+        Error msg => (
+          Mode_Stick msg,
+          [], (chan_store, block_store, sync_store, cnt)
+        ) |
+
+        result => pop (
+          result,
+          val_store, cont_stack, thread_id,
+          chan_store, block_store, sync_store, cnt
+        )
+      ) |
+
+      _  => (
+        Mode_Stick "ID cannot be resolved",
+        [], (chan_store, block_store, sync_store, cnt)
+      )
+
+    ) |
+
+    _ => push (
       (t, ([( hole cnt, push_f (hole cnt) )], val_store, [])),
       val_store, cont_stack, thread_id,
       chan_store, block_store, sync_store, cnt + 1
-    ) |
-
-    SOME v => (case (pop_f v) of
-      Error msg => (
-        Mode_Stick msg,
-        [], (chan_store, block_store, sync_store, cnt)
-      ) |
-
-      result => pop (
-        result,
-        val_store, cont_stack, thread_id,
-        chan_store, block_store, sync_store, cnt
-      )
-
     )
   )
 
@@ -959,25 +961,34 @@ structure Tree = struct
     t_fn, t_arg, pos,
     val_store, cont_stack, thread_id,
     chan_store, block_store, sync_store, cnt
-  ) = (case (resolve (val_store, t_fn)) of
-    NONE => push (
+  ) = (case t_fn of
+    (Id (id, _)) => (case (find (val_store, id)) of
+      SOME (Fnc (lams, fnc_store, mutual_store, _)) => push (
+        (t_arg, (lams, fnc_store, mutual_store)),
+        val_store, cont_stack, thread_id,
+        chan_store, block_store, sync_store, cnt
+      ) |
+
+      SOME _ => (
+        Mode_Stick "application of non-function",
+        [], (chan_store, block_store, sync_store, cnt)
+      ) |
+
+      _  => (
+        Mode_Stick "ID cannot be resolved",
+        [], (chan_store, block_store, sync_store, cnt)
+      )
+    ) |
+
+    _ => push (
       (t_fn, ([( hole cnt, App (hole cnt, t_arg, pos) )], val_store, [])),
       val_store, cont_stack, thread_id,
       chan_store, block_store, sync_store, cnt + 1
-    ) |
-
-    SOME (Fnc (lams, fnc_store, mutual_store, _)) => push (
-      (t_arg, (lams, fnc_store, mutual_store)),
-      val_store, cont_stack, thread_id,
-      chan_store, block_store, sync_store, cnt
-    ) |
-    
-    _ => (
-      Mode_Stick "application of non-function",
-      [], (chan_store, block_store, sync_store, cnt)
     )
 
   )
+
+  (* TODO: get rid of resolve *)
 
 
   fun associate_right val_store (t1, id, rator, direc, prec, pos, t2) = (case t1 of 
@@ -1021,6 +1032,19 @@ structure Tree = struct
       Mode_Upkeep,
       [(term, val_store, cont_stack, thread_id)],
       (chan_store, block_store, sync_store, cnt)
+    ) |
+
+    Id (id, pos) => (case (find (val_store, id)) of
+      SOME (NONE, v) => (
+        Mode_Upkeep,
+        [(v, val_store, cont_stack, thread_id)],
+        (chan_store, block_store, sync_store, cnt)
+      ) |
+
+      _ => (
+        Mode_Stick "ID cannot be resolved",
+        [], (chan_store, block_store, sync_store, cnt)
+      )
     ) |
 
     Cns (t, pos) => reduce_single (
