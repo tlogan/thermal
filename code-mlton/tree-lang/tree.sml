@@ -642,7 +642,15 @@ structure Tree = struct
     chan_store, block_store, sync_store, cnt
   ) = (let
     val (threads, md) = (case cont_stack of
-      [] => ([], Mode_Finish result) |
+      [] => (let
+        val _ = print (
+          "Result:\n" ^
+          (to_string result) ^
+          "\n*********\n\n"
+        )
+      in
+        ([], Mode_Finish result)
+      end) |
       (cmode, lams, val_store', mutual_store) :: cont_stack' => (let
 
         val val_store'' = (case result of

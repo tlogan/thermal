@@ -4,7 +4,7 @@ alloc_chan _ call resp_ch ,
 spawn ( 
   : loop (cnt , (
     sync (
-      (equal (cnt % 7 # 0 #)) call (
+      (equal ((rem (cnt # 7 #)) # 0 #)) call (
       | `true` , send (req_chan # _ #)
       | `false` , send (resp_chan # _ #)
       )
@@ -45,8 +45,8 @@ spawn (
     always (ch # _ # , 
       ch = resp_ch --> 
   		weak_until ( 
-        (ch # _ # , ~(ch = resp_ch)).
-        (ch # _ # , ch = req_ch).
+        (ch # _ # , ~(ch = resp_ch)) #
+        (ch # _ # , ch = req_ch) #
       )
     )
   )
