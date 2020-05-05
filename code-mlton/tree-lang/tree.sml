@@ -69,13 +69,13 @@ structure Tree = struct
     ThreadId of int |
     Error of string
 
-  datatype contin_mode = Contin_Seq | Contin_Norm | Contin_App
+  datatype contin_mode = Contin_Seq | Contin_Norm | Contin_App | Contin_Sync
 
   type contin = (
     contin_mode * 
     ((term * term) list) *
-    ((string, term) store) *
-    ((string, (term * term) list) store)
+    ((string, infix_option * term) store) *
+    ((string, infix_option * (term * term) list) store)
   )
   
   type contin_stack = (contin list)
@@ -323,264 +323,6 @@ structure Tree = struct
 **  )
 **
 **
-**  fun mk_base_events (evt, cont_stack) = (case evt of
-**  
-**    Send (Lst ([ChanId i, msg], _), pos) =>
-**      [Base_Send (i, msg, [])] |
-**  
-**    Recv (ChanId i, pos) =>
-**      [Base_Recv (i, [])] |
-**
-**    Chse (Lst (values, _), pos) =>
-**      mk_base_events_from_list (values, cont_stack) |
-**
-**    Wrap (Lst ([evt', Fnc (lams, fnc_store, mutual_store, _)], _), pos) =>
-**      let
-**        val bevts = mk_base_events (evt', cont_stack)
-**      in
-**        (List.foldl
-**          (fn (bevt, bevts_acc) => let
-**  
-**            val cont = (lams, fnc_store, mutual_store)
-**  
-**            val bevt' = (case bevt of
-**              Base_Send (i, msg, wrap_stack) => 
-**                Base_Send (i, msg, cont :: wrap_stack) |
-**              Base_Recv (i, wrap_stack) => 
-**                Base_Recv (i, cont :: wrap_stack)
-**            ) 
-**          in
-**            bevts_acc @ [bevt']
-**          end)
-**          []
-**          bevts 
-**        )
-**      end |
-**
-**    _ => []
-**
-**  
-**  )
-**
-**  and mk_base_events_from_list (evts, cont_stack) = (case evts of
-**    [] => [] |
-**    evt :: evts' => 
-**      let
-**        val base_events = mk_base_events (evt, cont_stack)
-**      in
-**        if (List.null base_events) then
-**          [] 
-**        else (let
-**          val base_events' = mk_base_events_from_list (evts', cont_stack)
-**        in
-**          (base_events @ base_events') 
-**        end)
-**      end
-**  )
-**
-**
-**  fun poll (base, chan_store, block_store) = (case base of
-**    Base_Send (i, msg, _) =>
-**      (let
-**        val chan_op = find (chan_store, i)
-**        fun poll_recv (send_q, recv_q) = (case recv_q of
-**          [] => (false, chan_store) |
-**          (block_id, cont_stack, _) :: recv_q' =>
-**            (case (find (block_store, block_id)) of
-**                SOME () => (true, chan_store) |
-**                NONE => poll (
-**                  base,
-**                  insert (chan_store, i, (send_q, recv_q')),
-**                  block_store
-**                )
-**            )
-**        )
-**      in
-**        (case chan_op of
-**          NONE =>
-**            (false, chan_store) |
-**          SOME chan =>
-**            (poll_recv chan)
-**        )
-**      end) |
-**  
-**     Base_Recv (i, _) =>
-**      (let
-**        val chan_op = find (chan_store, i)
-**        fun poll_send (send_q, recv_q) = (case send_q of
-**          [] => (false, chan_store) |
-**          (block_id, cont_stack, msg, _) :: send_q' =>
-**            (case (find (block_store, block_id)) of
-**              SOME () => (true, chan_store) |
-**              NONE => poll (
-**                base,
-**                insert (chan_store, i, (send_q', recv_q)),
-**                block_store
-**              )
-**            )
-**        )
-**      in
-**        (case chan_op of
-**          NONE =>
-**          (false, chan_store) |
-**          SOME chan =>
-**          (poll_send chan)
-**        )
-**      end)
-**  
-**  )
-**
-**
-**  fun find_active_base_event (
-**    bevts, chan_store, block_store
-**  ) = (case bevts of
-**
-**    [] =>
-**      (NONE, chan_store) |
-**
-**    bevt :: bevts' => (let
-**      val (is_active, chan_store') = poll (bevt, chan_store, block_store)
-**    in
-**      if is_active then
-**        (SOME bevt, chan_store')
-**      else 
-**        find_active_base_event (bevts', chan_store', block_store)
-**    end)
-**      
-**  )
-**
-**  
-**  fun transact (
-**    bevt, cont_stack, thread_id,
-**    (chan_store, block_store, sync_store, cnt)
-**  ) = (case bevt of
-**
-**    Base_Send (i, msg, wrap_stack) =>
-**      (let
-**        val chan_op = find (chan_store, i)
-**        val recv_op = (case chan_op of
-**          SOME (_, (block_id, recv_stack, recv_thread_id) :: recvs) =>
-**            SOME (recv_stack, recv_thread_id) | 
-**          SOME (_, []) => NONE |
-**          NONE => NONE
-**        )
-**        val (threads, md') = (case recv_op of
-**          NONE => ([], Mode_Stick "transact Base_Send") |
-**          SOME (recv_stack, recv_thread_id) => (
-**            [
-**              (Lst ([], 0), empty_table, wrap_stack @ cont_stack, thread_id),
-**              (msg, empty_table, recv_stack, recv_thread_id)
-**            ],
-**            Mode_Sync (i, msg, thread_id, recv_thread_id)
-**          )
-**        ) 
-**      in
-**        (
-**          md', 
-**          threads,
-**          (chan_store, block_store, sync_store, cnt)
-**        ) 
-**      end) |
-**  
-**    Base_Recv (i, wrap_stack) =>
-**      (let
-**        val chan_op = find (chan_store, i)
-**        val send_op = (case chan_op of
-**          SOME ((block_id, send_stack, msg, send_thread_id) :: sends, _) =>
-**            SOME (send_stack, msg, send_thread_id) | 
-**          SOME ([], _) => NONE |
-**          NONE => NONE
-**        )
-**  
-**        val (threads, md') = (case send_op of
-**          NONE => ([], Mode_Stick "transact Base_Recv") |
-**          SOME (send_stack, msg, send_thread_id) => (
-**            [
-**              (Lst ([], 0), empty_table, send_stack, send_thread_id),
-**              (msg, empty_table, wrap_stack @ cont_stack, thread_id)
-**            ],
-**            Mode_Sync (i, msg, send_thread_id, thread_id)
-**          )
-**        )
-**      in
-**        (
-**          md',
-**          threads,
-**          (chan_store, block_store, sync_store, cnt)
-**        )
-**      end)
-**  
-**  )
-**  
-**  fun block_one (bevt, cont_stack, chan_store, block_id, thread_id) = (case bevt of
-**    Base_Send (i, msg, wrap_stack) =>
-**      (let
-**        val cont_stack' = wrap_stack @ cont_stack
-**        val chan_op = find (chan_store, i)
-**        val chan' = (case chan_op of
-**          NONE =>
-**            ([(block_id, cont_stack', msg, thread_id)], []) | 
-**          SOME (send_q, recv_q) =>
-**            (send_q @ [(block_id, cont_stack', msg, thread_id)], recv_q)
-**        )
-**        val chan_store' = insert (chan_store, i, chan')
-**      in
-**        chan_store'
-**      end) |
-**  
-**    Base_Recv (i, wrap_stack) =>
-**      (let
-**        val cont_stack' = wrap_stack @ cont_stack
-**        val chan_op = find (chan_store, i)
-**        val chan' = (case chan_op of
-**          NONE =>
-**            ([], [(block_id, cont_stack', thread_id)]) | 
-**          SOME (send_q, recv_q) =>
-**            (send_q, recv_q @ [(block_id, cont_stack', thread_id)])
-**        )
-**        val chan_store' = insert (chan_store, i, chan')
-**      in
-**        chan_store'
-**      end)
-**  
-**  )
-**  
-**  fun block (
-**    base_events, cont_stack, thread_id,
-**    (chan_store, block_store, sync_store, cnt)
-**  ) = (let
-**    val chan_store' = (List.foldl  
-**      (fn (bevt, chan_store) =>
-**        block_one (bevt, cont_stack, chan_store, cnt, thread_id)
-**      )
-**      chan_store
-**      base_events
-**    )
-**    val block_store' = insert (block_store, cnt, ())
-**    val cnt' = cnt + 1
-**  in
-**    (Mode_Block base_events, [], (chan_store', block_store', sync_store, cnt'))
-**  end)
-**
-**  fun is_event t = (case t of
-**
-**    Send (Lst ([ChanId _, _], _), pos) =>
-**      true |
-**
-**    Recv (ChanId _, _) =>
-**      true |
-**
-**    Wrap (Lst ([t', Fnc _], _), _) =>
-**      is_event t' |
-**
-**    Chse (Lst (ts, _), _) =>
-**      List.all (fn t => is_event t) ts |
-**
-**    _ =>
-**      false
-**  
-**  )
-**
 **
 **  fun mk_prop (result_id, lams) = (let
 **
@@ -673,6 +415,265 @@ structure Tree = struct
 **
 **
 *)
+
+  fun mk_base_events (evt, cont_stack) = (case evt of
+  
+    Send (Lst ([ChanId i, msg], _), pos) =>
+      [Base_Send (i, msg, [])] |
+  
+    Recv (ChanId i, pos) =>
+      [Base_Recv (i, [])] |
+
+    Chse (Lst (values, _), pos) =>
+      mk_base_events_from_list (values, cont_stack) |
+
+    Wrap (Lst ([evt', Fnc (lams, fnc_store, mutual_store, _)], _), pos) =>
+      let
+        val bevts = mk_base_events (evt', cont_stack)
+      in
+        (List.foldl
+          (fn (bevt, bevts_acc) => let
+  
+            val cont = (Contin_Sync, lams, fnc_store, mutual_store)
+  
+            val bevt' = (case bevt of
+              Base_Send (i, msg, wrap_stack) => 
+                Base_Send (i, msg, cont :: wrap_stack) |
+              Base_Recv (i, wrap_stack) => 
+                Base_Recv (i, cont :: wrap_stack)
+            ) 
+          in
+            bevts_acc @ [bevt']
+          end)
+          []
+          bevts 
+        )
+      end |
+
+    _ => []
+
+  
+  )
+
+  and mk_base_events_from_list (evts, cont_stack) = (case evts of
+    [] => [] |
+    evt :: evts' => 
+      let
+        val base_events = mk_base_events (evt, cont_stack)
+      in
+        if (List.null base_events) then
+          [] 
+        else (let
+          val base_events' = mk_base_events_from_list (evts', cont_stack)
+        in
+          (base_events @ base_events') 
+        end)
+      end
+  )
+
+
+  fun poll (base, chan_store, block_store) = (case base of
+    Base_Send (i, msg, _) =>
+      (let
+        val chan_op = find (chan_store, i)
+        fun poll_recv (send_q, recv_q) = (case recv_q of
+          [] => (false, chan_store) |
+          (block_id, cont_stack, _) :: recv_q' =>
+            (case (find (block_store, block_id)) of
+                SOME () => (true, chan_store) |
+                NONE => poll (
+                  base,
+                  insert (chan_store, i, (send_q, recv_q')),
+                  block_store
+                )
+            )
+        )
+      in
+        (case chan_op of
+          NONE =>
+            (false, chan_store) |
+          SOME chan =>
+            (poll_recv chan)
+        )
+      end) |
+  
+     Base_Recv (i, _) =>
+      (let
+        val chan_op = find (chan_store, i)
+        fun poll_send (send_q, recv_q) = (case send_q of
+          [] => (false, chan_store) |
+          (block_id, cont_stack, msg, _) :: send_q' =>
+            (case (find (block_store, block_id)) of
+              SOME () => (true, chan_store) |
+              NONE => poll (
+                base,
+                insert (chan_store, i, (send_q', recv_q)),
+                block_store
+              )
+            )
+        )
+      in
+        (case chan_op of
+          NONE =>
+          (false, chan_store) |
+          SOME chan =>
+          (poll_send chan)
+        )
+      end)
+  
+  )
+
+
+  fun find_active_base_event (
+    bevts, chan_store, block_store
+  ) = (case bevts of
+
+    [] =>
+      (NONE, chan_store) |
+
+    bevt :: bevts' => (let
+      val (is_active, chan_store') = poll (bevt, chan_store, block_store)
+    in
+      if is_active then
+        (SOME bevt, chan_store')
+      else 
+        find_active_base_event (bevts', chan_store', block_store)
+    end)
+      
+  )
+
+  
+  fun transact (
+    bevt, cont_stack, thread_id,
+    (chan_store, block_store, sync_store, cnt)
+  ) = (case bevt of
+
+    Base_Send (i, msg, wrap_stack) =>
+    (let
+      val chan_op = find (chan_store, i)
+      val recv_op = (case chan_op of
+        SOME (_, (block_id, recv_stack, recv_thread_id) :: recvs) =>
+          SOME (recv_stack, recv_thread_id) | 
+        SOME (_, []) => NONE |
+        NONE => NONE
+      )
+      val (threads, md') = (case recv_op of
+        NONE => ([], Mode_Stick "transact Base_Send") |
+        SOME (recv_stack, recv_thread_id) => (
+          [
+            (Lst ([], 0), empty_table, wrap_stack @ cont_stack, thread_id),
+            (msg, empty_table, recv_stack, recv_thread_id)
+          ],
+          Mode_Sync (i, msg, thread_id, recv_thread_id)
+        )
+      ) 
+    in
+      (
+        md', 
+        threads,
+        (chan_store, block_store, sync_store, cnt)
+      ) 
+    end) |
+  
+    Base_Recv (i, wrap_stack) =>
+    (let
+      val chan_op = find (chan_store, i)
+      val send_op = (case chan_op of
+        SOME ((block_id, send_stack, msg, send_thread_id) :: sends, _) =>
+          SOME (send_stack, msg, send_thread_id) | 
+        SOME ([], _) => NONE |
+        NONE => NONE
+      )
+  
+      val (threads, md') = (case send_op of
+        NONE => ([], Mode_Stick "transact Base_Recv") |
+        SOME (send_stack, msg, send_thread_id) => (
+          [
+            (Lst ([], 0), empty_table, send_stack, send_thread_id),
+            (msg, empty_table, wrap_stack @ cont_stack, thread_id)
+          ],
+          Mode_Sync (i, msg, send_thread_id, thread_id)
+        )
+      )
+    in
+      (
+        md',
+        threads,
+        (chan_store, block_store, sync_store, cnt)
+      )
+    end)
+  
+  )
+  
+  fun block_one (bevt, cont_stack, chan_store, block_id, thread_id) = (case bevt of
+    Base_Send (i, msg, wrap_stack) =>
+      (let
+        val cont_stack' = wrap_stack @ cont_stack
+        val chan_op = find (chan_store, i)
+        val chan' = (case chan_op of
+          NONE =>
+            ([(block_id, cont_stack', msg, thread_id)], []) | 
+          SOME (send_q, recv_q) =>
+            (send_q @ [(block_id, cont_stack', msg, thread_id)], recv_q)
+        )
+        val chan_store' = insert (chan_store, i, chan')
+      in
+        chan_store'
+      end) |
+  
+    Base_Recv (i, wrap_stack) =>
+      (let
+        val cont_stack' = wrap_stack @ cont_stack
+        val chan_op = find (chan_store, i)
+        val chan' = (case chan_op of
+          NONE =>
+            ([], [(block_id, cont_stack', thread_id)]) | 
+          SOME (send_q, recv_q) =>
+            (send_q, recv_q @ [(block_id, cont_stack', thread_id)])
+        )
+        val chan_store' = insert (chan_store, i, chan')
+      in
+        chan_store'
+      end)
+  
+  )
+  
+  fun block (
+    base_events, cont_stack, thread_id,
+    (chan_store, block_store, sync_store, cnt)
+  ) = (let
+    val chan_store' = (List.foldl  
+      (fn (bevt, chan_store) =>
+        block_one (bevt, cont_stack, chan_store, cnt, thread_id)
+      )
+      chan_store
+      base_events
+    )
+    val block_store' = insert (block_store, cnt, ())
+    val cnt' = cnt + 1
+  in
+    (Mode_Block base_events, [], (chan_store', block_store', sync_store, cnt'))
+  end)
+
+  fun is_event t = (case t of
+
+    Send (Lst ([ChanId _, _], _), pos) =>
+      true |
+
+    Recv (ChanId _, _) =>
+      true |
+
+    Wrap (Lst ([t', Fnc _], _), _) =>
+      is_event t' |
+
+    Chse (Lst (ts, _), _) =>
+      List.all (fn t => is_event t) ts |
+
+    _ =>
+      false
+  
+  )
+
 
   fun match_value_insert (val_store, pat, value) = (case (pat, value) of
 
@@ -1180,20 +1181,93 @@ structure Tree = struct
 
     ) |
 
+    Alloc_Chan (_, i) => (let
+      val chan_store' = insert (chan_store, cnt, ([], []))
+      val cnt' = cnt + 1
+    in
+      pop (
+        ChanId cnt,
+        val_store, cont_stack, thread_id,
+        chan_store', block_store, sync_store, cnt'
+      )
+    end) |
+
+    Send (t, pos) => reduce_single (
+      t, fn v => Send (v, pos), fn v => Send (v, pos),
+      val_store, cont_stack, thread_id,
+      chan_store, block_store, sync_store, cnt
+    ) | 
+
+    Recv (t, pos) => reduce_single (
+      t, fn v => Recv (v, pos), fn v => Recv (v, pos),
+      val_store, cont_stack, thread_id,
+      chan_store, block_store, sync_store, cnt
+    ) | 
+
+    Wrap (t, pos) => reduce_single (
+      t, fn v => Wrap (v, pos), fn v => Wrap (v, pos),
+      val_store, cont_stack, thread_id,
+      chan_store, block_store, sync_store, cnt
+    ) | 
+
+    Chse (t, pos) => reduce_single (
+      t, fn v => Chse (v, pos), fn v => Chse (v, pos),
+      val_store, cont_stack, thread_id,
+      chan_store, block_store, sync_store, cnt
+    ) | 
+
+    Sync (t, pos) => (case t of
+      (Id (id, _)) => (case (find (val_store, id)) of
+        SOME (NONE, v) =>
+        (if (is_event v) then
+          (let
+
+            val bevts = mk_base_events (v, []) 
+            
+            val (active_bevt_op, chan_store') = (
+              find_active_base_event (bevts, chan_store, block_store)
+            )
+          in
+            (case active_bevt_op of
+              SOME bevt =>
+                transact (
+                  bevt, cont_stack, thread_id,
+                  (chan_store', block_store, sync_store, cnt)
+                ) |
+              NONE =>
+                block (
+                  bevts, cont_stack, thread_id,
+                  (chan_store', block_store, sync_store, cnt)
+                )
+            )
+          end)
+        else
+          (
+            Mode_Stick "sync with non-event",
+            [], (chan_store, block_store, sync_store, cnt)
+          )
+        ) |
+
+        _  => (
+          Mode_Stick "ID cannot be resolved",
+          [], (chan_store, block_store, sync_store, cnt)
+        )
+
+      ) |
+
+      _ => push (
+        (t, (Contin_Norm, [( hole cnt, Sync (hole cnt, pos) )], val_store, [])),
+        val_store, cont_stack, thread_id,
+        chan_store, block_store, sync_store, cnt + 1
+      )
+    ) |
+
     _ => (
       Mode_Stick "TODO",
       [], (chan_store, block_store, sync_store, cnt)
     )
     (* **TODO**
   
-    Alloc_Chan of (term * int) |
-
-    Send of (term * int) |
-    Recv of (term * int) |
-
-    Wrap of (term * int) |
-    Chse of (term * int) |
-    Sync of (term * int) |
 
     Spawn of (term * int) |
     Par of (term * int) |
@@ -1427,40 +1501,6 @@ structure Tree = struct
 
     ) |
 
-    Alloc_Chan i => (let
-      val chan_store' = insert (chan_store, cnt, ([], []))
-      val cnt' = cnt + 1
-    in
-      pop (
-        ChanId cnt,
-        val_store, cont_stack, thread_id,
-        chan_store', block_store, sync_store, cnt'
-      )
-    end) |
-
-    Send (t, pos) => normalize_single_pop (
-      t, fn v => Send (v, pos), 
-      val_store, cont_stack, thread_id,
-      chan_store, block_store, sync_store, cnt
-    ) | 
-
-    Recv (t, pos) => normalize_single_pop (
-      t, fn v => Recv (v, pos) ,
-      val_store, cont_stack, thread_id,
-      chan_store, block_store, sync_store, cnt
-    ) | 
-
-    Wrap (t, pos) => normalize_single_pop (
-      t, fn v => Wrap (v, pos),
-      val_store, cont_stack, thread_id,
-      chan_store, block_store, sync_store, cnt
-    ) | 
-
-    Chse (t, pos) => normalize_single_pop (
-      t, fn v => Chse (v, pos),
-      val_store, cont_stack, thread_id,
-      chan_store, block_store, sync_store, cnt
-    ) | 
 
     Spawn (t, pos) => reduce_single (
       t, fn v => Spawn (v, pos),  
@@ -1484,40 +1524,6 @@ structure Tree = struct
 
         _ => (
           Mode_Stick "spawn with non-function",
-          [], (chan_store, block_store, sync_store, cnt)
-        )
-      )
-    ) |
-
-    Sync (t, pos) => reduce_single (
-      t, fn v => Sync (v, pos),  
-      val_store, cont_stack, thread_id,
-      chan_store, block_store, sync_store, cnt,
-      (fn v => if (is_event v) then
-        (let
-
-          val bevts = mk_base_events (v, []) 
-          
-          val (active_bevt_op, chan_store') = (
-            find_active_base_event (bevts, chan_store, block_store)
-          )
-        in
-          (case active_bevt_op of
-            SOME bevt =>
-              transact (
-                bevt, cont_stack, thread_id,
-                (chan_store', block_store, sync_store, cnt)
-              ) |
-            NONE =>
-              block (
-                bevts, cont_stack, thread_id,
-                (chan_store', block_store, sync_store, cnt)
-              )
-          )
-        end)
-      else
-        (
-          Mode_Stick "sync with non-event",
           [], (chan_store, block_store, sync_store, cnt)
         )
       )
