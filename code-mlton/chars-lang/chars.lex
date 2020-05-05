@@ -52,14 +52,14 @@ symbol=[\-\^\\=+!@#$%&*<>/{}|?~:]|"["|"]";
 
 <INITIAL>";" => (SEMI (!linenum, inccol 1));
 <INITIAL>"," => (COMMA (!linenum, inccol 1));
-<INITIAL>":" => (COLON (!linenum, inccol 1));
-<INITIAL>"#" => (HASH (!linenum, inccol 1));
+<INITIAL>"=>" => (FATARROW (!linenum, inccol 1));
 <INITIAL>"[" => (LSQ (!linenum, inccol 1));
 <INITIAL>"]" => (RSQ (!linenum, inccol 1));
 
 <INITIAL>"." => (DOT (!linenum, inccol 1));
 <INITIAL>"|" => (BAR (!linenum, inccol 1));
 
+<INITIAL>"def" => (DEF (!linenum, inccol 1));
 <INITIAL>"select" => (SELECT (!linenum, inccol 1));
 
 <INITIAL>"add" => (ADD (!linenum, inccol 1));
@@ -113,7 +113,7 @@ symbol=[\-\^\\=+!@#$%&*<>/{}|?~:]|"["|"]";
 <INITIAL>"infixr" => (INFIXR (!linenum, inccol 1));
 <INITIAL>"d"{digit} => (DIGIT ((valOf o Int.fromString) (substring (yytext, 1, 1)), !linenum, inccol 1));
 
-<INITIAL>"_" => (LODASH (!linenum, inccol 1));
+<INITIAL>"()" => (LRPAREN (!linenum, inccol 1));
 
 <INITIAL>("-"?){digit}+(("."|","){digit}+)? =>
   (NUM (yytext, !linenum, inccol (size yytext)));

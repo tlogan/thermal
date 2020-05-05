@@ -7,9 +7,9 @@ open Tree
 %term
 
   SEMI | COMPO | SELECT |
-  COLON |
-  HASH |
-  COMMA | DOT | LSQ | RSQ | BAR |
+  DEF |
+  COMMA |
+  FATARROW | DOT | LSQ | RSQ | BAR |
   ADD | SUB | MUL | DIV | REM | 
   ADDW | SUBW | MULW | DIVSW | DIVUW | REMSW | REMUW | 
   ADDF | SUBF | MULF | DIVF | 
@@ -17,7 +17,7 @@ open Tree
   ALLOC_MEM | SIZE | SLICE | SET | GET |
   ALLOC_CHAN | SEND | RECV | 
   WRAP | CHSE | SYNC | SPAWN | 
-  LPAREN | RPAREN | LANG | RANG | LODASH | 
+  LPAREN | RPAREN | LANG | RANG | LRPAREN | 
   SYM | INFIXL | INFIXR | DIGIT of int |
 
   NUM of string | WORD of string | FLOAT of string |
@@ -43,10 +43,10 @@ open Tree
 %noshift EOF
 
 %right SEMI 
-%right COLON
-%right BAR COMMA
+%right DEF
+%right BAR FATARROW
 %left COMPO 
-%right HASH
+%right COMMA
 
 
 %right SYM 
@@ -57,7 +57,7 @@ open Tree
 %left LPAREN LANG
 %right RPAREN RANG
 
-%left LODASH
+%left LRPAREN
 
 %left NUM STRING ID
 
@@ -79,8 +79,8 @@ term_nt:
 
   LPAREN term_nt RPAREN (Assoc (term_nt, LPARENleft)) |
 
-  term_nt HASH term_nt (Cns (Lst ([term_nt1, term_nt2], HASHleft), HASHleft)) |
-  term_nt HASH (Lst ([term_nt], HASHleft)) |
+  term_nt COMMA term_nt (Cns (Lst ([term_nt1, term_nt2], COMMAleft), COMMAleft)) |
+  term_nt COMMA (Lst ([term_nt], COMMAleft)) |
 
   LPAREN lams_nt (Fnc (lams_nt, [], [], lams_ntleft)) |
   lam_nt (Fnc ([lam_nt], [], [], lam_ntleft)) |
@@ -112,7 +112,7 @@ term_nt:
 
   SYM term_nt (Sym (term_nt, SYMleft)) | 
 
-  LODASH (Blank LODASHleft) | 
+  LRPAREN (Blank LRPARENleft) | 
 
   ID (Id (ID, IDleft)) |
 
@@ -132,11 +132,11 @@ lams_nt:
   BAR lam_nt RPAREN ([lam_nt])
 
 lam_nt:
-  term_nt COMMA term_nt ((term_nt1, term_nt2))
+  term_nt FATARROW term_nt ((term_nt1, term_nt2))
 
 fields_nt:
-  COLON field_nt fields_nt %prec COLON (field_nt :: fields_nt) |
-  COLON field_nt RPAREN %prec COLON ([field_nt])
+  DEF field_nt fields_nt %prec DEF (field_nt :: fields_nt) |
+  DEF field_nt RPAREN %prec DEF ([field_nt])
 
 field_nt:
   ID INFIXL DIGIT term_nt
