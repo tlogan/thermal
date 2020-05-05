@@ -1262,6 +1262,42 @@ structure Tree = struct
       )
     ) |
 
+    Spawn (t, pos) =>(case t of
+      (Id (id, _)) => (case (find (val_store, id)) of
+        SOME (_, Fnc ([(Lst ([], _), t_body)], fnc_store, mutual_store, _)) =>
+        (let
+          val spawn_id = cnt
+          val cnt' = cnt + 1
+        in
+          (
+            Mode_Spawn t_body,
+            [
+              (Lst ([], pos), val_store, cont_stack, thread_id),
+              (t_body, val_store, [], spawn_id)
+            ],
+            (chan_store, block_store, sync_store, cnt')
+          )
+        end) |
+
+        SOME _ => (
+          Mode_Stick "spawn with non-function",
+          [], (chan_store, block_store, sync_store, cnt)
+        ) |
+      
+        _  => (
+          Mode_Stick "ID cannot be resolved",
+          [], (chan_store, block_store, sync_store, cnt)
+        )
+
+      ) |
+
+      _ => push (
+        (t, (Contin_Norm, [( hole cnt, Spawn (hole cnt, pos) )], val_store, [])),
+        val_store, cont_stack, thread_id,
+        chan_store, block_store, sync_store, cnt + 1
+      )
+    ) |
+
     _ => (
       Mode_Stick "TODO",
       [], (chan_store, block_store, sync_store, cnt)
@@ -1269,7 +1305,6 @@ structure Tree = struct
     (* **TODO**
   
 
-    Spawn of (term * int) |
     Par of (term * int) |
   
     Sym of (term * int) |
@@ -1502,32 +1537,6 @@ structure Tree = struct
     ) |
 
 
-    Spawn (t, pos) => reduce_single (
-      t, fn v => Spawn (v, pos),  
-      val_store, cont_stack, thread_id,
-      chan_store, block_store, sync_store, cnt,
-      (fn
-
-        (Fnc ([(Lst ([], _), t_body)], fnc_store, mutual_store, _)) => (let
-          val spawn_id = cnt
-          val cnt' = cnt + 1
-        in
-          (
-            Mode_Spawn t_body,
-            [
-              (Lst ([], pos), val_store, cont_stack, thread_id),
-              (t_body, val_store, [], spawn_id)
-            ],
-            (chan_store, block_store, sync_store, cnt')
-          )
-        end) |
-
-        _ => (
-          Mode_Stick "spawn with non-function",
-          [], (chan_store, block_store, sync_store, cnt)
-        )
-      )
-    ) |
 
     Solve (t, pos) => reduce_single (
       t, fn v => Solve (v, pos),  
