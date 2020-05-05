@@ -1050,7 +1050,7 @@ structure Tree = struct
       t,
       fn t => Cns (t, pos),
       (fn
-        Cns (Lst ([v, Lst (ts, _)], _), _) => Lst (v :: ts, pos) |
+        Lst ([v, Lst (ts, _)], _) => Lst (v :: ts, pos) |
 
         _ => Error "cons with non-list"
       ),
@@ -1163,13 +1163,28 @@ structure Tree = struct
       )
     end) |
 
+    Select (t, pos) => reduce_single (
+      t,
+      fn t => Select (t, pos),
+      (fn
+        Lst ([Rec (fields, _, _), Id (key, _)], _) =>
+        (case find (fields, key) of
+          SOME (_, v) => v |
+          NONE => Error "selection not found"
+        ) |
+
+        _ => Error "selecting from non-record"
+      ),
+      val_store, cont_stack, thread_id,
+      chan_store, block_store, sync_store, cnt
+
+    ) |
+
     _ => (
       Mode_Stick "TODO",
       [], (chan_store, block_store, sync_store, cnt)
     )
     (* **TODO**
-
-    Select of (term * int) |
   
     Alloc_Chan of (term * int) |
 
@@ -1203,42 +1218,6 @@ structure Tree = struct
     ChanId of int |
     ThreadId of int
 
-
-
-    Select (t, name, pos) => (case (resolve (val_store, t)) of
-
-      NONE => normalize (
-        t, fn v => Select (v, name, pos),
-        val_store, cont_stack, thread_id,
-        chan_store, block_store, sync_store, cnt
-      ) |
-
-      SOME (Rec (fields, _)) => (let
-        val field_op = (List.find
-          (fn (key, v) => key = name)
-          fields
-        )
-      in
-        (case field_op of
-          SOME (_, v) => (
-            Mode_Reduce v,
-            [(v, val_store, cont_stack, thread_id)],
-            (chan_store, block_store, sync_store, cnt)
-          ) |
-
-          NONE => (
-            Mode_Stick "selection from non-record",
-            [], (chan_store, block_store, sync_store, cnt)
-          )
-        )
-      end) |
-
-      _ => (
-        Mode_Stick "selection from non-record",
-        [], (chan_store, block_store, sync_store, cnt)
-      )
-
-    ) |
 
 
     Pipe (t_arg, t_fn, pos) => reduce_single (
