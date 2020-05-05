@@ -7,6 +7,7 @@ structure StringMap = MapFn(
 val flagMapRef = ref (StringMap.insertList (StringMap.empty, [
   ("--lex", false),
   ("--parse", false),
+  ("--eval", false),
   ("--help", false)
 ]))
 
@@ -16,6 +17,7 @@ fun printHelp () = (
   print "Options: \n" ;
   print "  --lex <spec.trml>\n" ;
   print "  --parse <spec.trml>\n";
+  print "  --eval <spec.trml>\n";
   print "  --help \n";
   print "\n"
 )
@@ -77,9 +79,20 @@ fun flagSet flagMap str = (case StringMap.lookup (flagMap, str) of
   NONE => false
 )
 
+
+fun eval [filename] = (let
+  val inStream = readFile filename
+  val tokenStream = CharStream.makeTokenStream (readStream inStream)
+  val (term, rem) = TokenStream.parse (15, tokenStream, printError filename)  
+  val () = TextIO.closeIn inStream
+in
+  ignore (Tree.eval term)
+end)
+
 fun handleRequest flagMap args = ((
   if flagSet flagMap "--lex" then lex args else ();
-  if flagSet flagMap "--parse" then parse args else ()
+  if flagSet flagMap "--parse" then parse args else ();
+  if flagSet flagMap "--eval" then eval args else ()
 ) handle 
   Fail m => print ("failed : " ^ m) |
   x => (raise x)

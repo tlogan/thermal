@@ -1255,8 +1255,6 @@ structure Tree = struct
   
     Sym of (term * int) |
     *)
-  
-
 
   )
 
@@ -1280,7 +1278,7 @@ structure Tree = struct
     end)
   )
 
-  fun run t = (let
+  fun eval t = (let
 
     val val_store = empty_table 
     val cont_stack = []
