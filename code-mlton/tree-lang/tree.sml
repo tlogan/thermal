@@ -230,34 +230,44 @@ structure Tree = struct
   ) 
 
   fun add_num (n1, n2) = (let
-    (* **TODO** *)  
+    val i1 = (valOf o Int.fromString) n1
+    val i2 = (valOf o Int.fromString) n2
+    val i3 = i1 + i2
   in
-    n1 
+    Int.toString i3
   end)
 
   fun sub_num (n1, n2) = (let
-    (* **TODO** *)  
+    val i1 = (valOf o Int.fromString) n1
+    val i2 = (valOf o Int.fromString) n2
+    val i3 = i1 - i2
   in
-    n1 
+    Int.toString i3
   end)
 
   fun mul_num (n1, n2) = (let
-    (* **TODO** *)  
+    val i1 = (valOf o Int.fromString) n1
+    val i2 = (valOf o Int.fromString) n2
+    val i3 = i1 * i2
   in
-    n1 
+    Int.toString i3
   end)
 
 
   fun div_num (n1, n2) = (let
-    (* **TODO** *)  
+    val i1 = (valOf o Int.fromString) n1
+    val i2 = (valOf o Int.fromString) n2
+    val i3 = i1 div i2
   in
-    n1 
+    Int.toString i3
   end)
 
   fun rem_num (n1, n2) = (let
-    (* **TODO** *)  
+    val i1 = (valOf o Int.fromString) n1
+    val i2 = (valOf o Int.fromString) n2
+    val i3 = Int.rem (i1, i2)
   in
-    n1 
+    Int.toString i3
   end)
 
 
