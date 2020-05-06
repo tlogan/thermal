@@ -9,7 +9,7 @@ open Tree
   SEMI | COMPO | SELECT |
   DEF |
   COMMA |
-  FATARROW | DOT | LSQ | RSQ | BAR |
+  FATARROW | DOT | LSQ | RSQ | CASE |
   ADD | SUB | MUL | DIV | REM | 
   ADDW | SUBW | MULW | DIVSW | DIVUW | REMSW | REMUW | 
   ADDF | SUBF | MULF | DIVF | 
@@ -44,7 +44,7 @@ open Tree
 
 %right SEMI 
 %right DEF
-%right BAR FATARROW
+%right CASE FATARROW
 %left COMPO 
 %right COMMA
 
@@ -128,8 +128,8 @@ term_nt:
 
 
 lams_nt:
-  BAR lam_nt lams_nt (lam_nt :: lams_nt) |
-  BAR lam_nt RPAREN ([lam_nt])
+  CASE lam_nt lams_nt (lam_nt :: lams_nt) |
+  CASE lam_nt RPAREN ([lam_nt])
 
 lam_nt:
   term_nt FATARROW term_nt ((term_nt1, term_nt2))

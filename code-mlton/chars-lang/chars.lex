@@ -57,7 +57,7 @@ symbol=[\-\^\\=+!@#$%&*<>/{}|?~:]|"["|"]";
 <INITIAL>"]" => (RSQ (!linenum, inccol 1));
 
 <INITIAL>"." => (DOT (!linenum, inccol 1));
-<INITIAL>"|" => (BAR (!linenum, inccol 1));
+<INITIAL>"case" => (CASE (!linenum, inccol 1));
 
 <INITIAL>"def" => (DEF (!linenum, inccol 1));
 <INITIAL>"select" => (SELECT (!linenum, inccol 1));
