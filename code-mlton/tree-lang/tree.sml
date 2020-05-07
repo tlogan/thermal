@@ -1303,11 +1303,15 @@ structure Tree = struct
 
   )
 
-  fun string_from_mode md = (case md of
-    (* **TODO **)
-    _ => ""
-    (*
-    *)
+  fun to_string_from_mode md = (case md of
+    Mode_Start => "Started" |
+    Mode_Upkeep => "Upkeeped" |
+    Mode_Reduce t => "Reduced" |
+    Mode_Spawn t => "Spawned" |
+    Mode_Block bevts => "Blocked" |
+    Mode_Sync (thread_id, msg, send_id, recv_id) => "Synced" |
+    Mode_Stick msg => "Stuck: " ^ msg  |
+    Mode_Finish result => "result: " ^ (to_string result)
   )
 
   fun concur_step (
@@ -1317,7 +1321,13 @@ structure Tree = struct
     [] => (print "all done!\n"; NONE) |
     thread :: threads' => (let
       val (md', seq_threads, env') = (seq_step (md, thread, env)) 
-      val _ = print ((string_from_mode md) ^ "\n")
+      val _ = print ((to_string_from_mode md) ^ "\n")
+      val _ = print (
+        "# seq_threads: " ^
+        (Int.toString (length seq_threads)) ^
+        "\n"
+      )
+      val _ = print "\n" 
     in
       SOME (md', threads' @ seq_threads, env')
     end)
