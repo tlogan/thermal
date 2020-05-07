@@ -665,6 +665,7 @@ structure Tree = struct
     chan_store, block_store, sync_store, cnt
   ) = (let
     val cont_stack' = cont :: cont_stack
+    val _ = print "push\n"
   in
     (
       Mode_Upkeep,
@@ -919,14 +920,17 @@ structure Tree = struct
   ) = (case t of
 
     Assoc (term, pos) => (
-      Mode_Upkeep,
+
+      ((print "Assoc\n");
+      Mode_Upkeep),
       [(term, val_store, cont_stack, thread_id)],
       (chan_store, block_store, sync_store, cnt)
     ) |
 
     Id (id, pos) => (case (find (val_store, id)) of
       SOME (NONE, v) => (
-        Mode_Upkeep,
+        ((print "Id\n");
+        Mode_Upkeep),
         [(v, val_store, cont_stack, thread_id)],
         (chan_store, block_store, sync_store, cnt)
       ) |
@@ -981,14 +985,16 @@ structure Tree = struct
 
     in
       (
-        Mode_Upkeep,
+        ((print "Two Compo\n");
+        Mode_Upkeep),
         [(term, val_store, cont_stack, thread_id)],
         (chan_store, block_store, sync_store, cnt)
       )
     end) |
 
     Compo (t1, t2, pos) => (
-      Mode_Upkeep,
+        ((print "One Compo\n");
+        Mode_Upkeep),
       [(App (t1, t2, pos), val_store, cont_stack, thread_id)],
       (chan_store, block_store, sync_store, cnt)
     ) |
@@ -1028,7 +1034,8 @@ structure Tree = struct
       )
     in
       (
-        Mode_Upkeep,
+        ((print "Rec\n");
+        Mode_Upkeep),
         [(Rec (fields', true, pos), val_store, cont_stack, thread_id)],
         (chan_store, block_store, sync_store, cnt)
       )
@@ -1311,7 +1318,7 @@ structure Tree = struct
     Mode_Block bevts => "Blocked" |
     Mode_Sync (thread_id, msg, send_id, recv_id) => "Synced" |
     Mode_Stick msg => "Stuck: " ^ msg  |
-    Mode_Finish result => "result: " ^ (to_string result)
+    Mode_Finish result => "Finished: " ^ (to_string result)
   )
 
   fun concur_step (
@@ -1321,7 +1328,7 @@ structure Tree = struct
     [] => (print "all done!\n"; NONE) |
     thread :: threads' => (let
       val (md', seq_threads, env') = (seq_step (md, thread, env)) 
-      val _ = print ((to_string_from_mode md) ^ "\n")
+      val _ = print ((to_string_from_mode md') ^ "\n")
       val _ = print (
         "# seq_threads: " ^
         (Int.toString (length seq_threads)) ^
