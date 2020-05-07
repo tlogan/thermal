@@ -559,6 +559,12 @@ structure Tree = struct
 
   fun match_value_insert (val_store, pat, value) = (case (pat, value) of
 
+    (Blank _, _) =>
+      SOME val_store |
+
+    (Id (str, _), v) =>
+      SOME (insert (val_store, str, (NONE, v))) |
+
     (Lst ([], _), Lst ([], _)) => SOME val_store | 
 
     (Lst (t :: ts, _), Lst (v :: vs, _))  =>
@@ -586,18 +592,17 @@ structure Tree = struct
         NONE
     ) |
 
-    (Lst (ts, _), Lst (vs, _)) => (case (ts, vs) of
-      ([], []) =>
-        SOME val_store |
+    (Num (n, _), Num (nv, _)) => (
+      if n = nv then
+        SOME val_store
+      else
+        NONE
+    ) |
 
-      (t :: ts', v :: vs') => (Option.mapPartial
-        (fn val_store' =>
-          match_value_insert (val_store', t, v)
-        )
-        (match_value_insert (val_store, Lst (ts', ~1), Lst (vs', ~1)))
-      ) |
-
-      _ =>
+    (Str (str, _), Str (strv, _)) => (
+      if str = strv then
+        SOME val_store
+      else
         NONE
     ) |
 
@@ -624,33 +629,6 @@ structure Tree = struct
       _ =>
         NONE
       
-    ) |
-
-    (Blank _, _) =>
-      SOME val_store |
-
-    (Bool (b, _), Bool (bv, _)) => (
-      if b = bv then
-        SOME val_store
-      else
-        NONE
-    ) |
-
-    (Id (str, _), v) =>
-      SOME (insert (val_store, str, v)) |
-
-    (Num (n, _), Num (nv, _)) => (
-      if n = nv then
-        SOME val_store
-      else
-        NONE
-    ) |
-
-    (Str (str, _), Str (strv, _)) => (
-      if str = strv then
-        SOME val_store
-      else
-        NONE
     ) |
 
     *)
@@ -791,7 +769,7 @@ structure Tree = struct
         (Id (id, _)) => (case (find (val_store, id)) of
           SOME (NONE, v) => loop (prefix @ [v], xs) |
           _ => (
-            Mode_Stick "ID in list cannot be resolved",
+            Mode_Stick ("reduce list variable " ^ id ^ " cannot be resolved"),
             [], (chan_store, block_store, sync_store, cnt)
           )
         ) |
@@ -836,7 +814,8 @@ structure Tree = struct
       ) |
 
       _  => (
-        Mode_Stick "ID cannot be resolved",
+        Mode_Stick ("reduce single variable " ^ id ^ " cannot be resolved")
+        ,
         [], (chan_store, block_store, sync_store, cnt)
       )
 
@@ -868,7 +847,7 @@ structure Tree = struct
       ) |
 
       _  => (
-        Mode_Stick "ID cannot be resolved",
+        Mode_Stick ("Apply arg variable " ^ id ^ " cannot be resolved"),
         [], (chan_store, block_store, sync_store, cnt)
       )
     ) |
@@ -936,7 +915,7 @@ structure Tree = struct
       ) |
 
       _ => (
-        Mode_Stick "ID cannot be resolved",
+        Mode_Stick ("variable " ^ id ^ " cannot be resolved"),
         [], (chan_store, block_store, sync_store, cnt)
       )
     ) |
@@ -1154,7 +1133,7 @@ structure Tree = struct
         ) |
 
         _  => (
-          Mode_Stick "ID cannot be resolved",
+          Mode_Stick ("Sync argument variable " ^ id ^ " cannot be resolved"),
           [], (chan_store, block_store, sync_store, cnt)
         )
 
@@ -1177,7 +1156,7 @@ structure Tree = struct
 
     Spawn (t, pos) =>(case t of
       (Id (id, _)) => (case (find (val_store, id)) of
-        SOME (_, Fnc ([(Lst ([], _), t_body)], fnc_store, mutual_store, _)) =>
+        SOME (_, Fnc ([(Blank _, t_body)], fnc_store, mutual_store, _)) =>
         (let
           val spawn_id = cnt
           val cnt' = cnt + 1
@@ -1192,13 +1171,13 @@ structure Tree = struct
           )
         end) |
 
-        SOME _ => (
+        SOME (_, v) => (
           Mode_Stick "spawn with non-function",
           [], (chan_store, block_store, sync_store, cnt)
         ) |
       
         _  => (
-          Mode_Stick "ID cannot be resolved",
+          Mode_Stick ("Spawn argument variable " ^ id ^ " cannot be resolved"),
           [], (chan_store, block_store, sync_store, cnt)
         )
 
