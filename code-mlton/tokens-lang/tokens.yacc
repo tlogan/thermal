@@ -135,8 +135,8 @@ lam_nt:
   term_nt FATARROW term_nt ((term_nt1, term_nt2))
 
 fields_nt:
-  DEF field_nt fields_nt %prec DEF (field_nt :: fields_nt) |
-  DEF field_nt RPAREN %prec DEF ([field_nt])
+  DEF field_nt fields_nt (field_nt :: fields_nt) |
+  DEF field_nt RPAREN ([field_nt])
 
 field_nt:
   ID INFIXL DIGIT term_nt

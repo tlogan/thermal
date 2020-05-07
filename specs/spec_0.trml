@@ -1,18 +1,14 @@
-(
+(def | infixl d0 (a, f,) => f a);
 
-  def | infixl d0 (a, f,) => f a
-  
-  def make_nat_stream () => (
-    alloc_chan () | ch => (
-      def count i => (
-        sync (send (ch, i,));
-        count (add (i, 1,))
-      )
-    );
-    spawn (() => count 0); 
-    ch
-  )
-
+(def make_nat_stream () =>
+  alloc_chan () | (case ch => (
+    def count i => (
+      sync (send (ch, i,));
+      count (add (i, 1,))
+    )
+  ));
+  spawn (() => count 0); 
+  ch
 );
 
 make_nat_stream () | nstream => (
@@ -26,4 +22,3 @@ make_nat_stream () | nstream => (
 );
 
 loop 9
-

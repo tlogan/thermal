@@ -36,8 +36,8 @@ symbol=[\-\^\\=+!@#$%&*<>/{}|?~:]|"["|"]";
 
 %%
 
-<INITIAL>"(*"  => (YYBEGIN COMMENT; (inccol 2); lex());
-<COMMENT>"*)"  => (YYBEGIN INITIAL; (inccol 2); lex());
+<INITIAL>"/*"  => (YYBEGIN COMMENT; (inccol 2); lex());
+<COMMENT>"*/"  => (YYBEGIN INITIAL; (inccol 2); lex());
 <COMMENT>\n => (incline (); lex ());
 <COMMENT>\r\n => (incline (); lex ());
 <COMMENT>. => ((inccol 1); lex ());

@@ -97,12 +97,18 @@ structure Tree = struct
 
 
   fun to_string t = (case t of
+
+
+    Assoc (t, pos) => String.surround ("Assoc@" ^ (Int.toString pos)) (
+      (to_string t)
+    ) |
+
     Cns (t, pos) => String.surround ("Cns@" ^ (Int.toString pos)) (
       (to_string t)
     ) |
 
-    Lst (ts, pos) => String.surround ("Lst@" ^ (Int.toString pos)) (
-      String.concatWith ",\n" (List.map to_string ts)
+    Lst (ts, pos) => String.surround "[" (
+      (String.concatWith ",\n" (List.map to_string ts)) ^ "]"
     ) |
 
 
@@ -173,9 +179,6 @@ structure Tree = struct
     Id (name, pos) =>
       "(Id@" ^ (Int.toString pos) ^ " " ^ name ^ ")" |
 
-    Num (num, pos) =>
-      "(Num@" ^ (Int.toString pos) ^ " " ^ num ^ ")" |
-
     Str (str, pos) =>
       "(Str@" ^ (Int.toString pos) ^ " " ^ str ^ ")" |
 
@@ -184,6 +187,30 @@ structure Tree = struct
 
     ThreadId i =>
       "(ThreadId " ^ (Int.toString i) ^ ")" |
+
+
+    Num (num, pos) =>
+      "(Num@" ^ (Int.toString pos) ^ " " ^ num ^ ")" |
+
+    Add (t, pos) => String.surround ("Add@" ^ (Int.toString pos)) (
+      (to_string t)
+    ) |
+
+    Sub (t, pos) => String.surround ("Sub@" ^ (Int.toString pos)) (
+      (to_string t)
+    ) |
+
+    Mul (t, pos) => String.surround ("Mul@" ^ (Int.toString pos)) (
+      (to_string t)
+    ) |
+
+    Div (t, pos) => String.surround ("Div@" ^ (Int.toString pos)) (
+      (to_string t)
+    ) |
+
+    Rem (t, pos) => String.surround ("Rem@" ^ (Int.toString pos)) (
+      (to_string t)
+    ) |
 
     _ =>
       "(NOT YET IMPLEMENTED)"
