@@ -861,21 +861,23 @@ structure Tree = struct
   )
 
 
-  fun associate_right val_store (t1, id, rator, direc, prec, pos, t2) = (case t1 of 
+  fun associate_right val_store (
+    t1, id, rator, direc, prec, pos, t2
+  ) = (case t1 of 
     Compo (Compo (t1', Id (id', pos'), p1'), t2', p2') =>
-    (if (id' = id) then
-      (if direc = Right then
-        associate_right val_store (
-          t1',
-          id, rator, direc, prec, pos',
-          App (rator, Lst ([t2', t2], pos), pos)
-        )  
-      else 
-        App (rator, Lst ([t1, t2], pos), pos)
-      )
-    else (case (find (val_store, id')) of
+    (case (find (val_store, id')) of
       SOME (SOME (direc', prec'), rator') =>
-      (if (prec > prec') then
+      (if (prec' = prec) then
+        (if direc = Right then
+          associate_right val_store (
+            t1',
+            id, rator, direc, prec, pos',
+            App (rator, Lst ([t2', t2], pos), pos)
+          )  
+        else 
+          App (rator, Lst ([t1, t2], pos), pos)
+        )
+      else if (prec > prec') then
         associate_right val_store (
           t1',
           id', rator', direc', prec', pos',
@@ -886,7 +888,7 @@ structure Tree = struct
       ) |
 
       _ => Compo (App (t1', Id (id', pos'), p1'), t2', p2')
-    )) |
+    ) |
 
     _ =>
       App (rator, Lst ([t1, t2], pos), pos)

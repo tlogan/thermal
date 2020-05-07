@@ -44,8 +44,8 @@ open Tree
 
 %right SEMI 
 %right DEF
-%right CASE FATARROW
 %left COMPO 
+%right CASE FATARROW
 %right COMMA
 
 
