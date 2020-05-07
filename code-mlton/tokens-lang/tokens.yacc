@@ -44,10 +44,8 @@ open Tree
 
 %right SEMI 
 %right DEF
-%left COMPO 
 %right CASE FATARROW
 %right COMMA
-
 
 %right SYM 
 
@@ -64,6 +62,8 @@ open Tree
 %left DOT
 %left LSQ 
 %left RSQ 
+
+%left COMPO 
 
 %start tree_nt
 
