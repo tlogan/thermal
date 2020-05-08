@@ -116,7 +116,7 @@ symbol=[\-\^\\=+!@#$%&*<>/{}|?~:]|"["|"]";
 
 <INITIAL>"()" => (LRPAREN (!linenum, inccol 1));
 
-<INITIAL>("-"?){digit}+(("."|","){digit}+)? =>
+<INITIAL>"-"?{digit}+("."{digit}+)? =>
   (NUM (yytext, !linenum, inccol (size yytext)));
 
 

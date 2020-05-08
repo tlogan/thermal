@@ -559,11 +559,22 @@ structure Tree = struct
 
   fun match_value_insert (val_store, pat, value) = (case (pat, value) of
 
+    (Assoc (pat', _), _) =>
+      match_value_insert (val_store, pat', value) |
+
     (Blank _, _) =>
       SOME val_store |
 
     (Id (str, _), v) =>
       SOME (insert (val_store, str, (NONE, v))) |
+
+    (Cns (Lst ([t, t'], _), _), Lst (v :: vs, _)) =>
+      (Option.mapPartial
+        (fn val_store' =>
+          match_value_insert (val_store', t, v)
+        )
+        (match_value_insert (val_store, t', Lst (vs, ~1)))
+      ) |
 
     (Lst ([], _), Lst ([], _)) => SOME val_store | 
 
@@ -684,7 +695,7 @@ structure Tree = struct
           [] => NONE |
           (p, t) :: lams' =>
             (case (match_value_insert (val_store''', p, result)) of
-              NONE => match_first lams' |
+              NONE => (print ("match pattern: " ^ (to_string p) ^ "\n"); match_first lams') |
               SOME val_store'' => SOME (t, val_store'')
             )
         )
@@ -693,7 +704,7 @@ structure Tree = struct
         (case (match_first lams) of
 
           NONE => (
-            [], Mode_Stick "result does not match continuation hole pattern"
+            [], Mode_Stick ("result - " ^ (to_string result) ^ " - does not match continuation hole pattern")
           ) |
 
           SOME (t_body, val_store''') => (
