@@ -9,7 +9,7 @@ open Tree
   SEMI | COMPO | SELECT |
   DEF |
   COMMA |
-  FATARROW | DOT | LSQ | RSQ | CASE |
+  FATARROW | COLON | DOT | LSQ | RSQ | CASE |
   ADD | SUB | MUL | DIV | REM | 
   ADDW | SUBW | MULW | DIVSW | DIVUW | REMSW | REMUW | 
   ADDF | SUBF | MULF | DIVF | 
@@ -42,10 +42,12 @@ open Tree
 %eop EOF
 %noshift EOF
 
-%right SEMI 
-%right DEF
-%right CASE FATARROW
+
+%right SEMI
+%right FATARROW CASE COLON DEF
+
 %right COMMA
+%left COMPO
 
 %right SYM 
 
@@ -62,8 +64,6 @@ open Tree
 %left DOT
 %left LSQ 
 %left RSQ 
-
-%left COMPO 
 
 %start tree_nt
 
@@ -82,13 +82,15 @@ term_nt:
   term_nt COMMA term_nt (Cns (Lst ([term_nt1, term_nt2], COMMAleft), COMMAleft)) |
   term_nt COMMA (Lst ([term_nt], COMMAleft)) |
 
-  LPAREN lams_nt (Fnc (lams_nt, [], [], lams_ntleft)) |
   lam_nt (Fnc ([lam_nt], [], [], lam_ntleft)) |
+  LPAREN lams_nt (Fnc (lams_nt, [], [], lams_ntleft)) |
 
   term_nt term_nt %prec COMPO (Compo (term_nt1, term_nt2, term_nt1left)) |
   term_nt SEMI term_nt (Seq (term_nt1, term_nt2, SEMIleft)) |
 
-  LPAREN fields_nt (Rec (fields_nt, false, fields_ntleft)) |
+  DEF field_nt (Rec ([field_nt], false, DEFleft)) |
+  LPAREN fields_nt (Rec (fields_nt, false, LPARENleft)) |
+
 
   term_nt LSQ term_nt RSQ (Select (Lst ([term_nt1, term_nt2], LSQleft), LSQleft)) |
   term_nt DOT ID (Select (Lst ([term_nt, Str (ID, DOTleft)], DOTleft), DOTleft)) |
@@ -139,8 +141,8 @@ fields_nt:
   DEF field_nt RPAREN ([field_nt])
 
 field_nt:
-  ID INFIXL DIGIT term_nt
+  ID INFIXL DIGIT COLON term_nt
     (ID, (SOME (Left, DIGIT), term_nt)) |
-  ID INFIXR DIGIT term_nt
+  ID INFIXR DIGIT COLON term_nt
     (ID, (SOME (Right, DIGIT), term_nt)) |
-  ID term_nt (ID, (NONE, term_nt))
+  ID COLON term_nt (ID, (NONE, term_nt))

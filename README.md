@@ -2,52 +2,49 @@
 The Robot Mind and Language
 
 ```
- (
-   def >| infixr 0  
-     a, f, => f a 
- );
+ | infixr 0 : a, f, => f a;
  
- (def foo () => ()) >| my_rec =>
+ my_rec : (foo : () => ())
  
  my_rec[`foo`] 44;
  my_rec.foo 44;
 
  (  
-   def * infixl 8  
+   def * infixl 8 : 
      a, b, => mult (a, b,)
        
-   def fact (
-     | 0 => 1  
-     | n => n * (fact (n - 1))  
+   def fact : (
+     case 0 => 1  
+     case n => n * (fact (n - 1))  
    )
 
  (* strings may be in back ticks *)
  (* lists do not have commas when within square braces *)
 
-   def even (  
-     | 0 => `true`  
-     | `S`, n, => odd n  
+   def even : (  
+     case 0 => `true`  
+     case `S`, n, => odd n  
    )  
 
-   def odd (   
-     | 0 => `false`    
-     | `S`, n, => even n  
+   def odd : (   
+     case 0 => `false`    
+     case `S`, n, => even n  
    )
 
  (* strings without whitespace may use hash *)  
 
  (* recursion defined within record syntax *)  
 
-   def fib (  
-     | 0 => 0  
-     | 1 => 1  
-     | `S`, `S`, n, => fib (`S`, n,) + fib n  
+   def fib : (  
+     case 0 => 0  
+     case 1 => 1  
+     case `S`, `S`, n, => fib (`S`, n,) + fib n  
    )  
 
-   def = infix 8  
+   def = infix 8 :
      sym a, sym b, => (`=`, a, b,)   
 
-   def \/ infixl 3
+   def \/ infixl 3 :
      sym a, sym b, =>  (`\/`, a, b,)
 
  ) ;  
@@ -58,9 +55,9 @@ The Robot Mind and Language
  (* comma used to construct list without square brackets *)  
 
 
- 4 >| x =>
+ x : 4 ;
 
- (fact x) >| y =>
+ y : (fact x);
  
  fib y;  
 

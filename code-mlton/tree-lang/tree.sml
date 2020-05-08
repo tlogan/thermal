@@ -563,7 +563,10 @@ structure Tree = struct
       SOME val_store |
 
     (Id (str, _), v) =>
-      SOME (insert (val_store, str, (NONE, v))) |
+      (
+      print ("match val insert: id=" ^ str ^ "\n");
+      SOME (insert (val_store, str, (NONE, v)))
+      ) |
 
     (Lst ([], _), Lst ([], _)) => SOME val_store | 
 
@@ -957,11 +960,19 @@ structure Tree = struct
     Compo (Compo (t1, Id (id, pos), p1), t2, p2) => (let
 
       val term = (case (find (val_store, id)) of
-        SOME (SOME (direc, prec), rator) =>  (
-          associate_right val_store (t1, id, rator, direc, prec, pos, t2)
-        ) |
+        SOME (SOME (direc, prec), rator) =>  (let
+          val x = associate_right val_store (t1, id, rator, direc, prec, pos, t2)
+          val _ = print ("compo result 1: " ^ (to_string x) ^ "\n") 
+        in
+          x
+        end ) |
 
-        _ => Compo (App (t1, Id (id, pos), p1), t2, p2)
+        _ => (let
+          val x = Compo (App (t1, Id (id, pos), p1), t2, p2)
+          val _ = print ("compo result 1: " ^ (to_string x) ^ "\n") 
+        in
+          x
+        end)
       )
 
     in

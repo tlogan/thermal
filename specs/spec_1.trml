@@ -1,30 +1,29 @@
-alloc_chan () | req_ch =>
-alloc_chan () | resp_ch =>
+
+| infixl d0 : (a, f,) => f a ;
+
+req_ch : alloc_chan ();
+resp_ch : alloc_chan ();
 
 spawn ( 
-  (
-    def loop cnt => (
-      sync (
-        (equal (rem (cnt, 7,), 0,)) | (
-          case `true` => send (req_chan, (),)
-          case `false` => send (resp_chan, (),)
-        )
-      );
-      loop (cnt + 1)
-    )
+  loop : cnt => (
+    sync (
+      (equal (rem (cnt, 7,), 0,)) | (
+        case `true` => send (req_chan, (),)
+        case `false` => send (resp_chan, (),)
+      )
+    );
+    loop (cnt + 1)
   );
   () => loop 0
 );
 
 spawn (
-  (
-    def loop () => (
-      sync (chse (
-        recv req_chan,
-        recv resp_chan,
-      ));
-      loop ()
-    )
+  loop () => (
+    sync (chse (
+      recv req_chan,
+      recv resp_chan,
+    ));
+    loop ()
   );
 
   () => loop ()
@@ -33,18 +32,18 @@ spawn (
 
 (
 
-  def weak_until p1, p2, => 
+  def weak_until : p1, p2, => 
     recvd p2 \/ 
     recvd p1 /\ weak_until (p1, p2,)
 
 
-  def always sym p =>
+  def always : sym p =>
     recvd p /\ always p
 
-  def dog `woof`
+  def dog : `woof`
 
 
-  def thm_op prove (() => 
+  def thm_op : prove (() => 
     always (ch, (), => 
       ch = resp_ch --> 
   		weak_until ( 

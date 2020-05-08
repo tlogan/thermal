@@ -51,6 +51,7 @@ symbol=[\-\^\\=+!@#$%&*<>/{}|?~:]|"["|"]";
 
 
 <INITIAL>";" => (SEMI (!linenum, inccol 1));
+<INITIAL>":" => (COLON (!linenum, inccol 1));
 <INITIAL>"," => (COMMA (!linenum, inccol 1));
 <INITIAL>"=>" => (FATARROW (!linenum, inccol 1));
 <INITIAL>"[" => (LSQ (!linenum, inccol 1));
