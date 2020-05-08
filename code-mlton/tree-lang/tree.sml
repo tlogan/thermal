@@ -99,11 +99,11 @@ structure Tree = struct
   fun to_string t = (case t of
 
 
-    Assoc (t, pos) => String.surround ("Assoc@" ^ (Int.toString pos)) (
+    Assoc (t, pos) => String.surround "Assoc" (
       (to_string t)
     ) |
 
-    Cns (t, pos) => String.surround ("Cns@" ^ (Int.toString pos)) (
+    Cns (t, pos) => String.surround "Cns" (
       (to_string t)
     ) |
 
@@ -112,75 +112,75 @@ structure Tree = struct
     ) |
 
 
-    Fnc (lams, fnc_store, mutual_store, pos) => String.surround ("Fnc@" ^ (Int.toString pos)) (
+    Fnc (lams, fnc_store, mutual_store, pos) => String.surround "Fnc" (
       String.concatWith ",\n" (List.map to_string_from_lam lams)) |
 
-    Compo (t1, t2, pos) => String.surround ("Compo@" ^ (Int.toString pos)) (
+    Compo (t1, t2, pos) => String.surround "Compo" (
       (to_string t1) ^ ",\n" ^
       (to_string t2)
     ) |
 
-    App (t1, t2, pos) => String.surround ("App@" ^ (Int.toString pos)) (
+    App (t1, t2, pos) => String.surround "App" (
       (to_string t1) ^ ",\n" ^
       (to_string t2)
     ) |
 
-    Seq (t1, t2, pos) => String.surround ("Seq@" ^ (Int.toString pos)) (
+    Seq (t1, t2, pos) => String.surround "Seq" (
       (to_string t1) ^ ",\n" ^ (to_string t2)
     ) |
 
-    Rec (fs, _, pos) => String.surround ("Rec@" ^ (Int.toString pos)) (
+    Rec (fs, _, pos) => String.surround "Rec" (
       String.concatWith ",\n" (List.map to_string_from_field fs)
     ) |
 
-    Select (t, pos) => String.surround ("Select@" ^ (Int.toString pos)) (
+    Select (t, pos) => String.surround "Select" (
       (to_string t)
     ) |
 
-    Alloc_Chan (t, pos) => String.surround ("Alloc_Chan@" ^ (Int.toString pos)) (
+    Alloc_Chan (t, pos) => String.surround "Alloc_Chan" (
       to_string t
     ) |
 
-    Send (t, pos) => String.surround ("Send@" ^ (Int.toString pos)) (
+    Send (t, pos) => String.surround "Send" (
       (to_string t)
     ) |
 
-    Recv (t, pos) => String.surround ("Recv@" ^ (Int.toString pos)) (
+    Recv (t, pos) => String.surround "Recv" (
       (to_string t)
     ) |
 
-    Wrap (t, pos) => String.surround ("Wrap@" ^ (Int.toString pos)) (
+    Wrap (t, pos) => String.surround "Wrap" (
       (to_string t)
     ) |
 
-    Chse (t, pos) => String.surround ("Chse@" ^ (Int.toString pos)) (
+    Chse (t, pos) => String.surround "Chse" (
       (to_string t)
     ) |
 
-    Sync (t, pos) => String.surround ("Sync@" ^ (Int.toString pos)) (
+    Sync (t, pos) => String.surround ("Sync") (
       (to_string t)
     ) |
 
-    Spawn (t, pos) => String.surround ("Spawn@" ^ (Int.toString pos)) (
+    Spawn (t, pos) => String.surround ("Spawn") (
       (to_string t)
     ) |
 
-    Par (t, pos) => String.surround ("Par@" ^ (Int.toString pos)) (
+    Par (t, pos) => String.surround ("Par") (
       (to_string t)
     ) |
 
-    Sym (t, pos) => String.surround ("Sym@" ^ (Int.toString pos)) (
+    Sym (t, pos) => String.surround ("Sym") (
       (to_string t)
     ) |
   
     Blank pos =>
-      "Blank@" ^ (Int.toString pos) |
+      "Blank" |
 
     Id (name, pos) =>
-      "(Id@" ^ (Int.toString pos) ^ " " ^ name ^ ")" |
+      "(Id" ^ " " ^ name ^ ")" |
 
     Str (str, pos) =>
-      "(Str@" ^ (Int.toString pos) ^ " " ^ str ^ ")" |
+      "(Str" ^ " " ^ str ^ ")" |
 
     ChanId i =>
       "(ChanId " ^ (Int.toString i) ^ ")" |
@@ -190,25 +190,25 @@ structure Tree = struct
 
 
     Num (num, pos) =>
-      "(Num@" ^ (Int.toString pos) ^ " " ^ num ^ ")" |
+      "(Num" ^ " " ^ num ^ ")" |
 
-    Add (t, pos) => String.surround ("Add@" ^ (Int.toString pos)) (
+    Add (t, pos) => String.surround ("Add") (
       (to_string t)
     ) |
 
-    Sub (t, pos) => String.surround ("Sub@" ^ (Int.toString pos)) (
+    Sub (t, pos) => String.surround ("Sub") (
       (to_string t)
     ) |
 
-    Mul (t, pos) => String.surround ("Mul@" ^ (Int.toString pos)) (
+    Mul (t, pos) => String.surround ("Mul") (
       (to_string t)
     ) |
 
-    Div (t, pos) => String.surround ("Div@" ^ (Int.toString pos)) (
+    Div (t, pos) => String.surround ("Div") (
       (to_string t)
     ) |
 
-    Rem (t, pos) => String.surround ("Rem@" ^ (Int.toString pos)) (
+    Rem (t, pos) => String.surround ("Rem") (
       (to_string t)
     ) |
 
@@ -563,10 +563,7 @@ structure Tree = struct
       SOME val_store |
 
     (Id (str, _), v) =>
-      (
-      print ("match val insert: id=" ^ str ^ "\n");
-      SOME (insert (val_store, str, (NONE, v)))
-      ) |
+      SOME (insert (val_store, str, (NONE, v))) |
 
     (Lst ([], _), Lst ([], _)) => SOME val_store | 
 
@@ -647,7 +644,6 @@ structure Tree = struct
     chan_store, block_store, sync_store, cnt
   ) = (let
     val cont_stack' = cont :: cont_stack
-    val _ = print "push\n"
   in
     (
       Mode_Upkeep,
@@ -662,15 +658,7 @@ structure Tree = struct
     chan_store, block_store, sync_store, cnt
   ) = (let
     val (threads, md) = (case cont_stack of
-      [] => (let
-        val _ = print (
-          "Result:\n" ^
-          (to_string result) ^
-          "\n*********\n\n"
-        )
-      in
-        ([], Mode_Finish result)
-      end) |
+      [] => ([], Mode_Finish result) |
       (cmode, lams, val_store', mutual_store) :: cont_stack' => (let
 
         val val_store'' = (case result of
@@ -902,20 +890,19 @@ structure Tree = struct
     md,
     (t, val_store, cont_stack, thread_id),
     (chan_store, block_store, sync_store, cnt)
-  ) = (case t of
+  ) = ((
+    print ("seq_step:\n" ^ (to_string t) ^ "\n")
+  ); case t of
 
     Assoc (term, pos) => (
-
-      ((print "Assoc\n");
-      Mode_Upkeep),
+      Mode_Upkeep,
       [(term, val_store, cont_stack, thread_id)],
       (chan_store, block_store, sync_store, cnt)
     ) |
 
     Id (id, pos) => (case (find (val_store, id)) of
       SOME (NONE, v) => (
-        ((print "Id\n");
-        Mode_Upkeep),
+        Mode_Upkeep,
         [(v, val_store, cont_stack, thread_id)],
         (chan_store, block_store, sync_store, cnt)
       ) |
@@ -963,14 +950,18 @@ structure Tree = struct
       val term = (case (find (val_store, id)) of
         SOME (SOME (direc, prec), rator) =>  (let
           val x = associate_right val_store (t1, id, rator, direc, prec, pos, t2)
+          (*
           val _ = print ("compo result 1: " ^ (to_string x) ^ "\n") 
+          *)
         in
           x
         end ) |
 
         _ => (let
           val x = Compo (App (t1, Id (id, pos), p1), t2, p2)
+          (*
           val _ = print ("compo result 1: " ^ (to_string x) ^ "\n") 
+          *)
         in
           x
         end)
@@ -978,16 +969,14 @@ structure Tree = struct
 
     in
       (
-        ((print "Two Compo\n");
-        Mode_Upkeep),
+        Mode_Upkeep,
         [(term, val_store, cont_stack, thread_id)],
         (chan_store, block_store, sync_store, cnt)
       )
     end) |
 
     Compo (t1, t2, pos) => (
-        ((print "One Compo\n");
-        Mode_Upkeep),
+      Mode_Upkeep,
       [(App (t1, t2, pos), val_store, cont_stack, thread_id)],
       (chan_store, block_store, sync_store, cnt)
     ) |
@@ -1027,8 +1016,7 @@ structure Tree = struct
       )
     in
       (
-        ((print "Rec\n");
-        Mode_Upkeep),
+        Mode_Upkeep,
         [(Rec (fields', true, pos), val_store, cont_stack, thread_id)],
         (chan_store, block_store, sync_store, cnt)
       )

@@ -1,3 +1,7 @@
+foo : (x,y,) => add (x,y,);
+foo (3,2,)
+/*
+foo (2,3,)
 make_nat_stream : () => (
   ch : alloc_chan ();
   count : i => (
@@ -17,3 +21,4 @@ loop : (
 );
 
 loop 9
+*/
