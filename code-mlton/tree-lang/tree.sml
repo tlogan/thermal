@@ -578,6 +578,14 @@ structure Tree = struct
         (match_value_insert (val_store, Lst (ts, ~1), Lst (vs, ~1)))
       ) |
 
+
+    (Num (n, _), Num (nv, _)) => (
+      if n = nv then
+        SOME val_store
+      else
+        NONE
+    ) |
+
     _ => NONE
 
     (* **TODO**
@@ -590,13 +598,6 @@ structure Tree = struct
 
     (Fnc p_fnc, Fnc v_fnc) => (
       if fnc_equal (p_fnc, v_fnc) then
-        SOME val_store
-      else
-        NONE
-    ) |
-
-    (Num (n, _), Num (nv, _)) => (
-      if n = nv then
         SOME val_store
       else
         NONE
@@ -844,8 +845,8 @@ structure Tree = struct
         chan_store, block_store, sync_store, cnt
       ) |
 
-      SOME _ => (
-        Mode_Stick "application of non-function",
+      SOME (_, v) => (
+        Mode_Stick ("application of non-function: " ^ id ^ " " ^ (to_string v)),
         [], (chan_store, block_store, sync_store, cnt)
       ) |
 

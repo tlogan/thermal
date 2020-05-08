@@ -88,7 +88,7 @@ term_nt:
   term_nt term_nt %prec COMPO (Compo (term_nt1, term_nt2, term_nt1left)) |
   term_nt SEMI term_nt (Seq (term_nt1, term_nt2, SEMIleft)) |
 
-  DEF field_nt (Rec ([field_nt], false, DEFleft)) |
+  field_nt (Rec ([field_nt], false, field_ntleft)) |
   LPAREN fields_nt (Rec (fields_nt, false, LPARENleft)) |
 
 

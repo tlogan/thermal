@@ -7,8 +7,6 @@ make_nat_stream : () => (
   spawn (() => count 0); 
   ch
 );
-()
-/*
 
 nstream : make_nat_stream ();
 loop : (
@@ -17,5 +15,5 @@ loop : (
     sync (recv nstream);
     loop (sub (n, 1,))
 );
+
 loop 9
-*/
