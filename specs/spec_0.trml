@@ -1,7 +1,3 @@
-foo : (x,y,) => add (x,y,);
-foo (3,2,)
-/*
-foo (2,3,)
 make_nat_stream : () => (
   ch : alloc_chan ();
   count : i => (
@@ -11,14 +7,13 @@ make_nat_stream : () => (
   spawn (() => count 0); 
   ch
 );
-
 nstream : make_nat_stream ();
-loop : (
-  case 0 => () 
-  case n =>
-    sync (recv nstream);
-    loop (sub (n, 1,))
+loop : res => (
+  case 0 => res 
+  case n => (
+    res' : sync (recv nstream);
+    loop res' (sub (n, 1,))
+  )
 );
 
-loop 9
-*/
+loop () 9

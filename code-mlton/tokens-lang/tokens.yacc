@@ -47,7 +47,6 @@ open Tree
 %right FATARROW CASE COLON DEF
 
 %right COMMA
-%left COMPO
 
 %right SYM 
 
@@ -64,6 +63,8 @@ open Tree
 %left DOT
 %left LSQ 
 %left RSQ 
+
+%left COMPO
 
 %start tree_nt
 

@@ -695,7 +695,7 @@ structure Tree = struct
           [] => NONE |
           (p, t) :: lams' =>
             (case (match_value_insert (val_store''', p, result)) of
-              NONE => (print ("match pattern: " ^ (to_string p) ^ "\n"); match_first lams') |
+              NONE => ((*print ("match pattern: " ^ (to_string p) ^ "\n");*) match_first lams') |
               SOME val_store'' => SOME (t, val_store'')
             )
         )
@@ -901,9 +901,9 @@ structure Tree = struct
     md,
     (t, val_store, cont_stack, thread_id),
     (chan_store, block_store, sync_store, cnt)
-  ) = ((
-    print ("seq_step:\n" ^ (to_string t) ^ "\n")
-  ); case t of
+  ) = (
+    (*print ("seq_step:\n" ^ (to_string t) ^ "\n");*)
+    case t of
 
     Assoc (term, pos) => (
       Mode_Upkeep,
@@ -1320,6 +1320,18 @@ structure Tree = struct
     [] => (print "all done!\n"; NONE) |
     thread :: threads' => (let
       val (md', seq_threads, env') = (seq_step (md, thread, env)) 
+
+      val _ = (case md' of
+        Mode_Finish res => (
+          print ("thread completed: " ^ (to_string res) ^ "\n")
+        ) |
+        Mode_Stick msg => (
+          print ("thread stuck: " ^ msg ^ "\n")
+        ) |
+        _ => ()
+      ) 
+
+      (*
       val _ = print ((to_string_from_mode md') ^ "\n")
       val _ = print (
         "# seq_threads: " ^
@@ -1327,6 +1339,7 @@ structure Tree = struct
         "\n"
       )
       val _ = print "\n" 
+      *)
     in
       SOME (md', threads' @ seq_threads, env')
     end)
