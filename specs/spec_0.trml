@@ -1,5 +1,3 @@
-
-/*
 spawn (() => (
   fact : (
     case 0 => 1
@@ -10,8 +8,8 @@ spawn (() => (
 ));
 
 ()
-*/
 
+/*
 make_nat_stream : (case () => (
   ch : alloc_chan ();
   count : i => (
@@ -31,3 +29,4 @@ loop : (case res => (
 ));
 
 loop () 9
+*/

@@ -39,6 +39,11 @@ structure Tree = struct
       int
     ) (* Rec_Intro (fields, pos) *) |
 
+    Rec_Intro_Mutual of (
+      ((string * (infix_option * term)) list) *
+      int
+    ) (* Rec_Intro (fields, pos) *) |
+
     Rec_Val of (
       ((string * (infix_option * term)) list) *
       int
@@ -1078,12 +1083,12 @@ structure Tree = struct
     in
       (
         Mode_Suspend,
-        [(Rec_Val (fields', pos), val_store, cont_stack, thread_id)],
+        [(Rec_Intro_Mutual (fields', pos), val_store, cont_stack, thread_id)],
         (chan_store, block_store, sync_store, cnt)
       )
     end) |
     
-    Rec_Val (fields, pos) => (let
+    Rec_Intro_Mutual (fields, pos) => (let
       val ts = (map (fn (k, (fix_op, t)) => t) fields)
 
       fun f ts = (let
@@ -1102,6 +1107,12 @@ structure Tree = struct
         chan_store, block_store, sync_store, cnt
       )
     end) |
+
+    Rec_Val (fields, pos) => pop (
+      Rec_Val (fields, pos),
+      cont_stack, thread_id,
+      chan_store, block_store, sync_store, cnt
+    ) |
 
     Rec_Elim (t, pos) => reduce_single (
       t,
@@ -1391,7 +1402,7 @@ structure Tree = struct
 
   )
 
-  fun to_string_from_mode md = (case md of
+  fun to_string_from_mode md = "----" ^ (case md of
     Mode_Start => "Start" |
     Mode_Suspend => "Push/Suspend" |
     Mode_Reduce t => "Reduce" |
@@ -1401,7 +1412,7 @@ structure Tree = struct
     Mode_Sync (thread_id, msg, send_id, recv_id) => "Sync" |
     Mode_Stick msg => "Stick: " ^ msg  |
     Mode_Finish => "Finish"
-  )
+  ) ^ "----"
 
   fun concur_step (
     md, threads, env 
