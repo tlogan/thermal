@@ -776,7 +776,10 @@ structure Tree = struct
   ) = (let
 
     fun loop (prefix, postfix) = (case postfix of
-      [] => (case (pop_f prefix) of 
+      [] => (
+        print ("<| " ^ (String.concatWith ", " (map (fn r => to_string r) prefix)) ^ " |> \n")
+        ;
+        case (pop_f prefix) of 
         Error msg => (
           Mode_Stick msg,
           [], (chan_store, block_store, sync_store, cnt)

@@ -2,7 +2,7 @@ make_nat_stream : () => (
   ch : alloc_chan ();
   count : i => (
     sync (send (ch, i,));
-    count (add (i, 1,))
+    count (add (1, i,))
   );
   spawn (() => count 33); 
   ch
