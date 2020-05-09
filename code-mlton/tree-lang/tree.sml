@@ -1081,7 +1081,7 @@ structure Tree = struct
           (ListPair.zip (fields, ts))
         )
       in
-        Rec_Intro (fields', true,  pos)
+        Rec_Val (fields',  pos)
       end)
 
     in
@@ -1096,7 +1096,7 @@ structure Tree = struct
       t,
       fn t => Rec_Elim (t, pos),
       (fn
-        List_Val ([Rec_Intro (fields, _, _), Id (key, _)], _) =>
+        List_Val ([Rec_Val (fields, _), Id (key, _)], _) =>
         (case find (fields, key) of
           SOME (_, v) => v |
           NONE => Error "selection not found"
