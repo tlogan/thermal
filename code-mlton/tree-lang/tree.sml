@@ -49,9 +49,13 @@ structure Tree = struct
     Chan_Alloc of (term * int) |
 
     Evt_Send_Intro of (term * int) |
+    Evt_Send_Val of (term * int) |
     Evt_Recv_Intro of (term * int) |
+    Evt_Recv_Val of (term * int) |
     Evt_Wrap_Intro of (term * int) |
+    Evt_Wrap_Val of (term * int) |
     Evt_Choose_Intro of (term * int) |
+    Evt_Choose_Val of (term * int) |
     Evt_Elim of (term * int) |
 
     Spawn of (term * int) |
@@ -91,14 +95,15 @@ structure Tree = struct
 
   datatype transition_mode = 
     Mode_Start |
-    Mode_Upkeep |
+    Mode_Suspend |
     Mode_Reduce of term |
+    Mode_Continue |
     Mode_Spawn of term |
     Mode_Block of (base_event list) |
-    Mode_Evt_Elim of (int * term * int * int)
-      (* Mode_Evt_Elim (thread_id, msg, send_id, recv_id) *) |
+    Mode_Sync of (int * term * int * int)
+      (* Mode_Sync (thread_id, msg, send_id, recv_id) *) |
     Mode_Stick of string |
-    Mode_Finish of term
+    Mode_Finish
 
 
 
@@ -467,7 +472,7 @@ structure Tree = struct
           ],
           (
           print ("send sync msg: " ^ (to_string msg) ^ "\n");
-          Mode_Evt_Elim (i, msg, thread_id, recv_thread_id)
+          Mode_Sync (i, msg, thread_id, recv_thread_id)
           )
         )
       ) 
@@ -498,7 +503,7 @@ structure Tree = struct
           ],
           ( (* TODO: LOOK HERE, what does the val_store of the send_stack look like? *)
           print ("recv sync msg: " ^ (to_string msg) ^ "\n");
-          Mode_Evt_Elim (i, msg, send_thread_id, thread_id)
+          Mode_Sync (i, msg, send_thread_id, thread_id)
           )
         )
       )
@@ -561,26 +566,6 @@ structure Tree = struct
   in
     (Mode_Block base_events, [], (chan_store', block_store', sync_store, cnt'))
   end)
-
-  fun is_event t = (case t of
-
-    Evt_Send_Intro (List_Val ([Chan_Loc _, _], _), pos) =>
-      true |
-
-    Evt_Recv_Intro (Chan_Loc _, _) =>
-      true |
-
-    Evt_Wrap_Intro (List_Val ([t', Func_Val _], _), _) =>
-      is_event t' |
-
-    Evt_Choose_Intro (List_Val (ts, _), _) =>
-      List.all (fn t => is_event t) ts |
-
-    _ =>
-      false
-  
-  )
-
 
   fun match_value_insert (val_store, pat, value) = (case (pat, value) of
 
@@ -683,7 +668,7 @@ structure Tree = struct
 
   in
     (
-      Mode_Upkeep,
+      Mode_Suspend,
       [(t_arg, val_store, cont_stack', thread_id)],
       (chan_store, block_store, sync_store, cnt)
     )
@@ -695,7 +680,7 @@ structure Tree = struct
     chan_store, block_store, sync_store, cnt
   ) = (let
     val (threads, md) = (case cont_stack of
-      [] => ([], Mode_Finish result) |
+      [] => ([], Mode_Finish) |
       (cmode, lams, val_store', mutual_store) :: cont_stack' => (let
 
         val val_store'' = (case result of
@@ -738,7 +723,7 @@ structure Tree = struct
 
           SOME (t_body, val_store'''') => (
             [(t_body, val_store'''', cont_stack', thread_id)],
-            Mode_Reduce result  
+            Mode_Continue  
           )
 
         )
@@ -754,6 +739,16 @@ structure Tree = struct
 
 
 
+
+
+  fun is_event_value t = (case t of
+    Evt_Send_Val _ => true |
+    Evt_Recv_Val _ => true |
+    Evt_Wrap_Val _ => true |
+    Evt_Choose_Val _ => true |
+    _ => false
+  )
+
   fun is_value t = (case t of
     Blank _ => true |
     List_Val _ => true |
@@ -763,28 +758,30 @@ structure Tree = struct
     Num_Val _ => true |
     Chan_Loc _ => true |
     Error _ => true |
-    _ => false
+    _ => is_event_value t 
   )
+
+
 
   fun hole i = Id (sym i, ~1)
 
   fun reduce_list (
-    ts, push_f, pop_f,
+    ts, push_f, reduce_f,
     val_store, cont_stack, thread_id,
     chan_store, block_store, sync_store, cnt
   ) = (let
 
     fun loop (prefix, postfix) = (case postfix of
-      [] => (case (pop_f prefix) of 
+      [] => (case (reduce_f prefix) of 
         Error msg => (
           Mode_Stick msg,
           [], (chan_store, block_store, sync_store, cnt)
         ) |
 
-        result => pop (
-          result,
-          cont_stack, thread_id,
-          chan_store, block_store, sync_store, cnt
+        result => (
+          Mode_Reduce result,
+          [(result, val_store, cont_stack, thread_id)],
+          (chan_store, block_store, sync_store, cnt)
         )
 
       ) |
@@ -826,14 +823,14 @@ structure Tree = struct
   end)
   
   fun reduce_single (
-    t, push_f, pop_f,
+    t, push_f, reduce_f,
     val_store, cont_stack, thread_id,
     chan_store, block_store, sync_store, cnt
   ) = (case t of
     (Id (id, _)) =>
       (case (find (val_store, id)) of
         SOME (NONE, v) => (
-          Mode_Upkeep,
+          Mode_Suspend,
           [(push_f v, val_store, cont_stack, thread_id)],
           (chan_store, block_store, sync_store, cnt)
         ) |
@@ -849,16 +846,16 @@ structure Tree = struct
 
     _ =>
       (if is_value t then
-        (case (pop_f t) of
+        (case (reduce_f t) of
           Error msg => (
             Mode_Stick msg,
             [], (chan_store, block_store, sync_store, cnt)
           ) |
 
-          result => pop (
-            result,
-            cont_stack, thread_id,
-            chan_store, block_store, sync_store, cnt
+          result => (
+            Mode_Reduce result,
+            [(result, val_store, cont_stack, thread_id)],
+            (chan_store, block_store, sync_store, cnt)
           )
         )
       else
@@ -879,7 +876,7 @@ structure Tree = struct
     (Id (id, _)) =>
       (case (find (val_store, id)) of
         SOME (NONE, v_fn) => (
-          Mode_Upkeep,
+          Mode_Suspend,
           [(Func_Elim (v_fn, t_arg, pos), val_store, cont_stack, thread_id)],
           (chan_store, block_store, sync_store, cnt)
         ) |
@@ -956,14 +953,14 @@ structure Tree = struct
     case t of
 
     Assoc (term, pos) => (
-      Mode_Upkeep,
+      Mode_Suspend,
       [(term, val_store, cont_stack, thread_id)],
       (chan_store, block_store, sync_store, cnt)
     ) |
 
     Id (id, pos) => (case (find (val_store, id)) of
       SOME (NONE, v) => (
-        Mode_Upkeep,
+        Mode_Suspend,
         [(v, val_store, cont_stack, thread_id)],
         (chan_store, block_store, sync_store, cnt)
       ) |
@@ -1033,14 +1030,14 @@ structure Tree = struct
 
     in
       (
-        Mode_Upkeep,
+        Mode_Suspend,
         [(term, val_store, cont_stack, thread_id)],
         (chan_store, block_store, sync_store, cnt)
       )
     end) |
 
     Compo (t1, t2, pos) => (
-      Mode_Upkeep,
+      Mode_Suspend,
       [(Func_Elim (t1, t2, pos), val_store, cont_stack, thread_id)],
       (chan_store, block_store, sync_store, cnt)
     ) |
@@ -1080,7 +1077,7 @@ structure Tree = struct
       )
     in
       (
-        Mode_Upkeep,
+        Mode_Suspend,
         [(Rec_Val (fields', pos), val_store, cont_stack, thread_id)],
         (chan_store, block_store, sync_store, cnt)
       )
@@ -1143,33 +1140,57 @@ structure Tree = struct
 
 
     Evt_Send_Intro (t, pos) => reduce_single (
-      t, fn v => Evt_Send_Intro (v, pos), fn v => Evt_Send_Intro (v, pos),
+      t, fn t => Evt_Send_Intro (t, pos), fn v => Evt_Send_Val (v, pos),
       val_store, cont_stack, thread_id,
       chan_store, block_store, sync_store, cnt
     ) | 
+
+    Evt_Send_Val (t, pos) => pop (
+      Evt_Send_Val (t, pos),
+      cont_stack, thread_id,
+      chan_store, block_store, sync_store, cnt
+    ) |
 
     Evt_Recv_Intro (t, pos) => reduce_single (
-      t, fn v => Evt_Recv_Intro (v, pos), fn v => Evt_Recv_Intro (v, pos),
+      t, fn t => Evt_Recv_Intro (t, pos), fn v => Evt_Recv_Val (v, pos),
       val_store, cont_stack, thread_id,
       chan_store, block_store, sync_store, cnt
     ) | 
+
+    Evt_Recv_Val (t, pos) => pop (
+      Evt_Recv_Val (t, pos),
+      cont_stack, thread_id,
+      chan_store, block_store, sync_store, cnt
+    ) |
 
     Evt_Wrap_Intro (t, pos) => reduce_single (
-      t, fn v => Evt_Wrap_Intro (v, pos), fn v => Evt_Wrap_Intro (v, pos),
+      t, fn t => Evt_Wrap_Intro (t, pos), fn v => Evt_Wrap_Val (v, pos),
       val_store, cont_stack, thread_id,
       chan_store, block_store, sync_store, cnt
     ) | 
 
+    Evt_Wrap_Val (t, pos) => pop (
+      Evt_Wrap_Val (t, pos),
+      cont_stack, thread_id,
+      chan_store, block_store, sync_store, cnt
+    ) |
+
     Evt_Choose_Intro (t, pos) => reduce_single (
-      t, fn v => Evt_Choose_Intro (v, pos), fn v => Evt_Choose_Intro (v, pos),
+      t, fn t => Evt_Choose_Intro (t, pos), fn v => Evt_Choose_Val (v, pos),
       val_store, cont_stack, thread_id,
       chan_store, block_store, sync_store, cnt
     ) | 
+
+    Evt_Choose_Val (t, pos) => pop (
+      Evt_Choose_Val (t, pos),
+      cont_stack, thread_id,
+      chan_store, block_store, sync_store, cnt
+    ) |
 
     Evt_Elim (t, pos) => (case t of
       (Id (id, _)) => (case (find (val_store, id)) of
         SOME (NONE, v) => (
-          Mode_Upkeep,
+          Mode_Suspend,
           [(Evt_Elim (v, pos), val_store, cont_stack, thread_id)],
           (chan_store, block_store, sync_store, cnt)
         ) |
@@ -1181,7 +1202,7 @@ structure Tree = struct
 
       ) |
 
-      v => (if (is_event v) then
+      v => (if (is_event_value v) then
         (let
 
           val bevts = mk_base_events (v, []) 
@@ -1229,7 +1250,7 @@ structure Tree = struct
     Spawn (t, pos) =>(case t of
       (Id (id, _)) => (case (find (val_store, id)) of
         SOME (_, v) => (
-          Mode_Upkeep,
+          Mode_Suspend,
           [(Spawn (v, pos), val_store, cont_stack, thread_id)],
           (chan_store, block_store, sync_store, cnt)
         ) |
@@ -1371,14 +1392,15 @@ structure Tree = struct
   )
 
   fun to_string_from_mode md = (case md of
-    Mode_Start => "Started" |
-    Mode_Upkeep => "Upkeeped" |
-    Mode_Reduce t => "Reduced: " ^ (to_string t) |
-    Mode_Spawn t => "Spawned" |
-    Mode_Block bevts => "Blocked" |
-    Mode_Evt_Elim (thread_id, msg, send_id, recv_id) => "Evt_Elimed" |
-    Mode_Stick msg => "Stuck: " ^ msg  |
-    Mode_Finish result => "Finished: " ^ (to_string result)
+    Mode_Start => "Start" |
+    Mode_Suspend => "Push/Suspend" |
+    Mode_Reduce t => "Reduce" |
+    Mode_Continue => "Pop/Continue" |
+    Mode_Spawn t => "Spawn" |
+    Mode_Block bevts => "Block" |
+    Mode_Sync (thread_id, msg, send_id, recv_id) => "Sync" |
+    Mode_Stick msg => "Stick: " ^ msg  |
+    Mode_Finish => "Finish"
   )
 
   fun concur_step (
@@ -1389,19 +1411,7 @@ structure Tree = struct
     thread :: threads' => (let
       val (md', seq_threads, env') = (seq_step (md, thread, env)) 
 
-      val _ = (case md' of
-        Mode_Finish res => (
-          print ("thread completed: " ^ (to_string res) ^ "\n")
-        ) |
-        Mode_Stick msg => (
-          print ("thread stuck: " ^ msg ^ "\n")
-        ) |
-        _ => ()
-      ) 
-
-      (*
       val _ = print ((to_string_from_mode md') ^ "\n")
-      *)
       (*
       val _ = print (
         "# seq_threads: " ^
