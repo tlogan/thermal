@@ -791,10 +791,12 @@ structure Tree = struct
 
       ) |
 
-      x :: xs => (case x of
+      x :: xs => (
+        print ("\nreduce_list x: " ^ (to_string x) ^ "\n\n");
+        case x of
         (Id (id, _)) =>
           (case (find (val_store, id)) of
-            SOME (NONE, v) => loop (prefix @ [v], xs) |
+            SOME (NONE, v) => (print ("found val: " ^ (to_string v) ^ "\n"); loop (prefix @ [v], xs)) |
             _ => (
               Mode_Stick ("reduce list variable " ^ id ^ " cannot be resolved"),
               [], (chan_store, block_store, sync_store, cnt)
@@ -805,6 +807,8 @@ structure Tree = struct
           (if is_value x then 
             loop (prefix @ [x], xs)
           else
+            (
+            print ("push new id: _g_" ^ (Int.toString cnt) ^ "\n");
             push (
               (
                 x,
@@ -817,6 +821,7 @@ structure Tree = struct
               ),
               val_store, cont_stack, thread_id,
               chan_store, block_store, sync_store, cnt + 1
+            )
             )
           )
 
@@ -954,7 +959,7 @@ structure Tree = struct
     (t, val_store, cont_stack, thread_id),
     (chan_store, block_store, sync_store, cnt)
   ) = (
-    print ("seq_step@" ^ (Int.toString thread_id) ^ "\n" ^ (to_string t) ^ "\n");
+    print ("\n<| thread " ^ (Int.toString thread_id) ^ " |>\n" ^ (to_string t) ^ "\n\n");
     case t of
 
     Assoc (term, pos) => (
@@ -1035,14 +1040,14 @@ structure Tree = struct
 
     in
       (
-        Mode_Suspend,
+        Mode_Reduce term,
         [(term, val_store, cont_stack, thread_id)],
         (chan_store, block_store, sync_store, cnt)
       )
     end) |
 
     Compo (t1, t2, pos) => (
-      Mode_Suspend,
+      Mode_Reduce (Func_Elim (t1, t2, pos)),
       [(Func_Elim (t1, t2, pos), val_store, cont_stack, thread_id)],
       (chan_store, block_store, sync_store, cnt)
     ) |
@@ -1430,7 +1435,6 @@ structure Tree = struct
         "\n"
       )
       *)
-      val _ = print "\n" 
     in
       SOME (md', threads' @ seq_threads, env')
     end)
