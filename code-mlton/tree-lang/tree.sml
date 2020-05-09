@@ -483,7 +483,7 @@ structure Tree = struct
             (Blank 0, empty_table, send_stack, send_thread_id),
             (msg, empty_table, wrap_stack @ cont_stack, thread_id)
           ],
-          (
+          ( (* TODO: LOOK HERE, what does the val_store of the send_stack look like? *)
           print ("recv sync msg: " ^ (to_string msg) ^ "\n");
           Mode_Sync (i, msg, send_thread_id, thread_id)
           )
@@ -667,6 +667,7 @@ structure Tree = struct
     chan_store, block_store, sync_store, cnt
   ) = (let
     val cont_stack' = cont :: cont_stack
+
   in
     (
       Mode_Upkeep,
@@ -746,28 +747,7 @@ structure Tree = struct
   end)
 
 
-
-  fun mk_hole_lam (
-    term_fn, cnt
-  ) = (let
-    val hole = Id (sym cnt, ~1)
-    val hole_lam = (hole, term_fn hole)
-  in
-    hole_lam
-  end)
-
   fun hole i = Id (sym i, ~1)
-
-  fun normalize (
-    t, term_fn, val_store, cont_stack, thread_id,
-    chan_store, block_store, sync_store, cnt
-  ) = (
-    push (
-      (t, (Contin_Norm, [(hole cnt, term_fn (hole cnt))], val_store, [])),
-      val_store, cont_stack, thread_id,
-      chan_store, block_store, sync_store, cnt + 1
-    )
-  )
 
   fun reduce_list (
     ts, push_f, pop_f,
@@ -943,7 +923,7 @@ structure Tree = struct
     (t, val_store, cont_stack, thread_id),
     (chan_store, block_store, sync_store, cnt)
   ) = (
-    (*print ("seq_step:\n" ^ (to_string t) ^ "\n");*)
+    print ("seq_step@" ^ (Int.toString thread_id) ^ "\n" ^ (to_string t) ^ "\n");
     case t of
 
     Assoc (term, pos) => (
@@ -969,8 +949,8 @@ structure Tree = struct
       t,
       fn t => Cns (t, pos),
       (fn
+        Lst ([v, Blank _], _) => Lst ([v], pos) |
         Lst ([v, Lst (ts, _)], _) => Lst (v :: ts, pos) |
-
         _ => Error "cons with non-list"
       ),
       val_store, cont_stack, thread_id,

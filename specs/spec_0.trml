@@ -1,10 +1,10 @@
 make_nat_stream : (case () => (
   ch : alloc_chan ();
-  count : (case i => (
+  count : i => (
     sync (send (ch, i,));
-    count (add (1, i,))
-  ));
-  spawn (() => count 33); 
+    count (add (i, 1,))
+  );
+  spawn (() => count 0); 
   ch
 ));
 nstream : make_nat_stream ();
