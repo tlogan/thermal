@@ -449,7 +449,7 @@ structure Tree = struct
         NONE => ([], Mode_Stick "transact Base_Send") |
         SOME (recv_stack, recv_thread_id) => (
           [
-            (Lst ([], 0), empty_table, wrap_stack @ cont_stack, thread_id),
+            (Blank 0, empty_table, wrap_stack @ cont_stack, thread_id),
             (msg, empty_table, recv_stack, recv_thread_id)
           ],
           (
@@ -480,7 +480,7 @@ structure Tree = struct
         NONE => ([], Mode_Stick "transact Base_Recv") |
         SOME (send_stack, msg, send_thread_id) => (
           [
-            (Lst ([], 0), empty_table, send_stack, send_thread_id),
+            (Blank 0, empty_table, send_stack, send_thread_id),
             (msg, empty_table, wrap_stack @ cont_stack, thread_id)
           ],
           (
@@ -1165,6 +1165,8 @@ structure Tree = struct
             val (active_bevt_op, chan_store') = (
               find_active_base_event (bevts, chan_store, block_store)
             )
+
+            (* TODO: figure out why the continuationn does not contain the proper val_store *)
           in
             (case active_bevt_op of
               SOME bevt =>
@@ -1198,6 +1200,7 @@ structure Tree = struct
         val_store, cont_stack, thread_id,
         chan_store, block_store, sync_store, cnt + 1
       )
+
     ) |
 
     (* internal rep *)
@@ -1266,6 +1269,7 @@ structure Tree = struct
       t, fn t => Add (t, pos),
       (fn
         Lst ([Num (n1, _), Num (n2, _)], _) => (
+          print ("adding: " ^ n1 ^ " and " ^ n2 ^ "\n"); 
           Num (add_num (n1, n2), pos)
         ) |
         _ => Error "adding non-numbers"

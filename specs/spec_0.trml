@@ -1,19 +1,19 @@
-make_nat_stream : () => (
+make_nat_stream : (case () => (
   ch : alloc_chan ();
-  count : i => (
+  count : (case i => (
     sync (send (ch, i,));
     count (add (1, i,))
-  );
+  ));
   spawn (() => count 33); 
   ch
-);
+));
 nstream : make_nat_stream ();
-loop : res => (
+loop : (case res => (
   case 0 => res 
   case n => (
     res' : sync (recv nstream);
     loop res' (sub (n, 1,))
   )
-);
+));
 
 loop () 9
