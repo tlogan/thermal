@@ -834,7 +834,7 @@ structure Tree = struct
       (case (find (val_store, id)) of
         SOME (NONE, v) => (
           Mode_Upkeep,
-          [(v, val_store, cont_stack, thread_id)],
+          [(push_f v, val_store, cont_stack, thread_id)],
           (chan_store, block_store, sync_store, cnt)
         ) |
 
@@ -876,12 +876,11 @@ structure Tree = struct
     val_store, cont_stack, thread_id,
     chan_store, block_store, sync_store, cnt
   ) = (case t_fn of
-
     (Id (id, _)) =>
       (case (find (val_store, id)) of
-        SOME (NONE, v) => (
+        SOME (NONE, v_fn) => (
           Mode_Upkeep,
-          [(v, val_store, cont_stack, thread_id)],
+          [(Func_Elim (v_fn, t_arg, pos), val_store, cont_stack, thread_id)],
           (chan_store, block_store, sync_store, cnt)
         ) |
         _  => (
@@ -1171,7 +1170,7 @@ structure Tree = struct
       (Id (id, _)) => (case (find (val_store, id)) of
         SOME (NONE, v) => (
           Mode_Upkeep,
-          [(v, val_store, cont_stack, thread_id)],
+          [(Evt_Elim (v, pos), val_store, cont_stack, thread_id)],
           (chan_store, block_store, sync_store, cnt)
         ) |
 
@@ -1231,7 +1230,7 @@ structure Tree = struct
       (Id (id, _)) => (case (find (val_store, id)) of
         SOME (_, v) => (
           Mode_Upkeep,
-          [(v, val_store, cont_stack, thread_id)],
+          [(Spawn (v, pos), val_store, cont_stack, thread_id)],
           (chan_store, block_store, sync_store, cnt)
         ) |
 
@@ -1390,7 +1389,6 @@ structure Tree = struct
     thread :: threads' => (let
       val (md', seq_threads, env') = (seq_step (md, thread, env)) 
 
-      (*
       val _ = (case md' of
         Mode_Finish res => (
           print ("thread completed: " ^ (to_string res) ^ "\n")
@@ -1400,9 +1398,10 @@ structure Tree = struct
         ) |
         _ => ()
       ) 
-      *)
 
+      (*
       val _ = print ((to_string_from_mode md') ^ "\n")
+      *)
       (*
       val _ = print (
         "# seq_threads: " ^
