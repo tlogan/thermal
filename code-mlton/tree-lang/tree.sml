@@ -15,7 +15,7 @@ structure Tree = struct
     Id of (string * int) |
     Assoc of (term * int) |
 
-    List_Intro of (term * int) |
+    List_Intro of (term * term * int) |
     List_Val of ((term list) * int) |
 
     Func_Intro of (
@@ -109,8 +109,9 @@ structure Tree = struct
       (to_string t)
     ) |
 
-    List_Intro (t, pos) => String.surround "List_Intro" (
-      (to_string t)
+    List_Intro (t1, t2, pos) => String.surround "List_Intro" (
+      (to_string t1) ^ ",\n" ^
+      (to_string t2)
     ) |
 
     List_Val (ts, pos) => String.surround "[" (
@@ -592,7 +593,7 @@ structure Tree = struct
     (Id (str, _), v) =>
       SOME (insert (val_store, str, (NONE, v))) |
 
-    (List_Intro (List_Val ([t, t'], _), _), List_Val (v :: vs, _)) =>
+    (List_Intro (t, t', _), List_Val (v :: vs, _)) =>
       (Option.mapPartial
         (fn val_store' =>
           match_value_insert (val_store', t, v)
@@ -957,12 +958,15 @@ structure Tree = struct
       )
     ) |
 
-    List_Intro (t, pos) => reduce_single (
-      t,
-      fn t => List_Intro (t, pos),
+    List_Intro (t, t', pos) => reduce_list (
+      [t, t'],
       (fn
-        List_Val ([v, Blank _], _) => List_Val ([v], pos) |
-        List_Val ([v, List_Val (ts, _)], _) => List_Val (v :: ts, pos) |
+        [t, t'] => List_Intro (t, t', pos) |
+        _ => raise (Fail "Internal: List_Intro")
+      ),
+      (fn
+        [v, Blank _] => List_Val ([v], pos) |
+        [v, List_Val (ts, _)] => List_Val (v :: ts, pos) |
         _ => Error "cons with non-list"
       ),
       val_store, cont_stack, thread_id,
@@ -970,9 +974,9 @@ structure Tree = struct
 
     ) |
 
-    List_Val (ts, pos) => reduce_list (
-      ts, fn vs => List_Val (vs, pos), fn vs => List_Val (vs, pos),
-      val_store, cont_stack, thread_id,
+    List_Val (ts, pos) => pop (
+      List_Val (ts, pos),
+      cont_stack, thread_id,
       chan_store, block_store, sync_store, cnt
     ) |
 

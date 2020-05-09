@@ -80,8 +80,8 @@ term_nt:
 
   LPAREN term_nt RPAREN (Assoc (term_nt, LPARENleft)) |
 
-  term_nt COMMA term_nt (List_Intro (List_Val ([term_nt1, term_nt2], COMMAleft), COMMAleft)) |
-  term_nt COMMA (List_Val ([term_nt], COMMAleft)) |
+  term_nt COMMA term_nt (List_Intro (term_nt1, term_nt2, COMMAleft)) |
+  term_nt COMMA (List_Intro (term_nt, Blank COMMAright, COMMAleft)) |
 
   lam_nt (Func_Intro ([lam_nt], lam_ntleft)) |
   LPAREN lams_nt (Func_Intro (lams_nt, lams_ntleft)) |
@@ -93,8 +93,20 @@ term_nt:
   LPAREN fields_nt (Rec_Intro (fields_nt, LPARENleft)) |
 
 
-  term_nt LSQ term_nt RSQ (Rec_Elim (List_Val ([term_nt1, term_nt2], LSQleft), LSQleft)) |
-  term_nt DOT ID (Rec_Elim (List_Val ([term_nt, String_Val (ID, DOTleft)], DOTleft), DOTleft)) |
+  term_nt LSQ term_nt RSQ
+    (Rec_Elim (List_Intro (
+      term_nt1,
+      List_Intro (term_nt2, Blank RSQright, RSQleft),
+      LSQleft
+  ), LSQleft)) |
+
+  term_nt DOT ID
+    (Rec_Elim (List_Intro (
+      term_nt,
+      List_Intro (String_Val (ID, IDleft), Blank IDright, IDleft),
+      DOTleft
+  ), DOTleft)) |
+
   SELECT (Func_Intro ([(Id ("_param", ~1), Rec_Elim (Id ("_param", SELECTleft), SELECTleft))], SELECTleft)) |
 
   EQUAL (Func_Intro ([(Id ("_param", ~1), Rec_Elim (Id ("_param", EQUALleft), EQUALleft))], EQUALleft)) |
