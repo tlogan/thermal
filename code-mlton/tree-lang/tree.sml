@@ -724,13 +724,6 @@ structure Tree = struct
             case (match_value_insert (val_store''', p, result)) of
               NONE => match_first lams' |
               SOME val_store'''' => (
-                (case p of
-                  (Id ("i", _)) => (case (find (val_store'''', "i")) of
-                    SOME (_, v) => print ("val_store i result: " ^ (to_string v) ^ "\n") |
-                    _ => ()
-                  ) |
-                  _ => ()
-                );
                 SOME (t, val_store'''')
               )
             )
@@ -760,6 +753,19 @@ structure Tree = struct
   end)
 
 
+
+  fun is_value t = (case t of
+    Blank _ => true |
+    List_Val _ => true |
+    Func_Val _ => true | 
+    Rec_Val _ => true |
+    String_Val _ => true |
+    Num_Val _ => true |
+    Chan_Loc _ => true |
+    Error _ => true |
+    _ => false
+  )
+
   fun hole i = Id (sym i, ~1)
 
   fun reduce_list (
@@ -769,10 +775,7 @@ structure Tree = struct
   ) = (let
 
     fun loop (prefix, postfix) = (case postfix of
-      [] => (
-        print ("<| " ^ (String.concatWith ", " (map (fn r => to_string r) prefix)) ^ " |> \n")
-        ;
-        case (pop_f prefix) of 
+      [] => (case (pop_f prefix) of 
         Error msg => (
           Mode_Stick msg,
           [], (chan_store, block_store, sync_store, cnt)
@@ -786,36 +789,35 @@ structure Tree = struct
 
       ) |
 
-      x :: xs => (
-        (case x of
-          (Id ("i", _)) => (case (find (val_store, "i")) of
-            SOME (_, v) => print ("reduce_list val_store i result: " ^ (to_string v) ^ "\n") |
-            _ => ()
-          ) |
-          _ => ()
-        );
-        case x of
-        (Id (id, _)) => (case (find (val_store, id)) of
-          SOME (NONE, v) => loop (prefix @ [v], xs) |
-          _ => (
-            Mode_Stick ("reduce list variable " ^ id ^ " cannot be resolved"),
-            [], (chan_store, block_store, sync_store, cnt)
-          )
-        ) |
-
-        _ => push (
-          (
-            x,
-            (
-              Contin_Norm,
-              [( hole cnt, push_f (prefix @ (hole cnt :: xs)) )],
-              val_store,
-              []
+      x :: xs => (case x of
+        (Id (id, _)) =>
+          (case (find (val_store, id)) of
+            SOME (NONE, v) => loop (prefix @ [v], xs) |
+            _ => (
+              Mode_Stick ("reduce list variable " ^ id ^ " cannot be resolved"),
+              [], (chan_store, block_store, sync_store, cnt)
             )
-          ),
-          val_store, cont_stack, thread_id,
-          chan_store, block_store, sync_store, cnt + 1
-        )
+          ) |
+
+        _ =>
+          (if is_value x then 
+            loop (prefix @ [x], xs)
+          else
+            push (
+              (
+                x,
+                (
+                  Contin_Norm,
+                  [( hole cnt, push_f (prefix @ (hole cnt :: xs)) )],
+                  val_store,
+                  []
+                )
+              ),
+              val_store, cont_stack, thread_id,
+              chan_store, block_store, sync_store, cnt + 1
+            )
+          )
+
       )
     )
 
@@ -827,43 +829,46 @@ structure Tree = struct
     t, push_f, pop_f,
     val_store, cont_stack, thread_id,
     chan_store, block_store, sync_store, cnt
-  ) = (
-    (case t of
-      (Id ("i", _)) => (case (find (val_store, "i")) of
-        SOME (_, v) => print ("reduce_single val_store i result: " ^ (to_string v) ^ "\n") |
-        _ => ()
-      ) |
-      _ => ()
-    );
-    case t of
-    (Id (id, _)) => (case (find (val_store, id)) of
-      SOME (NONE, v) => (case (pop_f v) of
-        Error msg => (
-          Mode_Stick msg,
-          [], (chan_store, block_store, sync_store, cnt)
+  ) = (case t of
+    (Id (id, _)) =>
+      (case (find (val_store, id)) of
+        SOME (NONE, v) => (
+          Mode_Upkeep,
+          [(v, val_store, cont_stack, thread_id)],
+          (chan_store, block_store, sync_store, cnt)
         ) |
 
-        result => pop (
-          result,
-          cont_stack, thread_id,
-          chan_store, block_store, sync_store, cnt
-        )
+        _  =>
+          (
+            Mode_Stick ("reduce single variable " ^ id ^ " cannot be resolved")
+            ,
+            [], (chan_store, block_store, sync_store, cnt)
+          )
+
       ) |
 
-      _  => (
-        Mode_Stick ("reduce single variable " ^ id ^ " cannot be resolved")
-        ,
-        [], (chan_store, block_store, sync_store, cnt)
+    _ =>
+      (if is_value t then
+        (case (pop_f t) of
+          Error msg => (
+            Mode_Stick msg,
+            [], (chan_store, block_store, sync_store, cnt)
+          ) |
+
+          result => pop (
+            result,
+            cont_stack, thread_id,
+            chan_store, block_store, sync_store, cnt
+          )
+        )
+      else
+        push (
+            (t, (Contin_Norm, [( hole cnt, push_f (hole cnt) )], val_store, [])),
+            val_store, cont_stack, thread_id,
+            chan_store, block_store, sync_store, cnt + 1
+          )
+        )
       )
-
-    ) |
-
-    _ => push (
-      (t, (Contin_Norm, [( hole cnt, push_f (hole cnt) )], val_store, [])),
-      val_store, cont_stack, thread_id,
-      chan_store, block_store, sync_store, cnt + 1
-    )
-  )
 
 
   fun apply (
@@ -871,29 +876,41 @@ structure Tree = struct
     val_store, cont_stack, thread_id,
     chan_store, block_store, sync_store, cnt
   ) = (case t_fn of
-    (Id (id, _)) => (case (find (val_store, id)) of
-      SOME (NONE, Func_Val (lams, fnc_store, mutual_store, _)) => push (
+
+    (Id (id, _)) =>
+      (case (find (val_store, id)) of
+        SOME (NONE, v) => (
+          Mode_Upkeep,
+          [(v, val_store, cont_stack, thread_id)],
+          (chan_store, block_store, sync_store, cnt)
+        ) |
+        _  => (
+          Mode_Stick ("apply arg variable " ^ id ^ " cannot be resolved"),
+          [], (chan_store, block_store, sync_store, cnt)
+        )
+      ) |
+
+    Func_Val (lams, fnc_store, mutual_store, _) =>
+      push (
         (t_arg, (Contin_Func_Elim, lams, fnc_store, mutual_store)),
         val_store, cont_stack, thread_id,
         chan_store, block_store, sync_store, cnt
       ) |
 
-      SOME (_, v) => (
-        Mode_Stick ("application of non-function: " ^ id ^ " " ^ (to_string v)),
-        [], (chan_store, block_store, sync_store, cnt)
-      ) |
-
-      _  => (
-        Mode_Stick ("Func_Elimly arg variable " ^ id ^ " cannot be resolved"),
-        [], (chan_store, block_store, sync_store, cnt)
+    v =>
+      (if is_value t_fn then
+        (
+          Mode_Stick ("application of non-function: " ^ (to_string v)),
+          [], (chan_store, block_store, sync_store, cnt)
+        )
+      else
+        push (
+          (t_fn, (Contin_Norm, [( hole cnt, Func_Elim (hole cnt, t_arg, pos) )], val_store, [])),
+          val_store, cont_stack, thread_id,
+          chan_store, block_store, sync_store, cnt + 1
+        )
       )
-    ) |
-
-    _ => push (
-      (t_fn, (Contin_Norm, [( hole cnt, Func_Elim (hole cnt, t_arg, pos) )], val_store, [])),
-      val_store, cont_stack, thread_id,
-      chan_store, block_store, sync_store, cnt + 1
-    )
+    
 
   )
 
@@ -1004,18 +1021,12 @@ structure Tree = struct
       val term = (case (find (val_store, id)) of
         SOME (SOME (direc, prec), rator) =>  (let
           val x = associate_right val_store (t1, id, rator, direc, prec, pos, t2)
-          (*
-          val _ = print ("compo result 1: " ^ (to_string x) ^ "\n") 
-          *)
         in
           x
         end ) |
 
         _ => (let
           val x = Compo (Func_Elim (t1, Id (id, pos), p1), t2, p2)
-          (*
-          val _ = print ("compo result 1: " ^ (to_string x) ^ "\n") 
-          *)
         in
           x
         end)
@@ -1158,36 +1169,10 @@ structure Tree = struct
 
     Evt_Elim (t, pos) => (case t of
       (Id (id, _)) => (case (find (val_store, id)) of
-        SOME (NONE, v) =>
-        (if (is_event v) then
-          (let
-
-            val bevts = mk_base_events (v, []) 
-            
-            val (active_bevt_op, chan_store') = (
-              find_active_base_event (bevts, chan_store, block_store)
-            )
-
-            (* TODO: figure out why the continuationn does not contain the proper val_store *)
-          in
-            (case active_bevt_op of
-              SOME bevt =>
-                transact (
-                  bevt, cont_stack, thread_id,
-                  (chan_store', block_store, sync_store, cnt)
-                ) |
-              NONE =>
-                block (
-                  bevts, cont_stack, thread_id,
-                  (chan_store', block_store, sync_store, cnt)
-                )
-            )
-          end)
-        else
-          (
-            Mode_Stick "sync with non-event",
-            [], (chan_store, block_store, sync_store, cnt)
-          )
+        SOME (NONE, v) => (
+          Mode_Upkeep,
+          [(v, val_store, cont_stack, thread_id)],
+          (chan_store, block_store, sync_store, cnt)
         ) |
 
         _  => (
@@ -1197,12 +1182,41 @@ structure Tree = struct
 
       ) |
 
-      _ => push (
-        (t, (Contin_Norm, [( hole cnt, Evt_Elim (hole cnt, pos) )], val_store, [])),
-        val_store, cont_stack, thread_id,
-        chan_store, block_store, sync_store, cnt + 1
-      )
+      v => (if (is_event v) then
+        (let
 
+          val bevts = mk_base_events (v, []) 
+          
+          val (active_bevt_op, chan_store') = (
+            find_active_base_event (bevts, chan_store, block_store)
+          )
+
+        in
+          (case active_bevt_op of
+            SOME bevt =>
+              transact (
+                bevt, cont_stack, thread_id,
+                (chan_store', block_store, sync_store, cnt)
+              ) |
+            NONE =>
+              block (
+                bevts, cont_stack, thread_id,
+                (chan_store', block_store, sync_store, cnt)
+              )
+          )
+        end)
+      else if (is_value v) then
+        (
+          Mode_Stick "sync with non-event",
+          [], (chan_store, block_store, sync_store, cnt)
+        )
+      else 
+        push (
+          (t, (Contin_Norm, [( hole cnt, Evt_Elim (hole cnt, pos) )], val_store, [])),
+          val_store, cont_stack, thread_id,
+          chan_store, block_store, sync_store, cnt + 1
+        )
+      )
     ) |
 
     (* internal rep *)
@@ -1215,37 +1229,45 @@ structure Tree = struct
 
     Spawn (t, pos) =>(case t of
       (Id (id, _)) => (case (find (val_store, id)) of
-        SOME (_, Func_Val ([(Blank _, t_body)], fnc_store, mutual_store, _)) =>
-        (let
-          val spawn_id = cnt
-          val cnt' = cnt + 1
-        in
-          (
-            Mode_Spawn t_body,
-            [
-              (List_Val ([], pos), val_store, cont_stack, thread_id),
-              (t_body, val_store, [], spawn_id)
-            ],
-            (chan_store, block_store, sync_store, cnt')
-          )
-        end) |
-
         SOME (_, v) => (
-          Mode_Stick "spawn with non-function",
-          [], (chan_store, block_store, sync_store, cnt)
+          Mode_Upkeep,
+          [(v, val_store, cont_stack, thread_id)],
+          (chan_store, block_store, sync_store, cnt)
         ) |
-      
+
         _  => (
           Mode_Stick ("Spawn argument variable " ^ id ^ " cannot be resolved"),
           [], (chan_store, block_store, sync_store, cnt)
         )
 
+
       ) |
 
-      _ => push (
-        (t, (Contin_Norm, [( hole cnt, Spawn (hole cnt, pos) )], val_store, [])),
-        val_store, cont_stack, thread_id,
-        chan_store, block_store, sync_store, cnt + 1
+      Func_Val ([(Blank _, t_body)], fnc_store, mutual_store, _) => (let
+        val spawn_id = cnt
+        val cnt' = cnt + 1
+      in
+        (
+          Mode_Spawn t_body,
+          [
+            (List_Val ([], pos), val_store, cont_stack, thread_id),
+            (t_body, val_store, [], spawn_id)
+          ],
+          (chan_store, block_store, sync_store, cnt')
+        )
+      end) |
+      
+      v => (if is_value v then
+        (
+          Mode_Stick "spawn with non-function",
+          [], (chan_store, block_store, sync_store, cnt)
+        )
+      else
+        push (
+          (t, (Contin_Norm, [( hole cnt, Spawn (hole cnt, pos) )], val_store, [])),
+          val_store, cont_stack, thread_id,
+          chan_store, block_store, sync_store, cnt + 1
+        )
       )
     ) |
 
