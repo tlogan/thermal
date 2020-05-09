@@ -15,60 +15,66 @@ structure Tree = struct
     Id of (string * int) |
     Assoc of (term * int) |
 
-    Cns of (term * int) |
-    Lst of ((term list) * int) |
+    List_Intro of (term * int) |
+    List_Val of ((term list) * int) |
 
-    Fnc of (
+    Func_Intro of (
+      ((term * term) list) *
+      int
+    ) (* Func_Val (lams, pos) *) |
+
+    Func_Val of (
       ((term * term) list) *
       ((string, infix_option * term) store) *
       ((string, infix_option * ((term * term) list)) store) *
       int
-    ) (* Fnc (lams, val_store, mutual_store, pos) *) |
+    ) (* Func_Val (lams, val_store, mutual_store, pos) *) |
+    Func_Elim of (term * term * int) |
 
     Compo of (term * term * int) |
-
-    App of (term * term * int) |
-
     Seq of (term * term * int) |
 
-    Rec of (
+    Rec_Intro of (
       ((string * (infix_option * term)) list) *
-      bool *
       int
-    ) (* Rec (fields, mutual_calls_active, pos) *) |
+    ) (* Rec_Intro (fields, pos) *) |
 
-    Select of (term * int) |
+    Rec_Val of (
+      ((string * (infix_option * term)) list) *
+      int
+    ) (* Rec_Intro (fields, pos) *) |
+
+    Rec_Elim of (term * int) |
   
-    Alloc_Chan of (term * int) |
+    Chan_Alloc of (term * int) |
 
-    Send of (term * int) |
-    Recv of (term * int) |
-
-    Wrap of (term * int) |
-    Chse of (term * int) |
-    Sync of (term * int) |
+    Evt_Send_Intro of (term * int) |
+    Evt_Recv_Intro of (term * int) |
+    Evt_Wrap_Intro of (term * int) |
+    Evt_Choose_Intro of (term * int) |
+    Evt_Elim of (term * int) |
 
     Spawn of (term * int) |
     Par of (term * int) |
   
     Sym of (term * int) |
 
-    Str of (string * int) |
+    String_Val of (string * int) |
 
-    Num of (string * int) |
+    Num_Val of (string * int) |
 
-    Add of (term * int) |
-    Sub of (term * int) |
-    Mul of (term * int) |
-    Div of (term * int) |
-    Rem of (term * int) |
+    Num_Add of (term * int) |
+    Num_Sub of (term * int) |
+    Num_Mul of (term * int) |
+    Num_Div of (term * int) |
+    Num_Rem of (term * int) |
 
     (* internal reps *)
-    ChanId of int |
+    Chan_Loc of int |
     ThreadId of int |
     Error of string
 
-  datatype contin_mode = Contin_Seq | Contin_Norm | Contin_App | Contin_Sync
+  datatype contin_mode = Contin_Seq | Contin_Norm | Contin_Func_Elim | Contin_Evt_Elim
 
   type contin = (
     contin_mode * 
@@ -80,8 +86,8 @@ structure Tree = struct
   type contin_stack = (contin list)
 
   datatype base_event =
-    Base_Send of (chan_id * term * contin_stack) |
-    Base_Recv of (chan_id * contin_stack)
+    Base_Evt_Send_Intro of (chan_id * term * contin_stack) |
+    Base_Evt_Recv_Intro of (chan_id * contin_stack)
 
   datatype transition_mode = 
     Mode_Start |
@@ -89,8 +95,8 @@ structure Tree = struct
     Mode_Reduce of term |
     Mode_Spawn of term |
     Mode_Block of (base_event list) |
-    Mode_Sync of (int * term * int * int)
-      (* Mode_Sync (thread_id, msg, send_id, recv_id) *) |
+    Mode_Evt_Elim of (int * term * int * int)
+      (* Mode_Evt_Elim (thread_id, msg, send_id, recv_id) *) |
     Mode_Stick of string |
     Mode_Finish of term
 
@@ -103,16 +109,18 @@ structure Tree = struct
       (to_string t)
     ) |
 
-    Cns (t, pos) => String.surround "Cns" (
+    List_Intro (t, pos) => String.surround "List_Intro" (
       (to_string t)
     ) |
 
-    Lst (ts, pos) => String.surround "[" (
+    List_Val (ts, pos) => String.surround "[" (
       (String.concatWith ",\n" (List.map to_string ts)) ^ "]"
     ) |
 
+    Func_Intro (lams, pos) => String.surround "Func_Intro" (
+      String.concatWith ",\n" (List.map to_string_from_lam lams)) |
 
-    Fnc (lams, fnc_store, mutual_store, pos) => String.surround "Fnc" (
+    Func_Val (lams, fnc_store, mutual_store, pos) => String.surround "Func_Val" (
       String.concatWith ",\n" (List.map to_string_from_lam lams)) |
 
     Compo (t1, t2, pos) => String.surround "Compo" (
@@ -120,7 +128,7 @@ structure Tree = struct
       (to_string t2)
     ) |
 
-    App (t1, t2, pos) => String.surround "App" (
+    Func_Elim (t1, t2, pos) => String.surround "Func_Elim" (
       (to_string t1) ^ ",\n" ^
       (to_string t2)
     ) |
@@ -129,35 +137,39 @@ structure Tree = struct
       (to_string t1) ^ ",\n" ^ (to_string t2)
     ) |
 
-    Rec (fs, _, pos) => String.surround "Rec" (
+    Rec_Intro (fs, pos) => String.surround "Rec_Intro" (
       String.concatWith ",\n" (List.map to_string_from_field fs)
     ) |
 
-    Select (t, pos) => String.surround "Select" (
+    Rec_Val (fs, pos) => String.surround "Rec_Val" (
+      String.concatWith ",\n" (List.map to_string_from_field fs)
+    ) |
+
+    Rec_Elim (t, pos) => String.surround "Rec_Elim" (
       (to_string t)
     ) |
 
-    Alloc_Chan (t, pos) => String.surround "Alloc_Chan" (
+    Chan_Alloc (t, pos) => String.surround "Chan_Alloc" (
       to_string t
     ) |
 
-    Send (t, pos) => String.surround "Send" (
+    Evt_Send_Intro (t, pos) => String.surround "Evt_Send_Intro" (
       (to_string t)
     ) |
 
-    Recv (t, pos) => String.surround "Recv" (
+    Evt_Recv_Intro (t, pos) => String.surround "Evt_Recv_Intro" (
       (to_string t)
     ) |
 
-    Wrap (t, pos) => String.surround "Wrap" (
+    Evt_Wrap_Intro (t, pos) => String.surround "Evt_Wrap_Intro" (
       (to_string t)
     ) |
 
-    Chse (t, pos) => String.surround "Chse" (
+    Evt_Choose_Intro (t, pos) => String.surround "Evt_Choose_Intro" (
       (to_string t)
     ) |
 
-    Sync (t, pos) => String.surround ("Sync") (
+    Evt_Elim (t, pos) => String.surround ("Evt_Elim") (
       (to_string t)
     ) |
 
@@ -179,36 +191,36 @@ structure Tree = struct
     Id (name, pos) =>
       "(Id" ^ " " ^ name ^ ")" |
 
-    Str (str, pos) =>
-      "(Str" ^ " " ^ str ^ ")" |
+    String_Val (str, pos) =>
+      "(String_Val" ^ " " ^ str ^ ")" |
 
-    ChanId i =>
-      "(ChanId " ^ (Int.toString i) ^ ")" |
+    Chan_Loc i =>
+      "(Chan_Loc " ^ (Int.toString i) ^ ")" |
 
     ThreadId i =>
       "(ThreadId " ^ (Int.toString i) ^ ")" |
 
 
-    Num (num, pos) =>
-      "(Num" ^ " " ^ num ^ ")" |
+    Num_Val (num, pos) =>
+      "(Num_Val" ^ " " ^ num ^ ")" |
 
-    Add (t, pos) => String.surround ("Add") (
+    Num_Add (t, pos) => String.surround ("Num_Add") (
       (to_string t)
     ) |
 
-    Sub (t, pos) => String.surround ("Sub") (
+    Num_Sub (t, pos) => String.surround ("Num_Sub") (
       (to_string t)
     ) |
 
-    Mul (t, pos) => String.surround ("Mul") (
+    Num_Mul (t, pos) => String.surround ("Num_Mul") (
       (to_string t)
     ) |
 
-    Div (t, pos) => String.surround ("Div") (
+    Num_Div (t, pos) => String.surround ("Num_Div") (
       (to_string t)
     ) |
 
-    Rem (t, pos) => String.surround ("Rem") (
+    Num_Rem (t, pos) => String.surround ("Num_Rem") (
       (to_string t)
     ) |
 
@@ -306,29 +318,29 @@ structure Tree = struct
 
   fun mk_base_events (evt, cont_stack) = (case evt of
   
-    Send (Lst ([ChanId i, msg], _), pos) =>
-      [Base_Send (i, msg, [])] |
+    Evt_Send_Intro (List_Val ([Chan_Loc i, msg], _), pos) =>
+      [Base_Evt_Send_Intro (i, msg, [])] |
   
-    Recv (ChanId i, pos) =>
-      [Base_Recv (i, [])] |
+    Evt_Recv_Intro (Chan_Loc i, pos) =>
+      [Base_Evt_Recv_Intro (i, [])] |
 
-    Chse (Lst (values, _), pos) =>
+    Evt_Choose_Intro (List_Val (values, _), pos) =>
       mk_base_events_from_list (values, cont_stack) |
 
-    Wrap (Lst ([evt', Fnc (lams, fnc_store, mutual_store, _)], _), pos) =>
+    Evt_Wrap_Intro (List_Val ([evt', Func_Val (lams, fnc_store, mutual_store, _)], _), pos) =>
       let
         val bevts = mk_base_events (evt', cont_stack)
       in
         (List.foldl
           (fn (bevt, bevts_acc) => let
   
-            val cont = (Contin_Sync, lams, fnc_store, mutual_store)
+            val cont = (Contin_Evt_Elim, lams, fnc_store, mutual_store)
   
             val bevt' = (case bevt of
-              Base_Send (i, msg, wrap_stack) => 
-                Base_Send (i, msg, cont :: wrap_stack) |
-              Base_Recv (i, wrap_stack) => 
-                Base_Recv (i, cont :: wrap_stack)
+              Base_Evt_Send_Intro (i, msg, wrap_stack) => 
+                Base_Evt_Send_Intro (i, msg, cont :: wrap_stack) |
+              Base_Evt_Recv_Intro (i, wrap_stack) => 
+                Base_Evt_Recv_Intro (i, cont :: wrap_stack)
             ) 
           in
             bevts_acc @ [bevt']
@@ -361,7 +373,7 @@ structure Tree = struct
 
 
   fun poll (base, chan_store, block_store) = (case base of
-    Base_Send (i, msg, _) =>
+    Base_Evt_Send_Intro (i, msg, _) =>
       (let
         val chan_op = find (chan_store, i)
         fun poll_recv (send_q, recv_q) = (case recv_q of
@@ -385,7 +397,7 @@ structure Tree = struct
         )
       end) |
   
-     Base_Recv (i, _) =>
+     Base_Evt_Recv_Intro (i, _) =>
       (let
         val chan_op = find (chan_store, i)
         fun poll_send (send_q, recv_q) = (case send_q of
@@ -436,7 +448,7 @@ structure Tree = struct
     (chan_store, block_store, sync_store, cnt)
   ) = (case bevt of
 
-    Base_Send (i, msg, wrap_stack) =>
+    Base_Evt_Send_Intro (i, msg, wrap_stack) =>
     (let
       val chan_op = find (chan_store, i)
       val recv_op = (case chan_op of
@@ -446,7 +458,7 @@ structure Tree = struct
         NONE => NONE
       )
       val (threads, md') = (case recv_op of
-        NONE => ([], Mode_Stick "transact Base_Send") |
+        NONE => ([], Mode_Stick "transact Base_Evt_Send_Intro") |
         SOME (recv_stack, recv_thread_id) => (
           [
             (Blank 0, empty_table, wrap_stack @ cont_stack, thread_id),
@@ -454,7 +466,7 @@ structure Tree = struct
           ],
           (
           print ("send sync msg: " ^ (to_string msg) ^ "\n");
-          Mode_Sync (i, msg, thread_id, recv_thread_id)
+          Mode_Evt_Elim (i, msg, thread_id, recv_thread_id)
           )
         )
       ) 
@@ -466,7 +478,7 @@ structure Tree = struct
       ) 
     end) |
   
-    Base_Recv (i, wrap_stack) =>
+    Base_Evt_Recv_Intro (i, wrap_stack) =>
     (let
       val chan_op = find (chan_store, i)
       val send_op = (case chan_op of
@@ -477,7 +489,7 @@ structure Tree = struct
       )
   
       val (threads, md') = (case send_op of
-        NONE => ([], Mode_Stick "transact Base_Recv") |
+        NONE => ([], Mode_Stick "transact Base_Evt_Recv_Intro") |
         SOME (send_stack, msg, send_thread_id) => (
           [
             (Blank 0, empty_table, send_stack, send_thread_id),
@@ -485,7 +497,7 @@ structure Tree = struct
           ],
           ( (* TODO: LOOK HERE, what does the val_store of the send_stack look like? *)
           print ("recv sync msg: " ^ (to_string msg) ^ "\n");
-          Mode_Sync (i, msg, send_thread_id, thread_id)
+          Mode_Evt_Elim (i, msg, send_thread_id, thread_id)
           )
         )
       )
@@ -500,7 +512,7 @@ structure Tree = struct
   )
   
   fun block_one (bevt, cont_stack, chan_store, block_id, thread_id) = (case bevt of
-    Base_Send (i, msg, wrap_stack) =>
+    Base_Evt_Send_Intro (i, msg, wrap_stack) =>
       (let
         val cont_stack' = wrap_stack @ cont_stack
         val chan_op = find (chan_store, i)
@@ -515,7 +527,7 @@ structure Tree = struct
         chan_store'
       end) |
   
-    Base_Recv (i, wrap_stack) =>
+    Base_Evt_Recv_Intro (i, wrap_stack) =>
       (let
         val cont_stack' = wrap_stack @ cont_stack
         val chan_op = find (chan_store, i)
@@ -551,16 +563,16 @@ structure Tree = struct
 
   fun is_event t = (case t of
 
-    Send (Lst ([ChanId _, _], _), pos) =>
+    Evt_Send_Intro (List_Val ([Chan_Loc _, _], _), pos) =>
       true |
 
-    Recv (ChanId _, _) =>
+    Evt_Recv_Intro (Chan_Loc _, _) =>
       true |
 
-    Wrap (Lst ([t', Fnc _], _), _) =>
+    Evt_Wrap_Intro (List_Val ([t', Func_Val _], _), _) =>
       is_event t' |
 
-    Chse (Lst (ts, _), _) =>
+    Evt_Choose_Intro (List_Val (ts, _), _) =>
       List.all (fn t => is_event t) ts |
 
     _ =>
@@ -580,26 +592,26 @@ structure Tree = struct
     (Id (str, _), v) =>
       SOME (insert (val_store, str, (NONE, v))) |
 
-    (Cns (Lst ([t, t'], _), _), Lst (v :: vs, _)) =>
+    (List_Intro (List_Val ([t, t'], _), _), List_Val (v :: vs, _)) =>
       (Option.mapPartial
         (fn val_store' =>
           match_value_insert (val_store', t, v)
         )
-        (match_value_insert (val_store, t', Lst (vs, ~1)))
+        (match_value_insert (val_store, t', List_Val (vs, ~1)))
       ) |
 
-    (Lst ([], _), Lst ([], _)) => SOME val_store | 
+    (List_Val ([], _), List_Val ([], _)) => SOME val_store | 
 
-    (Lst (t :: ts, _), Lst (v :: vs, _))  =>
+    (List_Val (t :: ts, _), List_Val (v :: vs, _))  =>
       (Option.mapPartial
         (fn val_store' =>
           match_value_insert (val_store', t, v)
         )
-        (match_value_insert (val_store, Lst (ts, ~1), Lst (vs, ~1)))
+        (match_value_insert (val_store, List_Val (ts, ~1), List_Val (vs, ~1)))
       ) |
 
 
-    (Num (n, _), Num (nv, _)) => (
+    (Num_Val (n, _), Num_Val (nv, _)) => (
       if n = nv then
         SOME val_store
       else
@@ -610,27 +622,27 @@ structure Tree = struct
 
     (* **TODO**
 
-    (Send (t, _), Send (v, _)) =>
+    (Evt_Send_Intro (t, _), Evt_Send_Intro (v, _)) =>
       match_value_insert (val_store, t, v) |
 
-    (Recv (t, _), Recv (v, _)) =>
+    (Evt_Recv_Intro (t, _), Evt_Recv_Intro (v, _)) =>
       match_value_insert (val_store, t, v) |
 
-    (Fnc p_fnc, Fnc v_fnc) => (
+    (Func_Val p_fnc, Func_Val v_fnc) => (
       if fnc_equal (p_fnc, v_fnc) then
         SOME val_store
       else
         NONE
     ) |
 
-    (Str (str, _), Str (strv, _)) => (
+    (String_Val (str, _), String_Val (strv, _)) => (
       if str = strv then
         SOME val_store
       else
         NONE
     ) |
 
-    (Rec (p_fields, _), Rec (v_fields, _)) => (case (p_fields, v_fields) of
+    (Rec_Intro (p_fields, _), Rec_Intro (v_fields, _)) => (case (p_fields, v_fields) of
       ([], []) =>
         SOME val_store |
 
@@ -643,7 +655,7 @@ structure Tree = struct
         (case match of
           [(k, v)] => (Option.mapPartial
             (fn val_store' => match_value_insert (val_store', t, v))
-            (match_value_insert (val_store, Rec (ps, ~1), Rec (remainder, ~1)))
+            (match_value_insert (val_store, Rec_Intro (ps, ~1), Rec_Intro (remainder, ~1)))
           ) |
 
           _ => NONE
@@ -686,7 +698,7 @@ structure Tree = struct
       (cmode, lams, val_store', mutual_store) :: cont_stack' => (let
 
         val val_store'' = (case result of
-          Rec (fields, _, _) => (if cmode = Contin_Seq then
+          Rec_Val (fields, _) => (if cmode = Contin_Seq then
             insert_table (val_store', fields)
           else
             val_store'
@@ -697,7 +709,7 @@ structure Tree = struct
         (* embed mutual_store within self's functions *)
         val fnc_store = (map 
           (fn (k, (fix_op, lams)) =>
-            (k, (fix_op, Fnc (lams, val_store'', mutual_store, ~1)))
+            (k, (fix_op, Func_Val (lams, val_store'', mutual_store, ~1)))
           )
           mutual_store
         )
@@ -859,8 +871,8 @@ structure Tree = struct
     chan_store, block_store, sync_store, cnt
   ) = (case t_fn of
     (Id (id, _)) => (case (find (val_store, id)) of
-      SOME (NONE, Fnc (lams, fnc_store, mutual_store, _)) => push (
-        (t_arg, (Contin_App, lams, fnc_store, mutual_store)),
+      SOME (NONE, Func_Val (lams, fnc_store, mutual_store, _)) => push (
+        (t_arg, (Contin_Func_Elim, lams, fnc_store, mutual_store)),
         val_store, cont_stack, thread_id,
         chan_store, block_store, sync_store, cnt
       ) |
@@ -871,13 +883,13 @@ structure Tree = struct
       ) |
 
       _  => (
-        Mode_Stick ("Apply arg variable " ^ id ^ " cannot be resolved"),
+        Mode_Stick ("Func_Elimly arg variable " ^ id ^ " cannot be resolved"),
         [], (chan_store, block_store, sync_store, cnt)
       )
     ) |
 
     _ => push (
-      (t_fn, (Contin_Norm, [( hole cnt, App (hole cnt, t_arg, pos) )], val_store, [])),
+      (t_fn, (Contin_Norm, [( hole cnt, Func_Elim (hole cnt, t_arg, pos) )], val_store, [])),
       val_store, cont_stack, thread_id,
       chan_store, block_store, sync_store, cnt + 1
     )
@@ -896,26 +908,26 @@ structure Tree = struct
           associate_right val_store (
             t1',
             id, rator, direc, prec, pos',
-            App (rator, Lst ([t2', t2], pos), pos)
+            Func_Elim (rator, List_Val ([t2', t2], pos), pos)
           )  
         else 
-          App (rator, Lst ([t1, t2], pos), pos)
+          Func_Elim (rator, List_Val ([t1, t2], pos), pos)
         )
       else if (prec > prec') then
         associate_right val_store (
           t1',
           id', rator', direc', prec', pos',
-          App (rator, Lst ([t2', t2], pos), pos)
+          Func_Elim (rator, List_Val ([t2', t2], pos), pos)
         )  
       else
-        App (rator, Lst ([t1, t2], pos), pos)
+        Func_Elim (rator, List_Val ([t1, t2], pos), pos)
       ) |
 
-      _ => Compo (App (t1', Id (id', pos'), p1'), t2', p2')
+      _ => Compo (Func_Elim (t1', Id (id', pos'), p1'), t2', p2')
     ) |
 
     _ =>
-      App (rator, Lst ([t1, t2], pos), pos)
+      Func_Elim (rator, List_Val ([t1, t2], pos), pos)
   )
 
   fun seq_step (
@@ -945,12 +957,12 @@ structure Tree = struct
       )
     ) |
 
-    Cns (t, pos) => reduce_single (
+    List_Intro (t, pos) => reduce_single (
       t,
-      fn t => Cns (t, pos),
+      fn t => List_Intro (t, pos),
       (fn
-        Lst ([v, Blank _], _) => Lst ([v], pos) |
-        Lst ([v, Lst (ts, _)], _) => Lst (v :: ts, pos) |
+        List_Val ([v, Blank _], _) => List_Val ([v], pos) |
+        List_Val ([v, List_Val (ts, _)], _) => List_Val (v :: ts, pos) |
         _ => Error "cons with non-list"
       ),
       val_store, cont_stack, thread_id,
@@ -958,20 +970,26 @@ structure Tree = struct
 
     ) |
 
-    Lst (ts, pos) => reduce_list (
-      ts, fn vs => Lst (vs, pos), fn vs => Lst (vs, pos),
+    List_Val (ts, pos) => reduce_list (
+      ts, fn vs => List_Val (vs, pos), fn vs => List_Val (vs, pos),
       val_store, cont_stack, thread_id,
       chan_store, block_store, sync_store, cnt
     ) |
 
-    Fnc (lams, [], mutual_store, pos) => pop (
-      Fnc (lams, val_store, mutual_store, pos),
+    Func_Intro (lams, pos) => pop (
+      Func_Val (lams, val_store, [], pos),
       cont_stack, thread_id,
       chan_store, block_store, sync_store, cnt
     ) |
 
-    Fnc (lams, fnc_store, mutual_store, pos) => pop (
-      Fnc (lams, fnc_store, mutual_store, pos),
+    Func_Val (lams, [], mutual_store, pos) => pop (
+      Func_Val (lams, val_store, mutual_store, pos),
+      cont_stack, thread_id,
+      chan_store, block_store, sync_store, cnt
+    ) |
+
+    Func_Val (lams, fnc_store, mutual_store, pos) => pop (
+      Func_Val (lams, fnc_store, mutual_store, pos),
       cont_stack, thread_id,
       chan_store, block_store, sync_store, cnt
     ) |
@@ -990,7 +1008,7 @@ structure Tree = struct
         end ) |
 
         _ => (let
-          val x = Compo (App (t1, Id (id, pos), p1), t2, p2)
+          val x = Compo (Func_Elim (t1, Id (id, pos), p1), t2, p2)
           (*
           val _ = print ("compo result 1: " ^ (to_string x) ^ "\n") 
           *)
@@ -1009,12 +1027,12 @@ structure Tree = struct
 
     Compo (t1, t2, pos) => (
       Mode_Upkeep,
-      [(App (t1, t2, pos), val_store, cont_stack, thread_id)],
+      [(Func_Elim (t1, t2, pos), val_store, cont_stack, thread_id)],
       (chan_store, block_store, sync_store, cnt)
     ) |
 
 
-    App (t_fn, t_arg, pos) => apply (
+    Func_Elim (t_fn, t_arg, pos) => apply (
       t_fn, t_arg, pos,
       val_store, cont_stack, thread_id,
       chan_store, block_store, sync_store, cnt
@@ -1027,10 +1045,10 @@ structure Tree = struct
       chan_store, block_store, sync_store, cnt + 1
     ) |
 
-    Rec (fields, false, pos) => (let
+    Rec_Intro (fields, pos) => (let
       val mutual_store = (List.mapPartial
         (fn
-          (k, (fix_op,  Fnc (lams, [], [], _))) => 
+          (k, (fix_op,  Func_Intro (lams, _))) => 
             SOME (k, (fix_op, lams)) |
           _ => NONE
         )
@@ -1040,8 +1058,8 @@ structure Tree = struct
       (* embed mutual ids into ts' functions *)
       val fields' = (map
         (fn
-          (k, (fix_op, Fnc (lams, [], [], pos))) =>
-            (k, (fix_op, Fnc (lams, val_store, mutual_store, pos))) |
+          (k, (fix_op, Func_Intro (lams, pos))) =>
+            (k, (fix_op, Func_Val (lams, val_store, mutual_store, pos))) |
           field => field 
         )
        fields 
@@ -1049,12 +1067,12 @@ structure Tree = struct
     in
       (
         Mode_Upkeep,
-        [(Rec (fields', true, pos), val_store, cont_stack, thread_id)],
+        [(Rec_Val (fields', pos), val_store, cont_stack, thread_id)],
         (chan_store, block_store, sync_store, cnt)
       )
     end) |
     
-    Rec (fields, true, pos) => (let
+    Rec_Val (fields, pos) => (let
       val ts = (map (fn (k, (fix_op, t)) => t) fields)
 
       fun f ts = (let
@@ -1063,7 +1081,7 @@ structure Tree = struct
           (ListPair.zip (fields, ts))
         )
       in
-        Rec (fields', true,  pos)
+        Rec_Intro (fields', true,  pos)
       end)
 
     in
@@ -1074,11 +1092,11 @@ structure Tree = struct
       )
     end) |
 
-    Select (t, pos) => reduce_single (
+    Rec_Elim (t, pos) => reduce_single (
       t,
-      fn t => Select (t, pos),
+      fn t => Rec_Elim (t, pos),
       (fn
-        Lst ([Rec (fields, _, _), Id (key, _)], _) =>
+        List_Val ([Rec_Intro (fields, _, _), Id (key, _)], _) =>
         (case find (fields, key) of
           SOME (_, v) => v |
           NONE => Error "selection not found"
@@ -1091,50 +1109,50 @@ structure Tree = struct
 
     ) |
 
-    Alloc_Chan (_, i) => (let
+    Chan_Alloc (_, i) => (let
       val chan_store' = insert (chan_store, cnt, ([], []))
       val cnt' = cnt + 1
     in
       pop (
-        ChanId cnt,
+        Chan_Loc cnt,
         cont_stack, thread_id,
         chan_store', block_store, sync_store, cnt'
       )
     end) |
 
     (* internal rep *)
-    ChanId i => pop (
-      ChanId i,
+    Chan_Loc i => pop (
+      Chan_Loc i,
       cont_stack, thread_id,
       chan_store, block_store, sync_store, cnt
     ) |
 
 
-    Send (t, pos) => reduce_single (
-      t, fn v => Send (v, pos), fn v => Send (v, pos),
+    Evt_Send_Intro (t, pos) => reduce_single (
+      t, fn v => Evt_Send_Intro (v, pos), fn v => Evt_Send_Intro (v, pos),
       val_store, cont_stack, thread_id,
       chan_store, block_store, sync_store, cnt
     ) | 
 
-    Recv (t, pos) => reduce_single (
-      t, fn v => Recv (v, pos), fn v => Recv (v, pos),
+    Evt_Recv_Intro (t, pos) => reduce_single (
+      t, fn v => Evt_Recv_Intro (v, pos), fn v => Evt_Recv_Intro (v, pos),
       val_store, cont_stack, thread_id,
       chan_store, block_store, sync_store, cnt
     ) | 
 
-    Wrap (t, pos) => reduce_single (
-      t, fn v => Wrap (v, pos), fn v => Wrap (v, pos),
+    Evt_Wrap_Intro (t, pos) => reduce_single (
+      t, fn v => Evt_Wrap_Intro (v, pos), fn v => Evt_Wrap_Intro (v, pos),
       val_store, cont_stack, thread_id,
       chan_store, block_store, sync_store, cnt
     ) | 
 
-    Chse (t, pos) => reduce_single (
-      t, fn v => Chse (v, pos), fn v => Chse (v, pos),
+    Evt_Choose_Intro (t, pos) => reduce_single (
+      t, fn v => Evt_Choose_Intro (v, pos), fn v => Evt_Choose_Intro (v, pos),
       val_store, cont_stack, thread_id,
       chan_store, block_store, sync_store, cnt
     ) | 
 
-    Sync (t, pos) => (case t of
+    Evt_Elim (t, pos) => (case t of
       (Id (id, _)) => (case (find (val_store, id)) of
         SOME (NONE, v) =>
         (if (is_event v) then
@@ -1169,14 +1187,14 @@ structure Tree = struct
         ) |
 
         _  => (
-          Mode_Stick ("Sync argument variable " ^ id ^ " cannot be resolved"),
+          Mode_Stick ("Evt_Elim argument variable " ^ id ^ " cannot be resolved"),
           [], (chan_store, block_store, sync_store, cnt)
         )
 
       ) |
 
       _ => push (
-        (t, (Contin_Norm, [( hole cnt, Sync (hole cnt, pos) )], val_store, [])),
+        (t, (Contin_Norm, [( hole cnt, Evt_Elim (hole cnt, pos) )], val_store, [])),
         val_store, cont_stack, thread_id,
         chan_store, block_store, sync_store, cnt + 1
       )
@@ -1193,7 +1211,7 @@ structure Tree = struct
 
     Spawn (t, pos) =>(case t of
       (Id (id, _)) => (case (find (val_store, id)) of
-        SOME (_, Fnc ([(Blank _, t_body)], fnc_store, mutual_store, _)) =>
+        SOME (_, Func_Val ([(Blank _, t_body)], fnc_store, mutual_store, _)) =>
         (let
           val spawn_id = cnt
           val cnt' = cnt + 1
@@ -1201,7 +1219,7 @@ structure Tree = struct
           (
             Mode_Spawn t_body,
             [
-              (Lst ([], pos), val_store, cont_stack, thread_id),
+              (List_Val ([], pos), val_store, cont_stack, thread_id),
               (t_body, val_store, [], spawn_id)
             ],
             (chan_store, block_store, sync_store, cnt')
@@ -1233,24 +1251,24 @@ structure Tree = struct
       chan_store, block_store, sync_store, cnt
     ) |
 
-    Str (str, pos) => pop (
-      Str (str, pos),
+    String_Val (str, pos) => pop (
+      String_Val (str, pos),
       cont_stack, thread_id,
       chan_store, block_store, sync_store, cnt
     ) |
 
-    Num (str, pos) => pop (
-      Num (str, pos),
+    Num_Val (str, pos) => pop (
+      Num_Val (str, pos),
       cont_stack, thread_id,
       chan_store, block_store, sync_store, cnt
     ) |
 
-    Add (t, pos) => reduce_single (
-      t, fn t => Add (t, pos),
+    Num_Add (t, pos) => reduce_single (
+      t, fn t => Num_Add (t, pos),
       (fn
-        Lst ([Num (n1, _), Num (n2, _)], _) => (
+        List_Val ([Num_Val (n1, _), Num_Val (n2, _)], _) => (
           print ("adding: " ^ n1 ^ " and " ^ n2 ^ "\n"); 
-          Num (add_num (n1, n2), pos)
+          Num_Val (add_num (n1, n2), pos)
         ) |
         _ => Error "adding non-numbers"
       ),
@@ -1259,11 +1277,11 @@ structure Tree = struct
 
     ) |
 
-    Sub (t, pos) => reduce_single (
-      t, fn t => Sub (t, pos),
+    Num_Sub (t, pos) => reduce_single (
+      t, fn t => Num_Sub (t, pos),
       (fn
-        Lst ([Num (n1, _), Num (n2, _)], _) => (
-          Num (sub_num (n1, n2), pos)
+        List_Val ([Num_Val (n1, _), Num_Val (n2, _)], _) => (
+          Num_Val (sub_num (n1, n2), pos)
         ) |
         _ => Error "subtracting non-numbers"
       ),
@@ -1272,11 +1290,11 @@ structure Tree = struct
 
     ) |
 
-    Mul (t, pos) => reduce_single (
-      t, fn t => Mul (t, pos),
+    Num_Mul (t, pos) => reduce_single (
+      t, fn t => Num_Mul (t, pos),
       (fn
-        Lst ([Num (n1, _), Num (n2, _)], _) => (
-          Num (mul_num (n1, n2), pos)
+        List_Val ([Num_Val (n1, _), Num_Val (n2, _)], _) => (
+          Num_Val (mul_num (n1, n2), pos)
         ) |
         _ => Error "multplying non-numbers"
       ),
@@ -1285,11 +1303,11 @@ structure Tree = struct
 
     ) |
 
-    Div (t, pos) => reduce_single (
-      t, fn t => Div (t, pos),
+    Num_Div (t, pos) => reduce_single (
+      t, fn t => Num_Div (t, pos),
       (fn
-        Lst ([Num (n1, _), Num (n2, _)], _) => (
-          Num (div_num (n1, n2), pos)
+        List_Val ([Num_Val (n1, _), Num_Val (n2, _)], _) => (
+          Num_Val (div_num (n1, n2), pos)
         ) |
         _ => Error "dividing non-numbers"
       ),
@@ -1298,11 +1316,11 @@ structure Tree = struct
 
     ) |
 
-    Rem (t, pos) => reduce_single (
-      t, fn t => Rem (t, pos),
+    Num_Rem (t, pos) => reduce_single (
+      t, fn t => Num_Rem (t, pos),
       (fn
-        Lst ([Num (n1, _), Num (n2, _)], _) => (
-          Num (rem_num (n1, n2), pos)
+        List_Val ([Num_Val (n1, _), Num_Val (n2, _)], _) => (
+          Num_Val (rem_num (n1, n2), pos)
         ) |
         _ => Error "remaindering non-numbers"
       ),
@@ -1333,7 +1351,7 @@ structure Tree = struct
     Mode_Reduce t => "Reduced: " ^ (to_string t) |
     Mode_Spawn t => "Spawned" |
     Mode_Block bevts => "Blocked" |
-    Mode_Sync (thread_id, msg, send_id, recv_id) => "Synced" |
+    Mode_Evt_Elim (thread_id, msg, send_id, recv_id) => "Evt_Elimed" |
     Mode_Stick msg => "Stuck: " ^ msg  |
     Mode_Finish result => "Finished: " ^ (to_string result)
   )
