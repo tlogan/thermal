@@ -4,7 +4,7 @@ make_nat_stream : () => (
     sync (send (ch, i,));
     count (add (i, 1,))
   );
-  spawn (() => count 0); 
+  spawn (() => count 33); 
   ch
 );
 nstream : make_nat_stream ();

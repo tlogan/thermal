@@ -260,8 +260,14 @@ structure Tree = struct
     val i1 = (valOf o Int.fromString) n1
     val i2 = (valOf o Int.fromString) n2
     val i3 = i1 + i2
+
+    val _ = print ("add_num n1: " ^ n1 ^ "\n") 
+    val _ = print ("add_num n2: " ^ n2 ^ "\n") 
+    val str = Int.toString i3
+    val _ = print ("add_num result: " ^ str ^ "\n") 
+    
   in
-    Int.toString i3
+    str
   end)
 
   fun sub_num (n1, n2) = (let
@@ -446,7 +452,10 @@ structure Tree = struct
             (Lst ([], 0), empty_table, wrap_stack @ cont_stack, thread_id),
             (msg, empty_table, recv_stack, recv_thread_id)
           ],
+          (
+          print ("send sync msg: " ^ (to_string msg) ^ "\n");
           Mode_Sync (i, msg, thread_id, recv_thread_id)
+          )
         )
       ) 
     in
@@ -474,7 +483,10 @@ structure Tree = struct
             (Lst ([], 0), empty_table, send_stack, send_thread_id),
             (msg, empty_table, wrap_stack @ cont_stack, thread_id)
           ],
+          (
+          print ("recv sync msg: " ^ (to_string msg) ^ "\n");
           Mode_Sync (i, msg, send_thread_id, thread_id)
+          )
         )
       )
     in
@@ -665,7 +677,7 @@ structure Tree = struct
 
   fun pop (
     result,
-    val_store, cont_stack, thread_id,
+    cont_stack, thread_id,
     chan_store, block_store, sync_store, cnt
   ) = (let
     val (threads, md) = (case cont_stack of
@@ -694,9 +706,19 @@ structure Tree = struct
         fun match_first lams = (case lams of
           [] => NONE |
           (p, t) :: lams' =>
-            (case (match_value_insert (val_store''', p, result)) of
-              NONE => ((*print ("match pattern: " ^ (to_string p) ^ "\n");*) match_first lams') |
-              SOME val_store'' => SOME (t, val_store'')
+            (print ("match pattern: " ^ (to_string p) ^ " with\n" ^ (to_string result) ^ "\n");
+            case (match_value_insert (val_store''', p, result)) of
+              NONE => match_first lams' |
+              SOME val_store'''' => (
+                (case p of
+                  (Id ("i", _)) => (case (find (val_store'''', "i")) of
+                    SOME (_, v) => print ("val_store i result: " ^ (to_string v) ^ "\n") |
+                    _ => ()
+                  ) |
+                  _ => ()
+                );
+                SOME (t, val_store'''')
+              )
             )
         )
 
@@ -707,9 +729,9 @@ structure Tree = struct
             [], Mode_Stick ("result - " ^ (to_string result) ^ " - does not match continuation hole pattern")
           ) |
 
-          SOME (t_body, val_store''') => (
-            [(t_body, val_store''', cont_stack', thread_id)],
-            Mode_Reduce t_body  
+          SOME (t_body, val_store'''') => (
+            [(t_body, val_store'''', cont_stack', thread_id)],
+            Mode_Reduce result  
           )
 
         )
@@ -762,13 +784,21 @@ structure Tree = struct
 
         result => pop (
           result,
-          val_store, cont_stack, thread_id,
+          cont_stack, thread_id,
           chan_store, block_store, sync_store, cnt
         )
 
       ) |
 
-      x :: xs => (case x of
+      x :: xs => (
+        (case x of
+          (Id ("i", _)) => (case (find (val_store, "i")) of
+            SOME (_, v) => print ("reduce_list val_store i result: " ^ (to_string v) ^ "\n") |
+            _ => ()
+          ) |
+          _ => ()
+        );
+        case x of
         (Id (id, _)) => (case (find (val_store, id)) of
           SOME (NONE, v) => loop (prefix @ [v], xs) |
           _ => (
@@ -801,7 +831,15 @@ structure Tree = struct
     t, push_f, pop_f,
     val_store, cont_stack, thread_id,
     chan_store, block_store, sync_store, cnt
-  ) = (case t of
+  ) = (
+    (case t of
+      (Id ("i", _)) => (case (find (val_store, "i")) of
+        SOME (_, v) => print ("reduce_single val_store i result: " ^ (to_string v) ^ "\n") |
+        _ => ()
+      ) |
+      _ => ()
+    );
+    case t of
     (Id (id, _)) => (case (find (val_store, id)) of
       SOME (NONE, v) => (case (pop_f v) of
         Error msg => (
@@ -811,7 +849,7 @@ structure Tree = struct
 
         result => pop (
           result,
-          val_store, cont_stack, thread_id,
+          cont_stack, thread_id,
           chan_store, block_store, sync_store, cnt
         )
       ) |
@@ -945,13 +983,13 @@ structure Tree = struct
 
     Fnc (lams, [], mutual_store, pos) => pop (
       Fnc (lams, val_store, mutual_store, pos),
-      val_store, cont_stack, thread_id,
+      cont_stack, thread_id,
       chan_store, block_store, sync_store, cnt
     ) |
 
     Fnc (lams, fnc_store, mutual_store, pos) => pop (
       Fnc (lams, fnc_store, mutual_store, pos),
-      val_store, cont_stack, thread_id,
+      cont_stack, thread_id,
       chan_store, block_store, sync_store, cnt
     ) |
 
@@ -1076,7 +1114,7 @@ structure Tree = struct
     in
       pop (
         ChanId cnt,
-        val_store, cont_stack, thread_id,
+        cont_stack, thread_id,
         chan_store', block_store, sync_store, cnt'
       )
     end) |
@@ -1084,7 +1122,7 @@ structure Tree = struct
     (* internal rep *)
     ChanId i => pop (
       ChanId i,
-      val_store, cont_stack, thread_id,
+      cont_stack, thread_id,
       chan_store, block_store, sync_store, cnt
     ) |
 
@@ -1162,7 +1200,7 @@ structure Tree = struct
     (* internal rep *)
     ThreadId i => pop (
       ThreadId i,
-      val_store, cont_stack, thread_id,
+      cont_stack, thread_id,
       chan_store, block_store, sync_store, cnt
     ) |
 
@@ -1205,19 +1243,19 @@ structure Tree = struct
 
     Blank pos => pop (
       Blank pos,
-      val_store, cont_stack, thread_id,
+      cont_stack, thread_id,
       chan_store, block_store, sync_store, cnt
     ) |
 
     Str (str, pos) => pop (
       Str (str, pos),
-      val_store, cont_stack, thread_id,
+      cont_stack, thread_id,
       chan_store, block_store, sync_store, cnt
     ) |
 
     Num (str, pos) => pop (
       Num (str, pos),
-      val_store, cont_stack, thread_id,
+      cont_stack, thread_id,
       chan_store, block_store, sync_store, cnt
     ) |
 
@@ -1305,7 +1343,7 @@ structure Tree = struct
   fun to_string_from_mode md = (case md of
     Mode_Start => "Started" |
     Mode_Upkeep => "Upkeeped" |
-    Mode_Reduce t => "Reduced" |
+    Mode_Reduce t => "Reduced: " ^ (to_string t) |
     Mode_Spawn t => "Spawned" |
     Mode_Block bevts => "Blocked" |
     Mode_Sync (thread_id, msg, send_id, recv_id) => "Synced" |
@@ -1321,6 +1359,7 @@ structure Tree = struct
     thread :: threads' => (let
       val (md', seq_threads, env') = (seq_step (md, thread, env)) 
 
+      (*
       val _ = (case md' of
         Mode_Finish res => (
           print ("thread completed: " ^ (to_string res) ^ "\n")
@@ -1330,16 +1369,17 @@ structure Tree = struct
         ) |
         _ => ()
       ) 
+      *)
 
-      (*
       val _ = print ((to_string_from_mode md') ^ "\n")
+      (*
       val _ = print (
         "# seq_threads: " ^
         (Int.toString (length seq_threads)) ^
         "\n"
       )
-      val _ = print "\n" 
       *)
+      val _ = print "\n" 
     in
       SOME (md', threads' @ seq_threads, env')
     end)
