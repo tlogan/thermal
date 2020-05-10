@@ -527,17 +527,22 @@ structure Tree = struct
             (msg, empty_table, wrap_stack @ cont_stack, thread_id)
           ],
           ( (* TODO: LOOK HERE, what does the val_store of the send_stack look like? *)
-          (
-            (case send_stack of
+          (let
+            fun loop stack = (case stack of
               (_, _, cont_val_store, _) :: xs => (
                 (case find (cont_val_store, "i") of
-                  SOME (_, v) => print ("send stack i maps to " ^ (to_string v) ^ "\n") |
-                _ => ()
+                  SOME (_, v) => (
+                    print ("send stack i maps to " ^ (to_string v) ^ "\n");
+                    print ("channel " ^ (Int.toString i) ^ "\n")
+                  ) |
+                _ => loop xs
                 )
               ) |
-              _ => print "send cont_stack empty" 
+              _ => print "send cont_stack empty\n" 
             )
-          );
+          in
+            loop send_stack
+          end);
           print ("recv sync msg: " ^ (to_string msg) ^ "\n");
           Mode_Sync (i, msg, send_thread_id, thread_id)
           )
@@ -557,6 +562,22 @@ structure Tree = struct
     Base_Evt_Send (i, msg, wrap_stack) =>
       (let
         val cont_stack' = wrap_stack @ cont_stack
+        val _ = (let
+          fun loop stack = (case stack of
+            (_, _, cont_val_store, _) :: xs => (
+              (case find (cont_val_store, "i") of
+                SOME (_, v) => (
+                  print ("block_one stack i maps to " ^ (to_string v) ^ "\n");
+                  print ("channel " ^ (Int.toString i) ^ "\n")
+                ) |
+              _ => loop xs
+              )
+            ) |
+            _ => print "block_one cont_stack empty\n" 
+          )
+        in
+          loop cont_stack' 
+        end);
         val chan_op = find (chan_store, i)
         val chan' = (case chan_op of
           NONE =>
@@ -566,6 +587,41 @@ structure Tree = struct
         )
         val chan_store' = insert (chan_store, i, chan')
       in
+
+        (let
+          val chan_op = find (chan_store, i)
+          val send_op = (case chan_op of
+            SOME ((block_id, send_stack, msg, send_thread_id) :: sends, _) =>
+              SOME (send_stack, msg, send_thread_id) | 
+            SOME ([], _) => NONE |
+            NONE => NONE
+          )
+  
+          val _ = (case send_op of
+            NONE => () |
+            SOME (send_stack, msg, send_thread_id) => (
+              (let
+                fun loop stack = (case stack of
+                  (_, _, cont_val_store, _) :: xs => (
+                    (case find (cont_val_store, "i") of
+                      SOME (_, v) => (
+                        print ("block one send stack i maps to " ^ (to_string v) ^ "\n");
+                        print ("channel " ^ (Int.toString i) ^ "\n")
+                      ) |
+                    _ => loop xs
+                    )
+                  ) |
+                  _ => print "block one send cont_stack empty\n" 
+                )
+              in
+                loop send_stack
+              end)
+            )
+          )
+        in
+          ()
+        end);
+
         chan_store'
       end) |
   
