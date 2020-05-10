@@ -527,6 +527,17 @@ structure Tree = struct
             (msg, empty_table, wrap_stack @ cont_stack, thread_id)
           ],
           ( (* TODO: LOOK HERE, what does the val_store of the send_stack look like? *)
+          (
+            (case send_stack of
+              (_, _, cont_val_store, _) :: xs => (
+                (case find (cont_val_store, "i") of
+                  SOME (_, v) => print ("send stack i maps to " ^ (to_string v) ^ "\n") |
+                _ => ()
+                )
+              ) |
+              _ => print "send cont_stack empty" 
+            )
+          );
           print ("recv sync msg: " ^ (to_string msg) ^ "\n");
           Mode_Sync (i, msg, send_thread_id, thread_id)
           )
@@ -1241,6 +1252,23 @@ structure Tree = struct
           
           val (active_bevt_op, chan_store') = (
             find_active_base_event (bevts, chan_store, block_store)
+          )
+
+          val _ = (
+            (case find (val_store, "i") of
+              SOME (_, v) => print ("sync val_store i maps to " ^ (to_string v) ^ "\n") |
+            _ => ()
+            )
+          )
+
+          val _ = (case cont_stack of
+            (_, _, cont_val_store, _) :: xs => (
+              (case find (cont_val_store, "i") of
+                SOME (_, v) => print ("sync stack i maps to " ^ (to_string v) ^ "\n") |
+              _ => ()
+              )
+            ) |
+            _ => print "sync stack empty" 
           )
 
         in
