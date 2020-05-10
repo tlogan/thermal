@@ -152,6 +152,10 @@ structure Tree = struct
       String.concatWith ",\n" (List.map to_string_from_field fs)
     ) |
 
+    Rec_Intro_Mutual (fs, pos) => String.surround "Rec_Intro_Mutual" (
+      String.concatWith ",\n" (List.map to_string_from_field fs)
+    ) |
+
     Rec_Val (fs, pos) => String.surround "Rec_Val" (
       String.concatWith ",\n" (List.map to_string_from_field fs)
     ) |
@@ -168,7 +172,15 @@ structure Tree = struct
       (to_string t)
     ) |
 
+    Evt_Send_Val (t, pos) => String.surround "Evt_Send_Val" (
+      (to_string t)
+    ) |
+
     Evt_Recv_Intro (t, pos) => String.surround "Evt_Recv_Intro" (
+      (to_string t)
+    ) |
+    
+    Evt_Recv_Val (t, pos) => String.surround "Evt_Recv_Val" (
       (to_string t)
     ) |
 
@@ -176,7 +188,15 @@ structure Tree = struct
       (to_string t)
     ) |
 
+    Evt_Wrap_Val (t, pos) => String.surround "Evt_Wrap_Val" (
+      (to_string t)
+    ) |
+
     Evt_Choose_Intro (t, pos) => String.surround "Evt_Choose_Intro" (
+      (to_string t)
+    ) |
+
+    Evt_Choose_Val (t, pos) => String.surround "Evt_Choose_Val" (
       (to_string t)
     ) |
 
@@ -645,7 +665,7 @@ structure Tree = struct
       in
         (case match of
           [(k, v)] => (Option.mapPartial
-            (fn val_store' => match_value_insert (val_store', t, v))
+            (fn val_store' => (print ("inserting value: " ^ (to_string v) ^ "\n");match_value_insert (val_store', t, v)))
             (match_value_insert (val_store, Rec_Intro (ps, ~1), Rec_Intro (remainder, ~1)))
           ) |
 
@@ -808,7 +828,7 @@ structure Tree = struct
             loop (prefix @ [x], xs)
           else
             (
-            print ("push new id: _g_" ^ (Int.toString cnt) ^ "\n");
+            print ("push new id: _g_" ^ (Int.toString cnt) ^ " for term " ^ (to_string x) ^ "\n");
             push (
               (
                 x,
@@ -1096,18 +1116,19 @@ structure Tree = struct
     Rec_Intro_Mutual (fields, pos) => (let
       val ts = (map (fn (k, (fix_op, t)) => t) fields)
 
-      fun f ts = (let
+      fun f con ts = (let
         val fields' = (List.map
           (fn ((key, (fix_op, _)), t) => (key, (fix_op, t)))
           (ListPair.zip (fields, ts))
         )
       in
-        Rec_Val (fields',  pos)
+        con (fields',  pos)
       end)
+
 
     in
       reduce_list (
-        ts, f, f, 
+        ts, f Rec_Intro_Mutual, f Rec_Val, 
         val_store, cont_stack, thread_id,
         chan_store, block_store, sync_store, cnt
       )
