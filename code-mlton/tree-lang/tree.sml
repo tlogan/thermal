@@ -299,21 +299,16 @@ structure Tree = struct
     table
   ) 
 
-  fun add_num (n1, n2) = (let
+  fun num_add (n1, n2) = (let
     val i1 = (valOf o Int.fromString) n1
     val i2 = (valOf o Int.fromString) n2
     val i3 = i1 + i2
-
-    val _ = print ("add_num n1: " ^ n1 ^ "\n") 
-    val _ = print ("add_num n2: " ^ n2 ^ "\n") 
     val str = Int.toString i3
-    val _ = print ("add_num result: " ^ str ^ "\n") 
-    
   in
     str
   end)
 
-  fun sub_num (n1, n2) = (let
+  fun num_sub (n1, n2) = (let
     val i1 = (valOf o Int.fromString) n1
     val i2 = (valOf o Int.fromString) n2
     val i3 = i1 - i2
@@ -321,7 +316,7 @@ structure Tree = struct
     Int.toString i3
   end)
 
-  fun mul_num (n1, n2) = (let
+  fun num_mul (n1, n2) = (let
     val i1 = (valOf o Int.fromString) n1
     val i2 = (valOf o Int.fromString) n2
     val i3 = i1 * i2
@@ -330,7 +325,7 @@ structure Tree = struct
   end)
 
 
-  fun div_num (n1, n2) = (let
+  fun num_div (n1, n2) = (let
     val i1 = (valOf o Int.fromString) n1
     val i2 = (valOf o Int.fromString) n2
     val i3 = i1 div i2
@@ -338,7 +333,7 @@ structure Tree = struct
     Int.toString i3
   end)
 
-  fun rem_num (n1, n2) = (let
+  fun num_rem (n1, n2) = (let
     val i1 = (valOf o Int.fromString) n1
     val i2 = (valOf o Int.fromString) n2
     val i3 = Int.rem (i1, i2)
@@ -495,10 +490,7 @@ structure Tree = struct
             (Blank 0, empty_table, wrap_stack @ cont_stack, thread_id),
             (msg, empty_table, recv_stack, recv_thread_id)
           ],
-          (
-          print ("send sync msg: " ^ (to_string msg) ^ "\n");
           Mode_Sync (i, msg, thread_id, recv_thread_id)
-          )
         )
       ) 
 
@@ -533,26 +525,7 @@ structure Tree = struct
             (Blank 0, empty_table, send_stack, send_thread_id),
             (msg, empty_table, wrap_stack @ cont_stack, thread_id)
           ],
-          ( (* TODO: LOOK HERE, what does the val_store of the send_stack look like? *)
-          (let
-            fun loop stack = (case stack of
-              (_, _, cont_val_store, _) :: xs => (
-                (case find (cont_val_store, "i") of
-                  SOME (_, v) => (
-                    print ("send stack i maps to " ^ (to_string v) ^ "\n");
-                    print ("channel " ^ (Int.toString i) ^ "\n")
-                  ) |
-                _ => loop xs
-                )
-              ) |
-              _ => print "send cont_stack empty\n" 
-            )
-          in
-            loop send_stack
-          end);
-          print ("recv sync msg: " ^ (to_string msg) ^ "\n");
           Mode_Sync (i, msg, send_thread_id, thread_id)
-          )
         )
       )
 
@@ -576,72 +549,15 @@ structure Tree = struct
     Base_Evt_Send (i, msg, wrap_stack) =>
       (let
         val cont_stack' = wrap_stack @ cont_stack
-        val _ = (let
-          fun loop stack = (case stack of
-            (_, _, cont_val_store, _) :: xs => (
-              (case find (cont_val_store, "i") of
-                SOME (_, v) => (
-                  print ("block_one stack i maps to " ^ (to_string v) ^ "\n");
-                  print ("channel " ^ (Int.toString i) ^ "\n")
-                ) |
-              _ => loop xs
-              )
-            ) |
-            _ => print "block_one cont_stack empty\n" 
-          )
-        in
-          loop cont_stack' 
-        end);
         val chan_op = find (chan_store, i)
         val chan' = (case chan_op of
           NONE =>
-            (
-            print ("send_q: null \n");
-            ([(block_id, cont_stack', msg, thread_id)], [])
-            ) |
+            ([(block_id, cont_stack', msg, thread_id)], []) |
           SOME (send_q, recv_q) =>
-            (
-            print ("send_q length: " ^ (Int.toString (length send_q)) ^ "\n");
             (send_q @ [(block_id, cont_stack', msg, thread_id)], recv_q)
-            )
         )
         val chan_store' = insert (chan_store, i, chan')
       in
-
-        (let
-          val chan_op = find (chan_store', i)
-          val send_op = (case chan_op of
-            SOME ((block_id, send_stack, msg, send_thread_id) :: sends, _) =>
-              SOME (send_stack, msg, send_thread_id) | 
-            SOME ([], _) => NONE |
-            NONE => NONE
-          )
-  
-          val _ = (case send_op of
-            NONE => () |
-            SOME (send_stack, msg, send_thread_id) => (
-              (let
-                fun loop stack = (case stack of
-                  (_, _, cont_val_store, _) :: xs => (
-                    (case find (cont_val_store, "i") of
-                      SOME (_, v) => (
-                        print ("block one send stack i maps to " ^ (to_string v) ^ "\n");
-                        print ("channel " ^ (Int.toString i) ^ "\n")
-                      ) |
-                    _ => loop xs
-                    )
-                  ) |
-                  _ => print "block one send cont_stack empty\n" 
-                )
-              in
-                loop send_stack
-              end)
-            )
-          )
-        in
-          ()
-        end);
-
         chan_store'
       end) |
   
@@ -792,7 +708,7 @@ structure Tree = struct
     chan_store, block_store, sync_store, cnt
   ) = (let
     val (threads, md) = (case cont_stack of
-      [] => ([], Mode_Finish result) |
+      [] => ([], Mode_Finish result)|
       (cmode, lams, val_store', mutual_store) :: cont_stack' => (let
 
         val val_store'' = (case result of
@@ -1330,23 +1246,6 @@ structure Tree = struct
             find_active_base_event (bevts, chan_store, block_store)
           )
 
-          val _ = (
-            (case find (val_store, "i") of
-              SOME (_, v) => print ("sync val_store i maps to " ^ (to_string v) ^ "\n") |
-            _ => ()
-            )
-          )
-
-          val _ = (case cont_stack of
-            (_, _, cont_val_store, _) :: xs => (
-              (case find (cont_val_store, "i") of
-                SOME (_, v) => print ("sync stack i maps to " ^ (to_string v) ^ "\n") |
-              _ => ()
-              )
-            ) |
-            _ => print "sync stack empty" 
-          )
-
         in
           (case active_bevt_op of
             SOME bevt =>
@@ -1448,10 +1347,8 @@ structure Tree = struct
     Num_Add (t, pos) => reduce_single (
       t, fn t => Num_Add (t, pos),
       (fn
-        List_Val ([Num_Val (n1, _), Num_Val (n2, _)], _) => (
-          print ("adding: " ^ n1 ^ " and " ^ n2 ^ "\n"); 
-          Num_Val (add_num (n1, n2), pos)
-        ) |
+        List_Val ([Num_Val (n1, _), Num_Val (n2, _)], _) =>
+          Num_Val (num_add (n1, n2), pos) |
         _ => Error "adding non-numbers"
       ),
       val_store, cont_stack, thread_id,
@@ -1463,7 +1360,7 @@ structure Tree = struct
       t, fn t => Num_Sub (t, pos),
       (fn
         List_Val ([Num_Val (n1, _), Num_Val (n2, _)], _) => (
-          Num_Val (sub_num (n1, n2), pos)
+          Num_Val (num_sub (n1, n2), pos)
         ) |
         _ => Error "subtracting non-numbers"
       ),
@@ -1476,7 +1373,7 @@ structure Tree = struct
       t, fn t => Num_Mul (t, pos),
       (fn
         List_Val ([Num_Val (n1, _), Num_Val (n2, _)], _) => (
-          Num_Val (mul_num (n1, n2), pos)
+          Num_Val (num_mul (n1, n2), pos)
         ) |
         _ => Error "multplying non-numbers"
       ),
@@ -1489,7 +1386,7 @@ structure Tree = struct
       t, fn t => Num_Div (t, pos),
       (fn
         List_Val ([Num_Val (n1, _), Num_Val (n2, _)], _) => (
-          Num_Val (div_num (n1, n2), pos)
+          Num_Val (num_div (n1, n2), pos)
         ) |
         _ => Error "dividing non-numbers"
       ),
@@ -1502,7 +1399,7 @@ structure Tree = struct
       t, fn t => Num_Rem (t, pos),
       (fn
         List_Val ([Num_Val (n1, _), Num_Val (n2, _)], _) => (
-          Num_Val (rem_num (n1, n2), pos)
+          Num_Val (num_rem (n1, n2), pos)
         ) |
         _ => Error "remaindering non-numbers"
       ),
@@ -1536,7 +1433,7 @@ structure Tree = struct
     Mode_Block bevts => "Block" |
     Mode_Sync (thread_id, msg, send_id, recv_id) => "Sync" |
     Mode_Stick msg => "Stick: " ^ msg  |
-    Mode_Finish t => "Finish" ^ (to_string t)
+    Mode_Finish t => "Finish: " ^ (to_string t)
   ) ^ "----"
 
   fun concur_step (
