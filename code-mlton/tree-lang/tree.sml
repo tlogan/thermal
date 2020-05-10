@@ -108,7 +108,7 @@ structure Tree = struct
     Mode_Sync of (int * term * int * int)
       (* Mode_Sync (thread_id, msg, send_id, recv_id) *) |
     Mode_Stick of string |
-    Mode_Finish
+    Mode_Finish of term
 
 
 
@@ -501,11 +501,18 @@ structure Tree = struct
           )
         )
       ) 
+
+      val chan_store' = (case chan_op of
+        SOME (sends, []) => insert (chan_store, i, (sends, [])) |
+        SOME (sends, recv :: recvs) => insert (chan_store, i, (sends, recvs)) |
+        NONE => chan_store 
+      )
+
     in
       (
         md', 
         threads,
-        (chan_store, block_store, sync_store, cnt)
+        (chan_store', block_store, sync_store, cnt)
       ) 
     end) |
   
@@ -548,11 +555,18 @@ structure Tree = struct
           )
         )
       )
+
+
+      val chan_store' = (case chan_op of
+        SOME ([], recvs) => insert (chan_store, i, ([], recvs)) |
+        SOME (send :: sends, recvs) => insert (chan_store, i, (sends, recvs)) |
+        NONE => chan_store 
+      )
     in
       (
         md',
         threads,
-        (chan_store, block_store, sync_store, cnt)
+        (chan_store', block_store, sync_store, cnt)
       )
     end)
   
@@ -581,15 +595,21 @@ structure Tree = struct
         val chan_op = find (chan_store, i)
         val chan' = (case chan_op of
           NONE =>
-            ([(block_id, cont_stack', msg, thread_id)], []) | 
+            (
+            print ("send_q: null \n");
+            ([(block_id, cont_stack', msg, thread_id)], [])
+            ) |
           SOME (send_q, recv_q) =>
+            (
+            print ("send_q length: " ^ (Int.toString (length send_q)) ^ "\n");
             (send_q @ [(block_id, cont_stack', msg, thread_id)], recv_q)
+            )
         )
         val chan_store' = insert (chan_store, i, chan')
       in
 
         (let
-          val chan_op = find (chan_store, i)
+          val chan_op = find (chan_store', i)
           val send_op = (case chan_op of
             SOME ((block_id, send_stack, msg, send_thread_id) :: sends, _) =>
               SOME (send_stack, msg, send_thread_id) | 
@@ -772,7 +792,7 @@ structure Tree = struct
     chan_store, block_store, sync_store, cnt
   ) = (let
     val (threads, md) = (case cont_stack of
-      [] => ([], Mode_Finish) |
+      [] => ([], Mode_Finish result) |
       (cmode, lams, val_store', mutual_store) :: cont_stack' => (let
 
         val val_store'' = (case result of
@@ -1516,7 +1536,7 @@ structure Tree = struct
     Mode_Block bevts => "Block" |
     Mode_Sync (thread_id, msg, send_id, recv_id) => "Sync" |
     Mode_Stick msg => "Stick: " ^ msg  |
-    Mode_Finish => "Finish"
+    Mode_Finish t => "Finish" ^ (to_string t)
   ) ^ "----"
 
   fun concur_step (
