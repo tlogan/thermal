@@ -1,14 +1,5 @@
 + infixl d0 : add;    
 - infixl d0 : sub;    
-* infixl d2 : mul;    
+* infixl d1 : mul;    
 / infixl d1 : div;    
-
-
-((4 * 3) * 2)
-(4 * (3 * 2))
-
-(((4 + 6) * 5) / 2)
-
-((4 + (6 * 5)) / 2)
-
-4 + (6 * 5 / 2)
+4 + 6 * 5 / 2 - 9

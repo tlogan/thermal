@@ -874,8 +874,6 @@ structure Tree = struct
 
     _ =>
       (if is_value t then
-      (   
-        print ("reduce_single value: " ^ (to_string t) ^ "\n");
         (case (reduce_f t) of
           Error msg => (
             Mode_Stick msg,
@@ -888,7 +886,6 @@ structure Tree = struct
             (chan_store, block_store, sync_store, cnt)
           )
         )
-      )
       else
         push (
             (t, (Contin_Norm, [( hole cnt, push_f (hole cnt) )], val_store, [])),
@@ -906,7 +903,7 @@ structure Tree = struct
   ) = (case t_fn of
     (Id (id, _)) =>
       (case (find (val_store, id)) of
-        SOME (NONE, v_fn) => (
+        SOME (_, v_fn) => (
           Mode_Suspend,
           [(Func_Elim (v_fn, t_arg, pos), val_store, cont_stack, thread_id)],
           (chan_store, block_store, sync_store, cnt)
@@ -1045,10 +1042,11 @@ structure Tree = struct
           (case (find (val_store, id1)) of
             SOME (SOME (direc', prec'), rator') =>
             (if (prec' = prec andalso direc = Right) orelse (prec > prec') then
-              Compo (t1a, Compo (Id (id1, pos1),
+              Compo (
+                Compo (t1a, Id (id1, pos1), p1a),
                 associate_infix val_store (Compo (Compo (t1b, Id (id, pos), p1b), t2, p2)),
-                p1a 
-              ), p1)
+                p1
+              )
             else 
               Compo (Compo (t1', Id (id, pos), p1), t2, p2)
             ) |
@@ -1104,7 +1102,7 @@ structure Tree = struct
     (t, val_store, cont_stack, thread_id),
     (chan_store, block_store, sync_store, cnt)
   ) = (
-    print ("\n<| thread " ^ (Int.toString thread_id) ^ " |>\n" ^ (to_string t) ^ "\n\n");
+    (* print ("\n<| thread " ^ (Int.toString thread_id) ^ " |>\n" ^ (to_string t) ^ "\n\n"); *)
     case t of
 
     Assoc (term, pos) => (
@@ -1168,7 +1166,8 @@ structure Tree = struct
 
 
     Compo (Compo (t1, Id (id, pos), p1), t2, p2) => (let
-      val t' = to_func_elim val_store (associate_infix val_store t)
+      val t_m = associate_infix val_store t
+      val t' = to_func_elim val_store t_m 
     in
       (
         Mode_Reduce t',
@@ -1558,7 +1557,9 @@ structure Tree = struct
       val (md', seq_threads, env') = (seq_step (md, thread, env)) 
 
       
+      (*
       val _ = print ((to_string_from_mode md') ^ "\n")
+      *)
       (*
       val _ = print (
         "# seq_threads: " ^
