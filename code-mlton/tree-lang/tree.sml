@@ -708,7 +708,7 @@ structure Tree = struct
     chan_store, block_store, sync_store, cnt
   ) = (let
     val (threads, md) = (case cont_stack of
-      [] => ([], Mode_Finish result)|
+      [] => ([], (print ((to_string result) ^ "\n"); Mode_Finish result))|
       (cmode, lams, val_store', mutual_store) :: cont_stack' => (let
 
         val val_store'' = (case result of
@@ -874,6 +874,8 @@ structure Tree = struct
 
     _ =>
       (if is_value t then
+      (   
+        print ("reduce_single value: " ^ (to_string t) ^ "\n");
         (case (reduce_f t) of
           Error msg => (
             Mode_Stick msg,
@@ -886,6 +888,7 @@ structure Tree = struct
             (chan_store, block_store, sync_store, cnt)
           )
         )
+      )
       else
         push (
             (t, (Contin_Norm, [( hole cnt, push_f (hole cnt) )], val_store, [])),
@@ -939,7 +942,7 @@ structure Tree = struct
   )
 
 
-  fun associate_right val_store (
+  fun associate_infix val_store (
     t1, id, rator, direc, prec, pos, t2
   ) = (case t1 of 
     Compo (Compo (t1', Id (id', pos'), p1'), t2', p2') =>
@@ -947,29 +950,29 @@ structure Tree = struct
       SOME (SOME (direc', prec'), rator') =>
       (if (prec' = prec) then
         (if direc = Right then
-          associate_right val_store (
+          associate_infix val_store (
             t1',
             id, rator, direc, prec, pos',
-            Func_Elim (rator, List_Val ([t2', t2], pos), pos)
+            Func_Elim (rator, List_Intro (t2', List_Intro (t2, Blank 0, pos), pos), pos)
           )  
         else 
-          Func_Elim (rator, List_Val ([t1, t2], pos), pos)
+          Func_Elim (rator, List_Intro (t1, List_Intro (t2, Blank 0, pos), pos), pos)
         )
       else if (prec > prec') then
-        associate_right val_store (
+        associate_infix val_store (
           t1',
           id', rator', direc', prec', pos',
-          Func_Elim (rator, List_Val ([t2', t2], pos), pos)
+          Func_Elim (rator, List_Intro (t2', List_Intro (t2, Blank 0, pos), pos), pos)
         )  
       else
-        Func_Elim (rator, List_Val ([t1, t2], pos), pos)
+        Func_Elim (rator, List_Intro (t1, List_Intro (t2, Blank 0, pos), pos), pos)
       ) |
 
       _ => Compo (Func_Elim (t1', Id (id', pos'), p1'), t2', p2')
     ) |
 
     _ =>
-      Func_Elim (rator, List_Val ([t1, t2], pos), pos)
+      Func_Elim (rator, List_Intro (t1, List_Intro (t2, Blank 0, pos), pos), pos)
   )
 
   fun seq_step (
@@ -977,7 +980,7 @@ structure Tree = struct
     (t, val_store, cont_stack, thread_id),
     (chan_store, block_store, sync_store, cnt)
   ) = (
-    (*print ("\n<| thread " ^ (Int.toString thread_id) ^ " |>\n" ^ (to_string t) ^ "\n\n");*)
+    print ("\n<| thread " ^ (Int.toString thread_id) ^ " |>\n" ^ (to_string t) ^ "\n\n");
     case t of
 
     Assoc (term, pos) => (
@@ -1044,7 +1047,7 @@ structure Tree = struct
 
       val term = (case (find (val_store, id)) of
         SOME (SOME (direc, prec), rator) =>  (let
-          val x = associate_right val_store (t1, id, rator, direc, prec, pos, t2)
+          val x = associate_infix val_store (t1, id, rator, direc, prec, pos, t2)
         in
           x
         end ) |
@@ -1440,10 +1443,11 @@ structure Tree = struct
     md, threads, env 
   
   ) = (case threads of
-    [] => (print "all done!\n"; NONE) |
+    [] => ( (*print "all done!\n";*) NONE) |
     thread :: threads' => (let
       val (md', seq_threads, env') = (seq_step (md, thread, env)) 
 
+      
       val _ = print ((to_string_from_mode md') ^ "\n")
       (*
       val _ = print (

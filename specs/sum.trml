@@ -1,0 +1,6 @@
+sum : (
+  case 0 => 0
+  case n => add (n, sum (sub (n, 1,)),)
+);
+
+sum 11426 
