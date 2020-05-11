@@ -942,6 +942,10 @@ structure Tree = struct
   )
 
 
+(*
+
+
+  (* TODO: rewrite associate_infix to take only one term as input, check for infix inside*)
   fun associate_infix val_store (
     t1, id, rator, direc, prec, pos, t2
   ) = (case t1 of 
@@ -953,9 +957,11 @@ structure Tree = struct
           associate_infix val_store (
             t1',
             id, rator, direc, prec, pos',
-            Func_Elim (rator, List_Intro (t2', List_Intro (t2, Blank 0, pos), pos), pos)
+            Compo (Compo (t2', Id (id, pos), pos), t2, pos)
           )  
         else 
+
+          (* TODO: recurse on sub term and compose with other *)
           Func_Elim (rator, List_Intro (t1, List_Intro (t2, Blank 0, pos), pos), pos)
         )
       else if (prec > prec') then
@@ -973,6 +979,97 @@ structure Tree = struct
 
     _ =>
       Func_Elim (rator, List_Intro (t1, List_Intro (t2, Blank 0, pos), pos), pos)
+  )
+
+*)
+
+      (*
+
+  fun associate_infix val_store t = (case t of
+    Compo (Compo (t1, Id (id, pos), p1), t2, p2) =>
+      (case (find (val_store, id)) of
+        SOME (SOME (direc, prec), rator) => (* do previous funcition work *)
+        (case t1 of 
+          Compo (Compo (t1', Id (id', pos'), p1'), t2', p2') =>
+          (case (find (val_store, id')) of
+            SOME (SOME (direc', prec'), rator') =>
+            (if (prec' = prec) then
+              (if direc = Right then
+                associate_infix val_store (
+                  Compo (t1', Compo (Id (id', pos'),
+                    Compo (Compo (t2', Id (id, pos), p2'), t2, p2),
+                    p1' 
+                  ), p1)
+                )  
+              else 
+                associate_infix val_store (
+                  Compo (Compo ((associate_infix val_store t1), Id (id, pos), p1), t2, p2)
+                )
+                (* TODO: recurse on sub term and compose with other *)
+                Func_Elim (rator, List_Intro (t1, List_Intro (t2, Blank 0, pos), pos), pos)
+              )
+            else if (prec > prec') then
+              associate_infix val_store (
+                t1',
+                id', rator', direc', prec', pos',
+                Func_Elim (rator, List_Intro (t2', List_Intro (t2, Blank 0, pos), pos), pos)
+              )  
+            else
+              Func_Elim (rator, List_Intro (t1, List_Intro (t2, Blank 0, pos), pos), pos)
+            ) |
+
+            _ => Compo (Func_Elim (t1', Id (id', pos'), p1'), t2', p2')
+          ) |
+
+          _ =>
+            Func_Elim (rator, List_Intro (t1, List_Intro (t2, Blank 0, pos), pos), pos)
+        ) |
+
+        _ => (
+          Compo (Func_Elim (t1, Id (id, pos), p1), t2, p2)
+        )
+      )
+    _ => t
+  )
+      *)
+
+
+
+  fun associate_infix val_store t = (case t of
+    Compo (Compo (t1, Id (id, pos), p1), t2, p2) => (let
+      val t1' = associate_infix val_store t1
+    in
+      (case (find (val_store, id)) of
+        SOME (SOME (direc, prec), rator) => (case t1' of 
+          Compo (Compo (t1a, Id (id1, pos1), p1a), t1b, p1b) =>
+          (case (find (val_store, id1)) of
+            SOME (SOME (direc', prec'), rator') =>
+            (if (prec' = prec andalso direc = Right) orelse (prec > prec') then
+              Compo (t1a, Compo (Id (id1, pos1),
+                associate_infix val_store (Compo (Compo (t1b, Id (id, pos), p1b), t2, p2)),
+                p1a 
+              ), p1)
+            else 
+              Compo (Compo (t1', Id (id, pos), p1), t2, p2)
+            ) |
+
+            _ => (let
+              val t1'' = Compo (Func_Elim (t1a, Id (id1, pos1), p1a), t1b, p1b)
+            in
+              Compo (Compo (t1'', Id (id, pos), p1), t2, p2)
+            end)
+          ) |
+
+          _ => Compo (Compo (t1', Id (id, pos), p1), t2, p2)
+        ) |
+
+        _ => (
+          Compo (Func_Elim (t1', Id (id, pos), p1), t2, p2)
+        )
+      )
+    end) |
+
+    _ => t
   )
 
   fun seq_step (
@@ -1045,19 +1142,7 @@ structure Tree = struct
 
     Compo (Compo (t1, Id (id, pos), p1), t2, p2) => (let
 
-      val term = (case (find (val_store, id)) of
-        SOME (SOME (direc, prec), rator) =>  (let
-          val x = associate_infix val_store (t1, id, rator, direc, prec, pos, t2)
-        in
-          x
-        end ) |
-
-        _ => (let
-          val x = Compo (Func_Elim (t1, Id (id, pos), p1), t2, p2)
-        in
-          x
-        end)
-      )
+      val term = associate_infix val_store t 
 
     in
       (
