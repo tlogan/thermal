@@ -1072,6 +1072,33 @@ structure Tree = struct
     _ => t
   )
 
+  fun to_func_elim val_store t = (case t of
+    Compo (Compo (t1, Id (id, pos), p1), t2, p2) => (
+      (case (find (val_store, id)) of
+        SOME (SOME (direc, prec), rator) => (
+          Func_Elim (
+            Id (id, pos),
+            List_Intro (
+              to_func_elim val_store t1,
+              List_Intro (to_func_elim val_store t2, Blank 0, pos),
+              pos
+            ),
+            pos
+          )
+        ) |
+
+        _ => (
+          Func_Elim (
+            Func_Elim (to_func_elim val_store t1, Id (id, pos), p1),
+            to_func_elim val_store t2,
+            p2
+          )
+        )
+      )
+    ) |
+    _ => t
+  )
+
   fun seq_step (
     md,
     (t, val_store, cont_stack, thread_id),
@@ -1141,13 +1168,11 @@ structure Tree = struct
 
 
     Compo (Compo (t1, Id (id, pos), p1), t2, p2) => (let
-
-      val term = associate_infix val_store t 
-
+      val t' = to_func_elim val_store (associate_infix val_store t)
     in
       (
-        Mode_Reduce term,
-        [(term, val_store, cont_stack, thread_id)],
+        Mode_Reduce t',
+        [(t', val_store, cont_stack, thread_id)],
         (chan_store, block_store, sync_store, cnt)
       )
     end) |
