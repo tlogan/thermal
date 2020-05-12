@@ -70,7 +70,6 @@ symbol=[\-\^\\=+!@#$%&*<>/{}|?~:']|"["|"]";
 <INITIAL>"sub" => (SUB (!linenum, inccol 1));
 <INITIAL>"mul" => (MUL (!linenum, inccol 1));
 <INITIAL>"div" => (DIV (!linenum, inccol 1));
-<INITIAL>"rem" => (REM (!linenum, inccol 1));
 
 
 <INITIAL>"addw" => (ADDW (!linenum, inccol 1));

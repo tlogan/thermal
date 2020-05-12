@@ -16,4 +16,4 @@ loop : (case res => (
   )
 ));
 
-loop () 9
+log (loop () 9)

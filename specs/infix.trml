@@ -2,4 +2,4 @@
 - infixl d0 : sub;    
 * infixl d1 : mul;    
 / infixl d1 : div;    
-4 + 6 * 5 / 2 - 9
+log (4 + 6 * 5 / 2 - 9)

@@ -77,7 +77,6 @@ structure Tree = struct
     Num_Sub of (term * int) |
     Num_Mul of (term * int) |
     Num_Div of (term * int) |
-    Num_Rem of (term * int) |
 
     (* internal reps *)
     Chan_Loc of int |
@@ -112,172 +111,130 @@ structure Tree = struct
     Mode_Finish of term
 
 
+  val surround_with = String.surround_with
+  val surround = String.surround
+(*
+  fun surround tag body = (let
+    val abc = "(" ^ tag
+    val bodyLines = String.tokens (fn c => c = #"\n") body
+    val indentedLines = map (fn l => "  " ^ l) bodyLines
+    val indentedBody = String.concatWith "\n" indentedLines 
+    val xyz = if body = "" then ")" else "\n" ^ indentedBody ^ ")"
+  in
+    abc ^ xyz 
+  end)
+*)
+
+  fun from_infix_option_to_string fix_op = (case fix_op of
+    SOME (Left, d) => " infixl d" ^ (Int.toString d) |
+    SOME (Right, d) => " infixr d" ^ (Int.toString d) |
+    NONE => ""
+  )
+
 
   fun to_string t = (case t of
 
 
-    Assoc (t, pos) => String.surround "Assoc" (
-      (to_string t)
+    Assoc (t, pos) => "(" ^ (to_string t) ^ ")" |
+
+    Log (t, pos) => "log " ^  (to_string t) |
+
+    List_Intro (t1, t2, pos) => (
+      (to_string t1) ^ ", " ^ (to_string t2)
     ) |
 
-    Log (t, pos) => String.surround "Log" (
-      (to_string t)
+    List_Val (ts, pos) => surround "" ( 
+      String.concatWith "\n" (List.map (fn t => "# " ^ (to_string t)) ts)
     ) |
 
-    List_Intro (t1, t2, pos) => String.surround "List_Intro" (
-      (to_string t1) ^ ",\n" ^
-      (to_string t2)
+    Func_Intro (lams, pos) => String.surround "" (
+      String.concatWith "\n" (List.map (fn t => (from_lam_to_string t)) lams)
     ) |
 
-    List_Val (ts, pos) => String.surround "[" (
-      (String.concatWith ",\n" (List.map to_string ts)) ^ "]"
+    Func_Val (lams, fnc_store, mutual_store, pos) => String.surround "val" (
+      String.concatWith "\n" (List.map (fn t => (from_lam_to_string t)) lams)
     ) |
 
-    Func_Intro (lams, pos) => String.surround "Func_Intro" (
-      String.concatWith ",\n" (List.map to_string_from_lam lams)) |
+    Compo (t1, t2, pos) => (to_string t1) ^ " " ^ (to_string t2) |
 
-    Func_Val (lams, fnc_store, mutual_store, pos) => String.surround "Func_Val" (
-      String.concatWith ",\n" (List.map to_string_from_lam lams)) |
-
-    Compo (t1, t2, pos) => String.surround "Compo" (
-      (to_string t1) ^ ",\n" ^
-      (to_string t2)
+    Func_Elim (t1, t2, pos) => surround "apply" (
+      (to_string t1) ^ " " ^ (to_string t2)
     ) |
 
-    Func_Elim (t1, t2, pos) => String.surround "Func_Elim" (
-      (to_string t1) ^ ",\n" ^
-      (to_string t2)
+    Seq (t1, t2, pos) => (to_string t1) ^ ";\n" ^ (to_string t2) |
+
+    Rec_Intro (fs, pos) => String.surround "" (
+      String.concatWith ",\n" (List.map from_field_to_string fs)
     ) |
 
-    Seq (t1, t2, pos) => String.surround "Seq" (
-      (to_string t1) ^ ",\n" ^ (to_string t2)
+    Rec_Intro_Mutual (fs, pos) => String.surround "mutual" (
+      String.concatWith ",\n" (List.map from_field_to_string fs)
     ) |
 
-    Rec_Intro (fs, pos) => String.surround "Rec_Intro" (
-      String.concatWith ",\n" (List.map to_string_from_field fs)
+    Rec_Val (fs, pos) => String.surround "val" (
+      String.concatWith ",\n" (List.map from_field_to_string fs)
     ) |
 
-    Rec_Intro_Mutual (fs, pos) => String.surround "Rec_Intro_Mutual" (
-      String.concatWith ",\n" (List.map to_string_from_field fs)
-    ) |
+    Rec_Elim (t, pos) => "select " ^ (to_string t) |
 
-    Rec_Val (fs, pos) => String.surround "Rec_Val" (
-      String.concatWith ",\n" (List.map to_string_from_field fs)
-    ) |
+    Chan_Alloc (t, pos) => "alloc_chan " ^ (to_string t) |
 
-    Rec_Elim (t, pos) => String.surround "Rec_Elim" (
-      (to_string t)
-    ) |
+    Evt_Send_Intro (t, pos) => "send" ^ (to_string t) |
 
-    Chan_Alloc (t, pos) => String.surround "Chan_Alloc" (
-      to_string t
-    ) |
+    Evt_Send_Val (t, pos) => "send_val" ^ (to_string t) |
 
-    Evt_Send_Intro (t, pos) => String.surround "Evt_Send_Intro" (
-      (to_string t)
-    ) |
-
-    Evt_Send_Val (t, pos) => String.surround "Evt_Send_Val" (
-      (to_string t)
-    ) |
-
-    Evt_Recv_Intro (t, pos) => String.surround "Evt_Recv_Intro" (
-      (to_string t)
-    ) |
+    Evt_Recv_Intro (t, pos) => "recv" ^ (to_string t) |
     
-    Evt_Recv_Val (t, pos) => String.surround "Evt_Recv_Val" (
-      (to_string t)
-    ) |
+    Evt_Recv_Val (t, pos) => "recv_val" ^ (to_string t) |
 
-    Evt_Wrap_Intro (t, pos) => String.surround "Evt_Wrap_Intro" (
-      (to_string t)
-    ) |
+    Evt_Wrap_Intro (t, pos) => "wrap " ^ (to_string t) |
 
-    Evt_Wrap_Val (t, pos) => String.surround "Evt_Wrap_Val" (
-      (to_string t)
-    ) |
+    Evt_Wrap_Val (t, pos) => "wrap_val " ^ (to_string t) |
 
-    Evt_Choose_Intro (t, pos) => String.surround "Evt_Choose_Intro" (
-      (to_string t)
-    ) |
+    Evt_Choose_Intro (t, pos) => "choose " ^ (to_string t) |
 
-    Evt_Choose_Val (t, pos) => String.surround "Evt_Choose_Val" (
-      (to_string t)
-    ) |
+    Evt_Choose_Val (t, pos) => "choose_val " ^ (to_string t) |
 
-    Evt_Elim (t, pos) => String.surround ("Evt_Elim") (
-      (to_string t)
-    ) |
+    Evt_Elim (t, pos) => "sync " ^ (to_string t) |
 
-    Spawn (t, pos) => String.surround ("Spawn") (
-      (to_string t)
-    ) |
+    Spawn (t, pos) => "spawn " ^ (to_string t) |
 
-    Par (t, pos) => String.surround ("Par") (
-      (to_string t)
-    ) |
+    Par (t, pos) =>  surround_with "<|" "" (to_string t) "|>" |
 
-    Sym (t, pos) => String.surround ("Sym") (
-      (to_string t)
-    ) |
+    Sym (t, pos) => "sym " ^ (to_string t) |
   
-    Blank pos =>
-      "Blank" |
+    Blank pos => "()" |
 
-    Id (name, pos) =>
-      "(Id" ^ " " ^ name ^ ")" |
+    Id (name, pos) => name |
 
-    String_Val (str, pos) =>
-      "(String_Val" ^ " " ^ str ^ ")" |
+    String_Val (str, pos) => str |
 
-    Chan_Loc i =>
-      "(Chan_Loc " ^ (Int.toString i) ^ ")" |
+    Chan_Loc i => "chan_loc_" ^ (Int.toString i) |
 
-    ThreadId i =>
-      "(ThreadId " ^ (Int.toString i) ^ ")" |
+    ThreadId i => "thread_" ^ (Int.toString i) |
 
 
-    Num_Val (num, pos) =>
-      "(Num_Val" ^ " " ^ num ^ ")" |
+    Num_Val (num, pos) => num |
 
-    Num_Add (t, pos) => String.surround ("Num_Add") (
-      (to_string t)
-    ) |
+    Num_Add (t, pos) => "add " ^ (to_string t) |
 
-    Num_Sub (t, pos) => String.surround ("Num_Sub") (
-      (to_string t)
-    ) |
+    Num_Sub (t, pos) => "sub " ^ (to_string t) |
 
-    Num_Mul (t, pos) => String.surround ("Num_Mul") (
-      (to_string t)
-    ) |
+    Num_Mul (t, pos) => "mul " ^ (to_string t) |
 
-    Num_Div (t, pos) => String.surround ("Num_Div") (
-      (to_string t)
-    ) |
-
-    Num_Rem (t, pos) => String.surround ("Num_Rem") (
-      (to_string t)
-    ) |
+    Num_Div (t, pos) => "div " ^ (to_string t) |
 
     _ =>
       "(NOT YET IMPLEMENTED)"
 
   )
 
-  and to_string_from_lam (t1, t2) = String.surround "Lam" (
-    (to_string t1) ^ ",\n" ^
-    (to_string t2)
+  and from_lam_to_string (t1, t2) = String.surround "" (
+    "case "  ^ (to_string t1) ^ " => " ^ (to_string t2)
   )
 
-  and to_string_from_field (name, (fix_op, t)) = String.surround name (
-    (to_string_from_infix_option fix_op) ^ (to_string t)
-  )
-
-  and to_string_from_infix_option fix_op = (case fix_op of
-    SOME (Left, _) => "INFIXL " |
-    SOME (Right, _) => "INFIXR " |
-    NONE => ""
+  and from_field_to_string (name, (fix_op, t)) = String.surround "" (
+    "def "  ^ name ^ (from_infix_option_to_string fix_op) ^ " : " ^ (to_string t)
   )
 
 
@@ -1107,7 +1064,7 @@ structure Tree = struct
     (t, val_store, cont_stack, thread_id),
     (chan_store, block_store, sync_store, cnt)
   ) = (
-    (* print ("\n<| thread " ^ (Int.toString thread_id) ^ " |>\n" ^ (to_string t) ^ "\n\n"); *)
+    (*print ("\n(*** thread " ^ (Int.toString thread_id) ^ " ***)\n" ^ (to_string t) ^ "\n\n");*)
     case t of
 
     Assoc (term, pos) => (
@@ -1522,20 +1479,6 @@ structure Tree = struct
       chan_store, block_store, sync_store, cnt
 
     ) |
-
-    Num_Rem (t, pos) => reduce_single (
-      t, fn t => Num_Rem (t, pos),
-      (fn
-        List_Val ([Num_Val (n1, _), Num_Val (n2, _)], _) => (
-          Num_Val (num_rem (n1, n2), pos)
-        ) |
-        _ => Error "remaindering non-numbers"
-      ),
-      val_store, cont_stack, thread_id,
-      chan_store, block_store, sync_store, cnt
-
-    ) |
-
 
     _ => (
       Mode_Stick "TODO",

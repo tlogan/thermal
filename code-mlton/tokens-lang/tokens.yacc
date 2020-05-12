@@ -11,7 +11,7 @@ open Tree
   COMMA |
   FATARROW | COLON | DOT | LSQ | RSQ | CASE |
   LOG |
-  ADD | SUB | MUL | DIV | REM | 
+  ADD | SUB | MUL | DIV |
   ADDW | SUBW | MULW | DIVSW | DIVUW | REMSW | REMUW | 
   ADDF | SUBF | MULF | DIVF | 
   EQUAL | 
@@ -51,7 +51,7 @@ open Tree
 
 %right SYM LOG
 
-%left ALLOC_CHAN SEND RECV WRAP CHSE SPAWN SYNC ADD SUB MUL DIV REM SELECT EQUAL
+%left ALLOC_CHAN SEND RECV WRAP CHSE SPAWN SYNC ADD SUB MUL DIV SELECT EQUAL
 %nonassoc INFIXL INFIXR DIGIT
 
 %left LPAREN LANG
@@ -144,8 +144,6 @@ term_nt:
   MUL (Func_Intro ([(Id ("_param", ~1), Num_Mul (Id ("_param", ~1), MULleft))], MULleft)) |
 
   DIV (Func_Intro ([(Id ("_param", ~1), Num_Div (Id ("_param", ~1), DIVleft))], DIVleft)) |
-
-  REM (Func_Intro ([(Id ("_param", ~1), Num_Rem (Id ("_param", ~1), REMleft))], REMleft)) |
 
   STRING (String_Val (STRING, STRINGleft))
 
