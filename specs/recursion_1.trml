@@ -3,4 +3,4 @@ sum : (
   case n => add (n, sum (sub (n, 1,)),)
 );
 
-sum 11426 
+log (sum 11426) 

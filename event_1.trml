@@ -1,16 +1,3 @@
-/*
-spawn (() => (
-  fact : (
-    case 0 => 1
-    case n => mul (n, fact (sub (n, 1,)),)
-  );
-  
-  fact 4
-));
-
-()
-*/
-
 make_nat_stream : (case () => (
   ch : alloc_chan ();
   count : i => (

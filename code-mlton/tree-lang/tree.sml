@@ -14,6 +14,7 @@ structure Tree = struct
     Blank of int |
     Id of (string * int) |
     Assoc of (term * int) |
+    Log of (term * int) |
 
     List_Intro of (term * term * int) |
     List_Val of ((term list) * int) |
@@ -116,6 +117,10 @@ structure Tree = struct
 
 
     Assoc (t, pos) => String.surround "Assoc" (
+      (to_string t)
+    ) |
+
+    Log (t, pos) => String.surround "Log" (
       (to_string t)
     ) |
 
@@ -708,7 +713,7 @@ structure Tree = struct
     chan_store, block_store, sync_store, cnt
   ) = (let
     val (threads, md) = (case cont_stack of
-      [] => ([], (print ((to_string result) ^ "\n"); Mode_Finish result))|
+      [] => ([], Mode_Finish result)|
       (cmode, lams, val_store', mutual_store) :: cont_stack' => (let
 
         val val_store'' = (case result of
@@ -793,7 +798,7 @@ structure Tree = struct
   fun hole i = Id (sym i, ~1)
 
   fun reduce_list (
-    ts, push_f, reduce_f,
+    ts, norm_f, reduce_f,
     val_store, cont_stack, thread_id,
     chan_store, block_store, sync_store, cnt
   ) = (let
@@ -832,7 +837,7 @@ structure Tree = struct
                 x,
                 (
                   Contin_Norm,
-                  [( hole cnt, push_f (prefix @ (hole cnt :: xs)) )],
+                  [( hole cnt, norm_f (prefix @ (hole cnt :: xs)) )],
                   val_store,
                   []
                 )
@@ -851,7 +856,7 @@ structure Tree = struct
   end)
   
   fun reduce_single (
-    t, push_f, reduce_f,
+    t, norm_f, reduce_f,
     val_store, cont_stack, thread_id,
     chan_store, block_store, sync_store, cnt
   ) = (case t of
@@ -859,7 +864,7 @@ structure Tree = struct
       (case (find (val_store, id)) of
         SOME (NONE, v) => (
           Mode_Suspend,
-          [(push_f v, val_store, cont_stack, thread_id)],
+          [(reduce_f v, val_store, cont_stack, thread_id)],
           (chan_store, block_store, sync_store, cnt)
         ) |
 
@@ -888,12 +893,12 @@ structure Tree = struct
         )
       else
         push (
-            (t, (Contin_Norm, [( hole cnt, push_f (hole cnt) )], val_store, [])),
-            val_store, cont_stack, thread_id,
-            chan_store, block_store, sync_store, cnt + 1
-          )
+          (t, (Contin_Norm, [( hole cnt, norm_f (hole cnt) )], val_store, [])),
+          val_store, cont_stack, thread_id,
+          chan_store, block_store, sync_store, cnt + 1
         )
       )
+  )
 
 
   fun apply (
@@ -1106,10 +1111,21 @@ structure Tree = struct
     case t of
 
     Assoc (term, pos) => (
-      Mode_Suspend,
+      Mode_Reduce term,
       [(term, val_store, cont_stack, thread_id)],
       (chan_store, block_store, sync_store, cnt)
     ) |
+
+    Log (t, pos) => reduce_single (
+      t,
+      fn t => Log (t, pos),
+      fn v => (
+        print ((to_string v) ^ "\n");
+        v
+      ),
+      val_store, cont_stack, thread_id,
+      chan_store, block_store, sync_store, cnt
+    ) | 
 
     Id (id, pos) => (case (find (val_store, id)) of
       SOME (NONE, v) => (

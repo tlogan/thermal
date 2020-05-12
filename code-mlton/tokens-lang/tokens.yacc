@@ -10,6 +10,7 @@ open Tree
   DEF |
   COMMA |
   FATARROW | COLON | DOT | LSQ | RSQ | CASE |
+  LOG |
   ADD | SUB | MUL | DIV | REM | 
   ADDW | SUBW | MULW | DIVSW | DIVUW | REMSW | REMUW | 
   ADDF | SUBF | MULF | DIVF | 
@@ -48,7 +49,7 @@ open Tree
 
 %right COMMA
 
-%right SYM 
+%right SYM LOG
 
 %left ALLOC_CHAN SEND RECV WRAP CHSE SPAWN SYNC ADD SUB MUL DIV REM SELECT EQUAL
 %nonassoc INFIXL INFIXR DIGIT
@@ -79,6 +80,7 @@ tree_nt:
 term_nt:
 
   LPAREN term_nt RPAREN (Assoc (term_nt, LPARENleft)) |
+  LOG term_nt (Log (term_nt, LOGleft)) |
 
   term_nt COMMA term_nt (List_Intro (term_nt1, term_nt2, COMMAleft)) |
   term_nt COMMA (List_Intro (term_nt, Blank COMMAright, COMMAleft)) |
