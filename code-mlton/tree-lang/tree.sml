@@ -662,7 +662,12 @@ structure Tree = struct
       )
       fun match_term key_matches = (case key_matches of
         [] => NONE |
-        [(_,(_, v))] => (match_value_insert (val_store, p, v)) |
+        [(vname,(vfix_op, v))] => (Option.mapPartial
+          (fn val_store' =>
+            SOME (insert (val_store', vname, (vfix_op, v)))
+          )
+          (match_value_insert (val_store, p, v))
+        ) |
         _ :: key_matches' => match_term key_matches'
       )
       val val_store_op = match_term key_matches
@@ -1545,7 +1550,6 @@ structure Tree = struct
     thread :: threads' => (let
       val (md', seq_threads, env') = (seq_step (md, thread, env)) 
 
-      
       (*
       val _ = print ((to_string_from_mode md') ^ "\n")
       *)

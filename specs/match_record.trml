@@ -1,7 +1,7 @@
 + infixl d1 : p => add p;
 
 add_record : (
-  case (def a : () def b : b' def c : ()) => (
+  case (def a : () def b : (b') def c : ()) => (
     a + b' + c    
   )
 
