@@ -1,0 +1,19 @@
++ infixl d1 : p => add p;
+
+add_record : (
+  case (def a : () def b : b' def c : ()) => (
+    a + b' + c    
+  )
+
+  case (def a : () def b : b') => (
+    add_record (def a : a def b : b def c : 4)
+  )
+) ;
+
+
+log (
+  add_record (
+    def a : 1
+    def b : 2
+  )
+)

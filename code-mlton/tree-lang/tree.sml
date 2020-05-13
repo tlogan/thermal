@@ -576,16 +576,9 @@ structure Tree = struct
         (match_value_insert (val_store, t', List_Val (vs, ~1)))
       ) |
 
-    (List_Val ([], _), List_Val ([], _)) => SOME val_store | 
-
-    (List_Val (t :: ts, _), List_Val (v :: vs, _))  =>
-      (Option.mapPartial
-        (fn val_store' =>
-          match_value_insert (val_store', t, v)
-        )
-        (match_value_insert (val_store, List_Val (ts, ~1), List_Val (vs, ~1)))
-      ) |
-
+    (Rec_Intro (p_fields, _), Rec_Val (v_fields, _)) => (
+      from_fields_match_value_insert val_store (p_fields, v_fields)
+    ) |
 
     (Num_Val (n, _), Num_Val (nv, _)) => (
       if n = nv then
@@ -597,6 +590,17 @@ structure Tree = struct
     _ => NONE
 
     (* **TODO**
+
+    (List_Val ([], _), List_Val ([], _)) => SOME val_store | 
+
+    (List_Val (t :: ts, _), List_Val (v :: vs, _))  =>
+      (Option.mapPartial
+        (fn val_store' =>
+          match_value_insert (val_store', t, v)
+        )
+        (match_value_insert (val_store, List_Val (ts, ~1), List_Val (vs, ~1)))
+      ) |
+
 
     (Evt_Send_Intro (t, _), Evt_Send_Intro (v, _)) =>
       match_value_insert (val_store, t, v) |
@@ -644,6 +648,32 @@ structure Tree = struct
     ) |
 
     *)
+  )
+
+  and from_fields_match_value_insert val_store (p_fields, v_fields) = (case p_fields of
+    [] => SOME val_store |
+    (pname, (pfix_op, p)) :: pfs => (let
+      val (key_matches, vfs) = (List.partition
+        (fn (vname, (vfix_op, _)) =>
+          pname = vname andalso
+          (pfix_op = vfix_op orelse pfix_op = NONE)
+        )
+        v_fields
+      )
+      fun match_term key_matches = (case key_matches of
+        [] => NONE |
+        [(_,(_, v))] => (match_value_insert (val_store, p, v)) |
+        _ :: key_matches' => match_term key_matches'
+      )
+      val val_store_op = match_term key_matches
+    in
+      (Option.mapPartial
+        (fn val_store' =>
+          from_fields_match_value_insert val_store' (pfs, vfs)
+        )
+        val_store_op
+      )
+    end)
   )
 
   fun sym i = "_g_" ^ (Int.toString i)
