@@ -553,6 +553,85 @@ structure Tree = struct
     (Mode_Block base_events, [], (chan_store', block_store', sync_store, cnt'))
   end)
 
+
+
+
+  fun match_symbolic_term_insert val_store (pattern, symbolic_term) = (case (pattern, symbolic_term) of
+    _ => NONE
+    (*** TODO ***)
+    (*
+      Blank of int |
+      Id of (string * int) |
+      Assoc of (term * int) |
+      Log of (term * int) |
+
+      List_Intro of (term * term * int) |
+      List_Val of ((term list) * int) |
+
+      Func_Intro of (
+        ((term * term) list) *
+        int
+      ) (* Func_Val (lams, pos) *) |
+
+      Func_Val of (
+        ((term * term) list) *
+        ((string, infix_option * term) store) *
+        ((string, infix_option * ((term * term) list)) store) *
+        int
+      ) (* Func_Val (lams, val_store, mutual_store, pos) *) |
+      Func_Elim of (term * term * int) |
+
+      Compo of (term * term * int) |
+      Seq of (term * term * int) |
+
+      Rec_Intro of (
+        ((string * (infix_option * term)) list) *
+        int
+      ) (* Rec_Intro (fields, pos) *) |
+
+      Rec_Intro_Mutual of (
+        ((string * (infix_option * term)) list) *
+        int
+      ) (* Rec_Intro (fields, pos) *) |
+
+      Rec_Val of (
+        ((string * (infix_option * term)) list) *
+        int
+      ) (* Rec_Intro (fields, pos) *) |
+
+      Rec_Elim of (term * int) |
+    
+      Chan_Alloc of (term * int) |
+
+      Evt_Send_Intro of (term * int) |
+      Evt_Send_Val of (term * int) |
+      Evt_Recv_Intro of (term * int) |
+      Evt_Recv_Val of (term * int) |
+      Evt_Wrap_Intro of (term * int) |
+      Evt_Wrap_Val of (term * int) |
+      Evt_Choose_Intro of (term * int) |
+      Evt_Choose_Val of (term * int) |
+      Evt_Elim of (term * int) |
+
+      Spawn of (term * int) |
+      Par of (term * int) |
+    
+      String_Val of (string * int) |
+
+      Num_Val of (string * int) |
+
+      Num_Add of (term * int) |
+      Num_Sub of (term * int) |
+      Num_Mul of (term * int) |
+      Num_Div of (term * int) |
+
+      (* internal reps *)
+      Chan_Loc of int |
+      ThreadId of int |
+      Error of string
+    *)
+  )
+
   fun match_value_insert (val_store, pat, value) = (case (pat, value) of
 
     (Assoc (pat', _), _) =>
@@ -575,6 +654,22 @@ structure Tree = struct
     (Rec_Intro (p_fields, _), Rec_Val (v_fields, _)) => (
       from_fields_match_value_insert val_store (p_fields, v_fields)
     ) |
+
+    (Func_Intro ([(Blank _, p_body)], _), Func_Val ([(Blank _, v_body)], val_store, mutual_store, _)) => (let
+      (* functions val_store casts shadow over outer scope's val_store *)
+
+      (* embed mutual_store within its own functions *)
+      val func_store = (map 
+        (fn (k, (fix_op, lams)) =>
+          (k, (fix_op, Func_Val (lams, val_store, mutual_store, ~1)))
+        )
+        mutual_store
+      )
+      val val_store' = insert_table (val_store, func_store)
+    in
+      match_symbolic_term_insert val_store' (p_body, v_body)
+    end) |
+
 
     (Num_Val (n, _), Num_Val (nv, _)) => (
       if n = nv then
