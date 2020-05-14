@@ -1,7 +1,8 @@
 + infixl d1 : p => add p;
 * infixl d2 : p => add p;
 
-/* only thunks may be used as patterns, and free variables in thunk pattern must be thunks too */
+/* only thunks may be used as patterns, and replacement variables in thunk pattern must be thunks too */
+/* only matches syntax; does not guarantee that pattern names stand for same thing as value names */ 
 
 plus_to_mul : (() => (a ()) + (b ())) => (() => (a ()) * (b ()));
 

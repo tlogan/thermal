@@ -115,6 +115,7 @@ symbol=[\-\^\\=+!@#$%&*<>/{}|?~:']|"["|"]";
 <INITIAL>"d"{digit} => (DIGIT ((valOf o Int.fromString) (substring (yytext, 1, 1)), !linenum, inccol 1));
 
 <INITIAL>"()" => (LRPAREN (!linenum, inccol 1));
+<INITIAL>"SYM" => (SYM (!linenum, inccol 1));
 
 <INITIAL>"-"?{digit}+("."{digit}+)? =>
   (NUM (yytext, !linenum, inccol (size yytext)));

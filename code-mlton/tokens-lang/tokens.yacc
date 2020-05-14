@@ -19,6 +19,7 @@ open Tree
   ALLOC_CHAN | SEND | RECV | 
   WRAP | CHSE | SYNC | SPAWN | 
   LPAREN | RPAREN | LANG | RANG | LRPAREN | 
+  SYM |
   INFIXL | INFIXR | DIGIT of int |
 
   NUM of string | WORD of string | FLOAT of string |
@@ -58,6 +59,8 @@ open Tree
 %right RPAREN RANG
 
 %left LRPAREN
+
+%right SYM
 
 %left NUM STRING ID
 
@@ -130,6 +133,8 @@ term_nt:
   LANG term_nt RANG (Par (term_nt, LANGleft)) |
 
   LRPAREN (Blank LRPARENleft) | 
+
+  SYM ID (Sym (ID, SYMleft)) | 
 
   ID (Id (ID, IDleft)) |
 

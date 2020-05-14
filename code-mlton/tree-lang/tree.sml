@@ -13,6 +13,7 @@ structure Tree = struct
   datatype term = 
     Blank of int |
     Id of (string * int) |
+    Sym of (string * int) |
     Assoc of (term * int) |
     Log of (term * int) |
 
@@ -557,10 +558,10 @@ structure Tree = struct
 
 
   fun match_symbolic_term_insert val_store (pattern, symbolic_term) = (case (pattern, symbolic_term) of
+    (Blank _, _) => SOME val_store |
     _ => NONE
     (*** TODO ***)
     (*
-      Blank of int |
       Id of (string * int) |
       Assoc of (term * int) |
       Log of (term * int) |
@@ -655,20 +656,13 @@ structure Tree = struct
       from_fields_match_value_insert val_store (p_fields, v_fields)
     ) |
 
-    (Func_Intro ([(Blank _, p_body)], _), Func_Val ([(Blank _, v_body)], val_store, mutual_store, _)) => (let
-      (* functions val_store casts shadow over outer scope's val_store *)
-
-      (* embed mutual_store within its own functions *)
-      val func_store = (map 
-        (fn (k, (fix_op, lams)) =>
-          (k, (fix_op, Func_Val (lams, val_store, mutual_store, ~1)))
-        )
-        mutual_store
-      )
-      val val_store' = insert_table (val_store, func_store)
-    in
-      match_symbolic_term_insert val_store' (p_body, v_body)
-    end) |
+    (Func_Intro ([(Blank _, p_body)], _), Func_Val ([(Blank _, v_body)], _, _, _)) => (
+      (* function value's local stores are ignored; only syntax is matched; *)
+      (* it's up to the user to determine if syntax can actually be evaluated in alternate context *)
+      (* variables in patter are specified by pattern_var syntax (sym f); *)
+      (* f may then be used in new context and evaluated with f () *) 
+      match_symbolic_term_insert val_store (p_body, v_body)
+    ) |
 
 
     (Num_Val (n, _), Num_Val (nv, _)) => (
