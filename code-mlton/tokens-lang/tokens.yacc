@@ -19,7 +19,7 @@ open Tree
   ALLOC_CHAN | SEND | RECV | 
   WRAP | CHSE | SYNC | SPAWN | 
   LPAREN | RPAREN | LANG | RANG | LRPAREN | 
-  SYM | INFIXL | INFIXR | DIGIT of int |
+  INFIXL | INFIXR | DIGIT of int |
 
   NUM of string | WORD of string | FLOAT of string |
   STRING of string | ID of string |
@@ -49,7 +49,7 @@ open Tree
 
 %right COMMA
 
-%right SYM LOG
+%right LOG
 
 %left ALLOC_CHAN SEND RECV WRAP CHSE SPAWN SYNC ADD SUB MUL DIV SELECT EQUAL
 %nonassoc INFIXL INFIXR DIGIT
@@ -128,8 +128,6 @@ term_nt:
   SPAWN (Func_Intro ([(Id ("_param", ~1), Spawn (Id ("_param", ~1), SPAWNleft))], SPAWNleft)) |
 
   LANG term_nt RANG (Par (term_nt, LANGleft)) |
-
-  SYM term_nt (Sym (term_nt, SYMleft)) | 
 
   LRPAREN (Blank LRPARENleft) | 
 

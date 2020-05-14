@@ -110,8 +110,6 @@ symbol=[\-\^\\=+!@#$%&*<>/{}|?~:']|"["|"]";
 <INITIAL>"<|" => (LANG (!linenum, inccol 1));
 <INITIAL>"|>" => (RANG (!linenum, inccol 1));
 
-
-<INITIAL>"sym" => (SYM (!linenum, inccol 1));
 <INITIAL>"infixl" => (INFIXL (!linenum, inccol 1));
 <INITIAL>"infixr" => (INFIXR (!linenum, inccol 1));
 <INITIAL>"d"{digit} => (DIGIT ((valOf o Int.fromString) (substring (yytext, 1, 1)), !linenum, inccol 1));

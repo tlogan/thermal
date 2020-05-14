@@ -67,8 +67,6 @@ structure Tree = struct
     Spawn of (term * int) |
     Par of (term * int) |
   
-    Sym of (term * int) |
-
     String_Val of (string * int) |
 
     Num_Val of (string * int) |
@@ -201,8 +199,6 @@ structure Tree = struct
 
     Par (t, pos) =>  surround_with "<|" "" (to_string t) "|>" |
 
-    Sym (t, pos) => "sym " ^ (to_string t) |
-  
     Blank pos => "()" |
 
     Id (name, pos) => name |
@@ -1525,7 +1521,6 @@ structure Tree = struct
 
     Par of (term * int) |
   
-    Sym of (term * int) |
     *)
 
   )
