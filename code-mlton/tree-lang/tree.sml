@@ -572,12 +572,24 @@ structure Tree = struct
       NONE
     ) |
 
+    (Assoc (p, _), Assoc (st, _)) =>
+      match_symbolic_term_insert val_store (p, st) |
+
+    (Log (p, _), Log (st, _)) =>
+      match_symbolic_term_insert val_store (p, st) |
+
+    (List_Intro (p1, p2, _), List_Intro (st1, st2, _)) => (
+      (Option.mapPartial
+        (fn val_store' =>
+          match_symbolic_term_insert val_store' (p2, st2)
+        )
+        (match_symbolic_term_insert val_store (p1, st1))
+      )
+    ) |
+
     _ => NONE
     (*** TODO ***)
     (*
-      Assoc of (term * int) |
-      Log of (term * int) |
-
       List_Intro of (term * term * int) |
       List_Val of ((term list) * int) |
 
