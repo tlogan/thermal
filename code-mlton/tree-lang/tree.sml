@@ -587,10 +587,27 @@ structure Tree = struct
       )
     ) |
 
+    (List_Val (ps, _), List_Val (sts, _)) =>
+    (if (List.length ps = List.length sts) then
+      (List.foldl
+        (fn ((p, st), val_store_op) => 
+          (Option.mapPartial
+            (fn val_store' =>
+              match_symbolic_term_insert val_store' (p, st)
+            )
+            val_store_op
+          )
+        )
+        (SOME val_store)
+        (ListPair.zip (ps, sts))
+      )
+    else
+      NONE
+    ) |
+
     _ => NONE
     (*** TODO ***)
     (*
-      List_Intro of (term * term * int) |
       List_Val of ((term list) * int) |
 
       Func_Intro of (
