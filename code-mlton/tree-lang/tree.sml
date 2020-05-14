@@ -12,8 +12,8 @@ structure Tree = struct
 
   datatype term = 
     Blank of int |
-    Id of (string * int) |
     Sym of (string * int) |
+    Id of (string * int) |
     Assoc of (term * int) |
     Log of (term * int) |
 
@@ -559,10 +559,22 @@ structure Tree = struct
 
   fun match_symbolic_term_insert val_store (pattern, symbolic_term) = (case (pattern, symbolic_term) of
     (Blank _, _) => SOME val_store |
+    (Sym (id, _), _) => (let
+      val thunk = Func_Val ([(Blank ~1, symbolic_term)], val_store, [], ~1)
+    in
+      SOME (insert (val_store, id, (NONE, thunk)))
+    end) |
+
+    (Id (p_id, _), Id (st_id, _)) =>
+    (if p_id = st_id then
+      SOME val_store
+    else
+      NONE
+    ) |
+
     _ => NONE
     (*** TODO ***)
     (*
-      Id of (string * int) |
       Assoc of (term * int) |
       Log of (term * int) |
 
