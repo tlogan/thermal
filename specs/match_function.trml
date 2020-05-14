@@ -1,0 +1,12 @@
++ infixl d1 : p => add p;
+* infixl d2 : p => add p;
+
+/* only thunks may be used as patterns, and free variables in thunk pattern must be thunks too */
+
+plus_to_mul : (() => (a ()) + (b ())) => (() => (a ()) * (b ()));
+
+log (
+  plus_to_mul (() => 4 + 3) ()
+)
+
+/* EXPECTED RESULT: 12 */
