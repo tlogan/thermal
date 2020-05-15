@@ -640,10 +640,6 @@ structure Tree = struct
     (*** TODO ***)
     (*
 
-
-      Compo of (term * term * int) |
-      Seq of (term * term * int) |
-
       Rec_Intro of (
         ((string * (infix_option * term)) list) *
         int
