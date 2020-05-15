@@ -636,56 +636,103 @@ structure Tree = struct
       (match_symbolic_term_insert val_store (p1, st1))
     ) |
 
+    (Rec_Intro (p_fields, _), Rec_Intro (st_fields, _)) =>
+      from_fields_match_symbolic_term_insert val_store (p_fields, st_fields) |
+
+    (Rec_Intro_Mutual (p_fields, _), Rec_Intro_Mutual (st_fields, _)) =>
+      from_fields_match_symbolic_term_insert val_store (p_fields, st_fields) |
+
+    (Rec_Val (p_fields, _), Rec_Val (st_fields, _)) =>
+      from_fields_match_symbolic_term_insert val_store (p_fields, st_fields) |
+
+    (Rec_Elim (p, _), Rec_Elim (st, _)) =>
+      match_symbolic_term_insert val_store (p, st) |
+
+    (Chan_Alloc (p, _), Chan_Alloc (st, _)) =>
+      match_symbolic_term_insert val_store (p, st) |
+
+    (Evt_Send_Intro (p, _), Evt_Send_Intro (st, _)) =>
+      match_symbolic_term_insert val_store (p, st) |
+
+    (Evt_Send_Val (p, _), Evt_Send_Val (st, _)) =>
+      match_symbolic_term_insert val_store (p, st) |
+
+    (Evt_Recv_Intro (p, _), Evt_Recv_Intro (st, _)) =>
+      match_symbolic_term_insert val_store (p, st) |
+
+    (Evt_Recv_Val (p, _), Evt_Recv_Val (st, _)) =>
+      match_symbolic_term_insert val_store (p, st) |
+
+    (Evt_Wrap_Intro (p, _), Evt_Wrap_Intro (st, _)) =>
+      match_symbolic_term_insert val_store (p, st) |
+
+    (Evt_Wrap_Val (p, _), Evt_Wrap_Val (st, _)) =>
+      match_symbolic_term_insert val_store (p, st) |
+
+    (Evt_Choose_Intro (p, _), Evt_Choose_Intro (st, _)) =>
+      match_symbolic_term_insert val_store (p, st) |
+
+    (Evt_Choose_Val (p, _), Evt_Choose_Val (st, _)) =>
+      match_symbolic_term_insert val_store (p, st) |
+
+    (Evt_Elim (p, _), Evt_Elim (st, _)) =>
+      match_symbolic_term_insert val_store (p, st) |
+
+    (Spawn (p, _), Spawn (st, _)) =>
+      match_symbolic_term_insert val_store (p, st) |
+
+    (Par (p, _), Par (st, _)) =>
+      match_symbolic_term_insert val_store (p, st) |
+    
+    (String_Val (p_str, _), String_Val (st_str, _)) =>
+    (if p_str = st_str then
+      SOME val_store
+    else
+      NONE
+    ) |
+
+    (Num_Val (p_str, _), Num_Val (st_str, _)) =>
+    (if p_str = st_str then
+      SOME val_store
+    else
+      NONE
+    ) |
+
+    (Num_Add (p, _), Num_Add (st, _)) =>
+      match_symbolic_term_insert val_store (p, st) |
+
+    (Num_Sub (p, _), Num_Sub (st, _)) =>
+      match_symbolic_term_insert val_store (p, st) |
+
+    (Num_Mul (p, _), Num_Mul (st, _)) =>
+      match_symbolic_term_insert val_store (p, st) |
+
+    (Num_Div (p, _), Num_Div (st, _)) =>
+      match_symbolic_term_insert val_store (p, st) |
+
+    (Chan_Loc (p_i), Chan_Loc (st_i)) =>
+    (if p_i = st_i then
+      SOME val_store
+    else
+      NONE
+    ) |
+
+    (ThreadId (p_i), ThreadId (st_i)) =>
+    (if p_i = st_i then
+      SOME val_store
+    else
+      NONE
+    ) |
+
+    (Error p_str, Error st_str) =>
+    (if p_str = st_str then
+      SOME val_store
+    else
+      NONE
+    ) |
+
     _ => NONE
-    (*** TODO ***)
-    (*
 
-      Rec_Intro of (
-        ((string * (infix_option * term)) list) *
-        int
-      ) (* Rec_Intro (fields, pos) *) |
-
-      Rec_Intro_Mutual of (
-        ((string * (infix_option * term)) list) *
-        int
-      ) (* Rec_Intro (fields, pos) *) |
-
-      Rec_Val of (
-        ((string * (infix_option * term)) list) *
-        int
-      ) (* Rec_Intro (fields, pos) *) |
-
-      Rec_Elim of (term * int) |
-    
-      Chan_Alloc of (term * int) |
-
-      Evt_Send_Intro of (term * int) |
-      Evt_Send_Val of (term * int) |
-      Evt_Recv_Intro of (term * int) |
-      Evt_Recv_Val of (term * int) |
-      Evt_Wrap_Intro of (term * int) |
-      Evt_Wrap_Val of (term * int) |
-      Evt_Choose_Intro of (term * int) |
-      Evt_Choose_Val of (term * int) |
-      Evt_Elim of (term * int) |
-
-      Spawn of (term * int) |
-      Par of (term * int) |
-    
-      String_Val of (string * int) |
-
-      Num_Val of (string * int) |
-
-      Num_Add of (term * int) |
-      Num_Sub of (term * int) |
-      Num_Mul of (term * int) |
-      Num_Div of (term * int) |
-
-      (* internal reps *)
-      Chan_Loc of int |
-      ThreadId of int |
-      Error of string
-    *)
   )
 
   and from_lams_match_symbolic_term_insert val_store (p_lams, st_lams) = 
@@ -706,6 +753,28 @@ structure Tree = struct
       )
       (SOME val_store)
       (ListPair.zip (p_lams, st_lams))
+    )
+  else
+    NONE
+  )
+
+  and from_fields_match_symbolic_term_insert val_store (p_fields, st_fields) =
+  (if (List.length p_fields = List.length st_fields) then
+    (List.foldl
+      (fn (((p_key, (p_fop, p)), (st_key, (st_fop, st))), val_store_op) =>
+        (if p_key = st_key andalso p_fop = st_fop then
+          (Option.mapPartial
+            (fn val_store' =>
+              match_symbolic_term_insert val_store (p, st)
+            )
+            val_store_op
+          )
+        else 
+          NONE
+        )
+      )
+      (SOME val_store)
+      (ListPair.zip (p_fields, st_fields))
     )
   else
     NONE
