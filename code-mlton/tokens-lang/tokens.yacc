@@ -10,7 +10,7 @@ open Tree
   DEF |
   COMMA |
   FATARROW | COLON | DOT | LSQ | RSQ | CASE |
-  LOG |
+  LOG | SYM |
   ADD | SUB | MUL | DIV |
   ADDW | SUBW | MULW | DIVSW | DIVUW | REMSW | REMUW | 
   ADDF | SUBF | MULF | DIVF | 
@@ -19,7 +19,6 @@ open Tree
   ALLOC_CHAN | SEND | RECV | 
   WRAP | CHSE | SYNC | SPAWN | 
   LPAREN | RPAREN | LANG | RANG | LRPAREN | 
-  SYM |
   INFIXL | INFIXR | DIGIT of int |
 
   NUM of string | WORD of string | FLOAT of string |
@@ -50,7 +49,6 @@ open Tree
 
 %right COMMA
 
-%right LOG
 
 %left ALLOC_CHAN SEND RECV WRAP CHSE SPAWN SYNC ADD SUB MUL DIV SELECT EQUAL
 %nonassoc INFIXL INFIXR DIGIT
@@ -60,15 +58,16 @@ open Tree
 
 %left LRPAREN
 
-%right SYM
-
 %left NUM STRING ID
 
 %left DOT
 %left LSQ 
 %left RSQ 
 
+%right LOG SYM
+
 %left COMPO
+
 
 %start tree_nt
 
@@ -84,6 +83,7 @@ term_nt:
 
   LPAREN term_nt RPAREN (Assoc (term_nt, LPARENleft)) |
   LOG term_nt (Log (term_nt, LOGleft)) |
+  SYM term_nt (Sym (term_nt, SYMleft)) | 
 
   term_nt COMMA term_nt (List_Intro (term_nt1, term_nt2, COMMAleft)) |
   term_nt COMMA (List_Intro (term_nt, Blank COMMAright, COMMAleft)) |
@@ -133,8 +133,6 @@ term_nt:
   LANG term_nt RANG (Par (term_nt, LANGleft)) |
 
   LRPAREN (Blank LRPARENleft) | 
-
-  SYM term_nt (Sym (term_nt, SYMleft)) | 
 
   ID (Id (ID, IDleft)) |
 

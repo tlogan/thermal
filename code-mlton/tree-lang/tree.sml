@@ -133,12 +133,10 @@ structure Tree = struct
 
   fun to_string t = (case t of
 
-
     Assoc (t, pos) => "(" ^ (to_string t) ^ ")" |
 
-    Sym (t, pos) => "sym" ^ (to_string t) |
-
     Log (t, pos) => "log " ^  (to_string t) |
+    Sym (t, pos) => "##sym " ^ (to_string t) |
 
     List_Intro (t1, t2, pos) => (
       (to_string t1) ^ ", " ^ (to_string t2)
@@ -156,7 +154,7 @@ structure Tree = struct
       String.concatWith "\n" (List.map (fn t => (from_lam_to_string t)) lams)
     ) |
 
-    Compo (t1, t2, pos) => (to_string t1) ^ " " ^ (to_string t2) |
+    Compo (t1, t2, pos) => "(compo " ^ (to_string t1) ^ " " ^ (to_string t2) ^")"|
 
     Func_Elim (t1, t2, pos) => surround "apply" (
       (to_string t1) ^ " " ^ (to_string t2)
@@ -561,6 +559,7 @@ structure Tree = struct
 
   fun match_symbolic_term_insert val_store (pattern, symbolic_term) = (case (pattern, symbolic_term) of
     (Blank _, _) => SOME val_store |
+
     (Sym (Id (id, _), _), _) => (let
       val thunk = Func_Val ([(Blank ~1, symbolic_term)], val_store, [], ~1)
     in
@@ -622,12 +621,13 @@ structure Tree = struct
       (match_symbolic_term_insert val_store (p1, st1))
     ) |
 
-    (Compo (p1, p2, _), Compo (st1, st2, _)) =>
-    (Option.mapPartial
-      (fn val_store' =>
-        match_symbolic_term_insert val_store' (p2, st2)
+    (Compo (p1, p2, _), Compo (st1, st2, _)) => (
+      (Option.mapPartial
+        (fn val_store' =>
+          match_symbolic_term_insert val_store' (p2, st2)
+        )
+        (match_symbolic_term_insert val_store (p1, st1))
       )
-      (match_symbolic_term_insert val_store (p1, st1))
     ) |
 
     (Seq (p1, p2, _), Seq (st1, st2, _)) =>
@@ -733,7 +733,10 @@ structure Tree = struct
       NONE
     ) |
 
-    _ => NONE
+    _ => (
+      NONE
+    )
+
 
   )
 
@@ -805,12 +808,12 @@ structure Tree = struct
       from_fields_match_value_insert val_store (p_fields, v_fields)
     ) |
 
-    (Func_Intro ([(Blank _, p_body)], _), Func_Val ([(Blank _, v_body)], _, _, _)) => (
+    (Func_Intro ([(Blank _, p_body)], _), Func_Val ([(Blank _, st_body)], _, _, _)) => (
       (* function value's local stores are ignored; only syntax is matched; *)
       (* it's up to the user to determine if syntax can actually be evaluated in alternate context *)
       (* variables in patter are specified by pattern_var syntax (sym f); *)
-      (* f may then be used in new context and evaluated with f () *) 
-      match_symbolic_term_insert val_store (p_body, v_body)
+      (* it may then be used in new context and evaluated with f () *) 
+      match_symbolic_term_insert val_store (p_body, st_body)
     ) |
 
 
@@ -1763,7 +1766,7 @@ structure Tree = struct
 
   )
 
-  fun to_string_from_mode md = "----" ^ (case md of
+  fun from_mode_to_string md = "----" ^ (case md of
     Mode_Start => "Start" |
     Mode_Suspend => "Push/Suspend" |
     Mode_Reduce t => "Reduce" |
@@ -1783,7 +1786,9 @@ structure Tree = struct
     thread :: threads' => (let
       val (md', seq_threads, env') = (seq_step (md, thread, env)) 
 
-      val _ = print ((to_string_from_mode md') ^ "\n")
+      (*
+      val _ = print ((from_mode_to_string md') ^ "\n")
+      *)
       (*
       val _ = print (
         "# seq_threads: " ^
