@@ -605,23 +605,41 @@ structure Tree = struct
       NONE
     ) |
 
+    (Func_Intro (p_lams, _), Func_Intro (st_lams, _)) =>
+      from_lams_match_symbolic_term_insert val_store (p_lams, st_lams) |
+
+    (Func_Val (p_lams, _, _, _), Func_Val (st_lams, _, _, _)) =>
+      from_lams_match_symbolic_term_insert val_store (p_lams, st_lams) |
+
+    
+    (Func_Elim (p1, p2, _), Func_Elim (st1, st2, _)) =>
+    (Option.mapPartial
+      (fn val_store' =>
+        match_symbolic_term_insert val_store' (p2, st2)
+      )
+      (match_symbolic_term_insert val_store (p1, st1))
+    ) |
+
+    (Compo (p1, p2, _), Compo (st1, st2, _)) =>
+    (Option.mapPartial
+      (fn val_store' =>
+        match_symbolic_term_insert val_store' (p2, st2)
+      )
+      (match_symbolic_term_insert val_store (p1, st1))
+    ) |
+
+    (Seq (p1, p2, _), Seq (st1, st2, _)) =>
+    (Option.mapPartial
+      (fn val_store' =>
+        match_symbolic_term_insert val_store' (p2, st2)
+      )
+      (match_symbolic_term_insert val_store (p1, st1))
+    ) |
+
     _ => NONE
     (*** TODO ***)
     (*
-      List_Val of ((term list) * int) |
 
-      Func_Intro of (
-        ((term * term) list) *
-        int
-      ) (* Func_Val (lams, pos) *) |
-
-      Func_Val of (
-        ((term * term) list) *
-        ((string, infix_option * term) store) *
-        ((string, infix_option * ((term * term) list)) store) *
-        int
-      ) (* Func_Val (lams, val_store, mutual_store, pos) *) |
-      Func_Elim of (term * term * int) |
 
       Compo of (term * term * int) |
       Seq of (term * term * int) |
@@ -672,6 +690,29 @@ structure Tree = struct
       ThreadId of int |
       Error of string
     *)
+  )
+
+  and from_lams_match_symbolic_term_insert val_store (p_lams, st_lams) = 
+  (if (List.length p_lams = List.length st_lams) then
+    (List.foldl
+      (fn (((p1, p2), (st1, st2)), val_store_op) =>
+        (Option.mapPartial
+          (fn val_store' =>
+            (Option.mapPartial
+              (fn val_store' =>
+                match_symbolic_term_insert val_store' (p2, st2)
+              )
+              (match_symbolic_term_insert val_store (p1, st1))
+            )
+          )
+          val_store_op
+        )
+      )
+      (SOME val_store)
+      (ListPair.zip (p_lams, st_lams))
+    )
+  else
+    NONE
   )
 
   fun match_value_insert (val_store, pat, value) = (case (pat, value) of
