@@ -136,7 +136,7 @@ structure Tree = struct
     Assoc (t, pos) => "(" ^ (to_string t) ^ ")" |
 
     Log (t, pos) => "log " ^  (to_string t) |
-    Sym (t, pos) => "##sym " ^ (to_string t) |
+    Sym (t, pos) => "sym " ^ (to_string t) |
 
     List_Intro (t1, t2, pos) => (
       (to_string t1) ^ ", " ^ (to_string t2)
