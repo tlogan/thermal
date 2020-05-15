@@ -134,7 +134,7 @@ term_nt:
 
   LRPAREN (Blank LRPARENleft) | 
 
-  SYM ID (Sym (ID, SYMleft)) | 
+  SYM term_nt (Sym (term_nt, SYMleft)) | 
 
   ID (Id (ID, IDleft)) |
 

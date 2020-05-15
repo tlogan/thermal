@@ -4,7 +4,7 @@
 /* only thunks may be used as patterns, and replacement variables in thunk pattern must be thunks too */
 /* only matches syntax; does not guarantee that pattern names stand for same thing as value names */ 
 
-plus_to_mul : (() => (a ()) + (b ())) => (() => (a ()) * (b ()));
+plus_to_mul : (() => (sym a) + (sym b)) => (() => (a ()) * (b ()));
 
 log (
   plus_to_mul (() => 4 + 3) ()

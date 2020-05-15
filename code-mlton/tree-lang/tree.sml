@@ -12,7 +12,7 @@ structure Tree = struct
 
   datatype term = 
     Blank of int |
-    Sym of (string * int) |
+    Sym of (term * int) |
     Id of (string * int) |
     Assoc of (term * int) |
     Log of (term * int) |
@@ -135,6 +135,8 @@ structure Tree = struct
 
 
     Assoc (t, pos) => "(" ^ (to_string t) ^ ")" |
+
+    Sym (t, pos) => "sym" ^ (to_string t) |
 
     Log (t, pos) => "log " ^  (to_string t) |
 
@@ -559,7 +561,7 @@ structure Tree = struct
 
   fun match_symbolic_term_insert val_store (pattern, symbolic_term) = (case (pattern, symbolic_term) of
     (Blank _, _) => SOME val_store |
-    (Sym (id, _), _) => (let
+    (Sym (Id (id, _), _), _) => (let
       val thunk = Func_Val ([(Blank ~1, symbolic_term)], val_store, [], ~1)
     in
       SOME (insert (val_store, id, (NONE, thunk)))
@@ -1781,9 +1783,7 @@ structure Tree = struct
     thread :: threads' => (let
       val (md', seq_threads, env') = (seq_step (md, thread, env)) 
 
-      (*
       val _ = print ((to_string_from_mode md') ^ "\n")
-      *)
       (*
       val _ = print (
         "# seq_threads: " ^
