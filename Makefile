@@ -1,13 +1,13 @@
 all: bin/thermal
 
-bin/thermal: code-mlton/chars-lang/chars.lex.sml code-mlton/tokens-lang/tokens.yacc.sml
-	mkdir -p bin; mlton -output bin/thermal code-mlton/config.mlb
+bin/thermal: impl/chars-lang/chars.lex.sml impl/tokens-lang/tokens.yacc.sml
+	mkdir -p bin; mlton -output bin/thermal impl/config.mlb
 
-code-mlton/chars-lang/chars.lex.sml:
-	mllex code-mlton/chars-lang/chars.lex
+impl/chars-lang/chars.lex.sml:
+	mllex impl/chars-lang/chars.lex
 
-code-mlton/tokens-lang/tokens.yacc.sig code-mlton/tokens-lang/tokens.yacc.sml:
-	mlyacc code-mlton/tokens-lang/tokens.yacc
+impl/tokens-lang/tokens.yacc.sig impl/tokens-lang/tokens.yacc.sml:
+	mlyacc impl/tokens-lang/tokens.yacc
 
 clean:
 	git clean -Xf; rm -r bin/*
