@@ -1336,6 +1336,7 @@ structure Tree = struct
     (t, val_store, cont_stack, thread_id),
     (chan_store, block_store, sync_store, cnt)
   ) = (
+    (* print ("stack size: " ^ (Int.toString (List.length cont_stack)) ^ "\n"); *)
     (*print ("\n(*** thread " ^ (Int.toString thread_id) ^ " ***)\n" ^ (to_string t) ^ "\n\n");*)
     case t of
 
