@@ -1,0 +1,32 @@
++ infixl d0 : add;    
+- infixl d0 : sub;    
+* infixl d1 : mul;    
+/ infixl d1 : div;    
+
+length : (
+  case (# x xs) => (log `ooga`; 1 + (length xs))
+  case () => (log `ooga`; 0) //blank matches everything, so must be placed last
+);
+
+log (#1 #2 #3);
+log (length (# 1 # 2 # 3))
+
+/*
+
+open + infixl d0 : add    
+open - infixl d0 : sub    
+open * infixl d1 : mul    
+open / infixl d1 : div    
+
+open length : (
+  case (# x xs) => (log `ooga`; 1 + (length xs))
+  case () => (log `ooga`; 0) //blank matches everything, so must be placed last
+)
+
+run log (#1 #2 #3)
+
+run log (length (# 1 # 2 # 3))
+
+()
+
+*/

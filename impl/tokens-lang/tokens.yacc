@@ -8,7 +8,7 @@ open Tree
 
   SEMI | COMPO | SELECT |
   DEF |
-  COMMA |
+  HASH |
   FATARROW | COLON | DOT | LSQ | RSQ | CASE |
   LOG | SYM |
   ADD | SUB | MUL | DIV |
@@ -47,7 +47,7 @@ open Tree
 %right SEMI
 %right FATARROW CASE COLON DEF
 
-%right COMMA
+%right HASH
 
 
 %left ALLOC_CHAN SEND RECV WRAP CHSE SPAWN SYNC ADD SUB MUL DIV SELECT EQUAL
@@ -85,8 +85,8 @@ term_nt:
   LOG term_nt (Log (term_nt, LOGleft)) |
   SYM term_nt (Sym (term_nt, SYMleft)) | 
 
-  term_nt COMMA term_nt (List_Intro (term_nt1, term_nt2, COMMAleft)) |
-  term_nt COMMA (List_Intro (term_nt, Blank COMMAright, COMMAleft)) |
+  HASH term_nt term_nt (List_Intro (term_nt1, term_nt2, HASHleft)) |
+  HASH term_nt (List_Intro (term_nt, Blank HASHright, HASHleft)) |
 
   lam_nt (Func_Intro ([lam_nt], lam_ntleft)) |
   LPAREN lams_nt (Func_Intro (lams_nt, lams_ntleft)) |
