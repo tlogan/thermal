@@ -50,7 +50,8 @@ symbol=[\-\^\\=+!@$%&*<>/{}|?~:']|"["|"]";
 
 
 
-<INITIAL>";" => (SEMI (!linenum, inccol 1));
+<INITIAL>"run" => (RUN (!linenum, inccol 1));
+<INITIAL>"open" => (OPEN (!linenum, inccol 1));
 <INITIAL>":" => (COLON (!linenum, inccol 1));
 <INITIAL>"#" => (HASH (!linenum, inccol 1));
 <INITIAL>"=>" => (FATARROW (!linenum, inccol 1));

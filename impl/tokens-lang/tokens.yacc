@@ -6,7 +6,7 @@ open Tree
 
 %term
 
-  SEMI | COMPO | SELECT |
+  RUN | OPEN | COMPO | SELECT |
   DEF |
   HASH |
   FATARROW | COLON | DOT | LSQ | RSQ | CASE |
@@ -43,12 +43,9 @@ open Tree
 %eop EOF
 %noshift EOF
 
+%right HASH RUN OPEN
 
-%right SEMI
 %right FATARROW CASE COLON DEF
-
-%right HASH
-
 
 %left ALLOC_CHAN SEND RECV WRAP CHSE SPAWN SYNC ADD SUB MUL DIV SELECT EQUAL
 %nonassoc INFIXL INFIXR DIGIT
@@ -67,6 +64,8 @@ open Tree
 %right LOG SYM
 
 %left COMPO
+
+
 
 
 %start tree_nt
@@ -91,19 +90,19 @@ term_nt:
   lam_nt (Func_Intro ([lam_nt], lam_ntleft)) |
   LPAREN lams_nt (Func_Intro (lams_nt, lams_ntleft)) |
 
-  term_nt term_nt %prec COMPO (Compo (term_nt1, term_nt2, term_nt1left)) |
-  term_nt SEMI term_nt (Seq (term_nt1, term_nt2, SEMIleft)) |
+  RUN term_nt term_nt (Seq (term_nt1, term_nt2, RUNleft)) |
+  RUN term_nt (Seq (term_nt1, Blank RUNright, RUNleft)) |
+  OPEN term_nt term_nt (Seq (term_nt1, term_nt2, OPENleft)) |
 
   field_nt (Rec_Intro ([field_nt], field_ntleft)) |
   LPAREN fields_nt (Rec_Intro (fields_nt, LPARENleft)) |
-
 
   term_nt LSQ term_nt RSQ
     (Rec_Elim (List_Intro (
       term_nt1,
       List_Intro (term_nt2, Blank RSQright, RSQleft),
       LSQleft
-  ), LSQleft)) |
+    ), LSQleft)) |
 
   term_nt DOT ID
     (Rec_Elim (List_Intro (
@@ -146,8 +145,9 @@ term_nt:
 
   DIV (Func_Intro ([(Id ("_param", ~1), Num_Div (Id ("_param", ~1), DIVleft))], DIVleft)) |
 
-  STRING (String_Val (STRING, STRINGleft))
+  STRING (String_Val (STRING, STRINGleft)) |
 
+  term_nt term_nt %prec COMPO (Compo (term_nt1, term_nt2, term_nt1left))
 
 lams_nt:
   CASE lam_nt lams_nt (lam_nt :: lams_nt) |
