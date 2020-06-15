@@ -1,9 +1,9 @@
-+ infixl d0 : add;
-- infixl d0 : sub;
+run + infixl d0 : add
+run - infixl d0 : sub
 
-sum : (
+run sum : (
   case 0 => 0
   case n => n + (sum (n - 1))
-);
+)
 
-log (sum 100) 
+run log (sum 100) 

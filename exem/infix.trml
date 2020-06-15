@@ -1,5 +1,5 @@
-+ infixl d0 : add;    
-- infixl d0 : sub;    
-* infixl d1 : mul;    
-/ infixl d1 : div;    
-log (4 + 6 * 5 / 2 - 9)
+run + infixl d0 : add
+run - infixl d0 : sub    
+run * infixl d1 : mul    
+run / infixl d1 : div    
+run log (4 + 6 * 5 / 2 - 9)
