@@ -6,7 +6,7 @@ open Tree
 
 %term
 
-  RUN | OPEN | COMPO | SELECT |
+  RUN | COMPO | SELECT |
   DEF |
   HASH |
   FATARROW | COLON | DOT | LSQ | RSQ | CASE |
@@ -43,7 +43,9 @@ open Tree
 %eop EOF
 %noshift EOF
 
-%right HASH RUN LOG OPEN
+%right HASH RUN
+
+%right LOG
 
 %right FATARROW CASE COLON DEF
 
@@ -88,9 +90,8 @@ term_nt:
 
   RUN term_nt term_nt (Seq (term_nt1, term_nt2, RUNleft)) |
   RUN term_nt (Seq (term_nt1, Blank RUNright, RUNleft)) |
-  LOG term_nt term_nt (Seq (Log (term_nt1, LOGleft), term_nt2, LOGleft)) |
+
   LOG term_nt (Log (term_nt, LOGleft)) |
-  OPEN term_nt term_nt (Seq (term_nt1, term_nt2, OPENleft)) |
 
   field_nt (Rec_Intro ([field_nt], field_ntleft)) |
   LPAREN fields_nt (Rec_Intro (fields_nt, LPARENleft)) |

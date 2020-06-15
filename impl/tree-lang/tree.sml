@@ -221,8 +221,7 @@ structure Tree = struct
 
     Num_Div (t, pos) => "div " ^ (to_string t) |
 
-    _ =>
-      "(NOT YET IMPLEMENTED)"
+    Error msg => "(ERROR: " ^ msg ^ ")"
 
   )
 
