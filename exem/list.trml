@@ -1,15 +1,15 @@
-run + infixl d0 : add
-run - infixl d0 : sub
-run * infixl d1 : mul
-run / infixl d1 : div
+with + infixl d0 : add
+with - infixl d0 : sub
+with * infixl d1 : mul
+with / infixl d1 : div
 
-run length : (
-  case (# x xs) => (run (log `ooga`) (1 + (length xs)))
-  case () => (run (log `ooga`) 0) //blank matches everything, so must be placed last
+with length : (
+  case (# x xs) => (with (log `ooga`) (1 + (length xs)))
+  case () => (with (log `ooga`) 0) //blank matches everything, so must be placed last
 )
 
-run (log (#1 #2 #3))
+with (log (#1 #2 #3))
 
-run (log (length (# 1 # 2 # 3)))
+with (log (length (# 1 # 2 # 3)))
 
 ()

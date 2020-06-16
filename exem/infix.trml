@@ -1,5 +1,5 @@
-run + infixl d0 : add
-run - infixl d0 : sub    
-run * infixl d1 : mul    
-run / infixl d1 : div    
-run log (4 + 6 * 5 / 2 - 9)
+with + infixl d0 : add
+with - infixl d0 : sub    
+with * infixl d1 : mul    
+with / infixl d1 : div    
+with log (4 + 6 * 5 / 2 - 9)

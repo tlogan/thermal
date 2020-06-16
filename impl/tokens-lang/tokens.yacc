@@ -6,7 +6,7 @@ open Tree
 
 %term
 
-  RUN | COMPO | SELECT |
+  WITH | COMPO | SELECT |
   DEF |
   HASH |
   FATARROW | COLON | DOT | LSQ | RSQ | CASE |
@@ -43,7 +43,7 @@ open Tree
 %eop EOF
 %noshift EOF
 
-%right HASH RUN
+%right HASH WITH
 
 %right LOG
 
@@ -88,8 +88,8 @@ term_nt:
   lam_nt (Func_Intro ([lam_nt], lam_ntleft)) |
   LPAREN lams_nt (Func_Intro (lams_nt, lams_ntleft)) |
 
-  RUN term_nt term_nt (Seq (term_nt1, term_nt2, RUNleft)) |
-  RUN term_nt (Seq (term_nt1, Blank RUNright, RUNleft)) |
+  WITH term_nt term_nt (With (term_nt1, term_nt2, WITHleft)) |
+  WITH term_nt (With (term_nt1, Blank WITHright, WITHleft)) |
 
   LOG term_nt (Log (term_nt, LOGleft)) |
 

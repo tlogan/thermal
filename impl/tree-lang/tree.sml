@@ -34,7 +34,7 @@ structure Tree = struct
     Func_Elim of (term * term * int) |
 
     Compo of (term * term * int) |
-    Seq of (term * term * int) |
+    With of (term * term * int) |
 
     Rec_Intro of (
       ((string * (infix_option * term)) list) *
@@ -82,7 +82,7 @@ structure Tree = struct
     ThreadId of int |
     Error of string
 
-  datatype contin_mode = Contin_Seq | Contin_Norm | Contin_Func_Elim | Contin_Evt_Elim
+  datatype contin_mode = Contin_With | Contin_Norm | Contin_Func_Elim | Contin_Evt_Elim
 
   type contin = (
     contin_mode * 
@@ -160,7 +160,7 @@ structure Tree = struct
       (to_string t1) ^ " " ^ (to_string t2)
     ) |
 
-    Seq (t1, t2, pos) => (to_string t1) ^ ";\n" ^ (to_string t2) |
+    With (t1, t2, pos) => "with " ^ (to_string t1) ^ "\n" ^ (to_string t2) |
 
     Rec_Intro (fs, pos) => String.surround "" (
       String.concatWith ",\n" (List.map from_field_to_string fs)
@@ -629,7 +629,7 @@ structure Tree = struct
       )
     ) |
 
-    (Seq (p1, p2, _), Seq (st1, st2, _)) =>
+    (With (p1, p2, _), With (st1, st2, _)) =>
     (Option.mapPartial
       (fn val_store' =>
         match_symbolic_term_insert val_store' (p2, st2)
@@ -945,7 +945,7 @@ structure Tree = struct
       (cmode, lams, val_store', mutual_store) :: cont_stack' => (let
 
         val val_store'' = (case result of
-          Rec_Val (fields, _) => (if cmode = Contin_Seq then
+          Rec_Val (fields, _) => (if cmode = Contin_With then
             insert_table (val_store', fields)
           else
             val_store'
@@ -1435,8 +1435,8 @@ structure Tree = struct
     ) |
 
 
-    Seq (t1, t2, _) => push (
-      (t1, (Contin_Seq, [(hole cnt, t2)], val_store, [])),
+    With (t1, t2, _) => push (
+      (t1, (Contin_With, [(hole cnt, t2)], val_store, [])),
       val_store, cont_stack, thread_id,
       chan_store, block_store, sync_store, cnt + 1
     ) |

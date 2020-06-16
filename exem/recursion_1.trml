@@ -1,9 +1,9 @@
-run + infixl d0 : add
-run - infixl d0 : sub
+with + infixl d0 : add
+with - infixl d0 : sub
 
-run sum : (
+with sum : (
   case 0 => 0
   case n => n + (sum (n - 1))
 )
 
-run log (sum 100) 
+with log (sum 100) 

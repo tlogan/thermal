@@ -50,7 +50,7 @@ symbol=[\-\^\\=+!@$%&*<>/{}|?~:']|"["|"]";
 
 
 
-<INITIAL>"run" => (RUN (!linenum, inccol 1));
+<INITIAL>"with" => (WITH (!linenum, inccol 1));
 <INITIAL>":" => (COLON (!linenum, inccol 1));
 <INITIAL>"#" => (HASH (!linenum, inccol 1));
 <INITIAL>"=>" => (FATARROW (!linenum, inccol 1));
