@@ -6,7 +6,7 @@ open Tree
 
 %term
 
-  WITH | COMPO | SELECT |
+  WITH | PIPE | COMPO | SELECT |
   DEF |
   HASH |
   FATARROW | COLON | DOT | LSQ | RSQ | CASE |
@@ -43,7 +43,7 @@ open Tree
 %eop EOF
 %noshift EOF
 
-%right HASH WITH
+%right HASH WITH PIPE
 
 %right LOG
 
@@ -90,6 +90,8 @@ term_nt:
 
   WITH term_nt term_nt (With (term_nt1, term_nt2, WITHleft)) |
   WITH term_nt (With (term_nt1, Blank WITHright, WITHleft)) |
+
+  PIPE term_nt term_nt (Func_Elim (term_nt2, term_nt1, PIPEleft)) |
 
   LOG term_nt (Log (term_nt, LOGleft)) |
 
