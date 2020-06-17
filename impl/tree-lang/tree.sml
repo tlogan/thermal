@@ -53,16 +53,9 @@ structure Tree = struct
 
     Rec_Elim of (term * int) |
   
-    Chan_Alloc of (term * int) |
 
-    Evt_Send_Intro of (term * int) |
-    Evt_Send_Val of (term * int) |
-    Evt_Recv_Intro of (term * int) |
-    Evt_Recv_Val of (term * int) |
-    Evt_Wrap_Intro of (term * int) |
-    Evt_Wrap_Val of (term * int) |
-    Evt_Choose_Intro of (term * int) |
-    Evt_Choose_Val of (term * int) |
+    Evt_Intro of (event * term * int) |
+    Evt_Val of (base_event list) |
     Evt_Elim of (term * int) |
 
     Spawn of (term * int) |
@@ -81,6 +74,13 @@ structure Tree = struct
     Chan_Loc of int |
     ThreadId of int |
     Error of string
+
+
+
+  and event = 
+    Chan_Alloc | Send |
+    Recv | Latch |
+    Choose
 
   datatype contin_mode = Contin_With | Contin_Norm | Contin_Func_Elim | Contin_Evt_Elim
 
@@ -130,6 +130,13 @@ structure Tree = struct
     NONE => ""
   )
 
+  fun event_to_string evt = (case evt of
+    Chan_Alloc => "chan_alloc" |
+    Send => "send" |
+    Recv => "recv" |
+    Latch => "latch" |
+    Choose => "choose"
+  )
 
   fun to_string t = (case t of
 
@@ -178,21 +185,11 @@ structure Tree = struct
 
     Chan_Alloc (t, pos) => "alloc_chan " ^ (to_string t) |
 
-    Evt_Send_Intro (t, pos) => "send" ^ (to_string t) |
+    Evt_Intro (evt, t, pos) => "evt " ^ (event_to_string evt) ^ (to_string t) |
 
-    Evt_Send_Val (t, pos) => "send_val" ^ (to_string t) |
-
-    Evt_Recv_Intro (t, pos) => "recv" ^ (to_string t) |
-    
-    Evt_Recv_Val (t, pos) => "recv_val" ^ (to_string t) |
-
-    Evt_Wrap_Intro (t, pos) => "wrap " ^ (to_string t) |
-
-    Evt_Wrap_Val (t, pos) => "wrap_val " ^ (to_string t) |
-
-    Evt_Choose_Intro (t, pos) => "choose " ^ (to_string t) |
-
-    Evt_Choose_Val (t, pos) => "choose_val " ^ (to_string t) |
+    Evt_Val base_evts => String.surround "evt_val" (
+      String.concatWith "\n" (List.map base_event_to_string base_evts)
+    ) |
 
     Evt_Elim (t, pos) => "sync " ^ (to_string t) |
 
@@ -232,6 +229,24 @@ structure Tree = struct
   and from_field_to_string (name, (fix_op, t)) = String.surround "" (
     "def "  ^ name ^ (from_infix_option_to_string fix_op) ^ " : " ^ (to_string t)
   )
+
+  and base_event_to_string bevt = (case of  
+    Base_Evt_Send (i, msg, stack) => String.surround "base_send " (
+      (Int.toString i) ^ (to_string msg) ^
+      (String.surround "stack" (
+        String.concatWith "\n" (map stack_to_string stack)
+      ))
+    ) |
+
+    Base_Evt_Recv (i, stack) => String.surround "base_recv " (
+      (Int.toString i) ^ (to_string msg) ^
+      (String.surround "stack" (
+        String.concatWith "\n" (map stack_to_string stack)
+      ))
+    )
+  )
+
+  and stack_to_string stck = "" (* TODO *)
 
 
   val empty_table = [] 
@@ -300,59 +315,45 @@ structure Tree = struct
   end)
 
 
-  fun mk_base_events (evt, cont_stack) = (case evt of
+  fun mk_base_events (evt, t) = (case (evt, t) of
   
-    Evt_Send_Val (List_Val ([Chan_Loc i, msg], _), pos) =>
+    (Send, List_Val ([Chan_Loc i, msg], _)) =>
       [Base_Evt_Send (i, msg, [])] |
   
-    Evt_Recv_Val (Chan_Loc i, pos) =>
+    (Recv, Chan_Loc i) =>
       [Base_Evt_Recv (i, [])] |
 
-    Evt_Choose_Val (List_Val (values, _), pos) =>
-      mk_base_events_from_list (values, cont_stack) |
+    (Choose, List_Val (values, _)) =>
+      mk_base_events_from_list (values) |
 
-    Evt_Wrap_Val (List_Val ([evt', Func_Val (lams, fnc_store, mutual_store, _)], _), pos) =>
-      let
-        val bevts = mk_base_events (evt', cont_stack)
-      in
-        (List.foldl
-          (fn (bevt, bevts_acc) => let
+    (Latch, List_Val ([Evt_Val bevts, Func_Val (lams, fnc_store, mutual_store, _)], _)) =>
+      (List.foldl
+        (fn (bevt, bevts_acc) => let
   
-            val cont = (Contin_Evt_Elim, lams, fnc_store, mutual_store)
+          val cont = (Contin_Evt_Elim, lams, fnc_store, mutual_store)
   
-            val bevt' = (case bevt of
-              Base_Evt_Send (i, msg, wrap_stack) => 
-                Base_Evt_Send (i, msg, cont :: wrap_stack) |
-              Base_Evt_Recv (i, wrap_stack) => 
-                Base_Evt_Recv (i, cont :: wrap_stack)
-            ) 
-          in
-            bevts_acc @ [bevt']
-          end)
-          []
-          bevts 
-        )
-      end |
+          val bevt' = (case bevt of
+            Base_Evt_Send (i, msg, wrap_stack) => 
+              Base_Evt_Send (i, msg, cont :: wrap_stack) |
+            Base_Evt_Recv (i, wrap_stack) => 
+              Base_Evt_Recv (i, cont :: wrap_stack)
+          ) 
+        in
+          bevts_acc @ [bevt']
+        end)
+        []
+        bevts 
+      ) |
 
     _ => []
-
   
   )
 
-  and mk_base_events_from_list (evts, cont_stack) = (case evts of
+  and mk_base_events_from_list (evts) = (case evts of
     [] => [] |
-    evt :: evts' => 
-      let
-        val base_events = mk_base_events (evt, cont_stack)
-      in
-        if (List.null base_events) then
-          [] 
-        else (let
-          val base_events' = mk_base_events_from_list (evts', cont_stack)
-        in
-          (base_events @ base_events') 
-        end)
-      end
+    (Evt_Val base_events) :: evts' => 
+      base_events @ (mk_base_events_from_list evts') |
+    _ => raise (Fail "Internal: mk_base_events_from_list")
   )
 
 
@@ -652,29 +653,15 @@ structure Tree = struct
     (Chan_Alloc (p, _), Chan_Alloc (st, _)) =>
       match_symbolic_term_insert val_store (p, st) |
 
-    (Evt_Send_Intro (p, _), Evt_Send_Intro (st, _)) =>
-      match_symbolic_term_insert val_store (p, st) |
+    (Evt_Intro (p_evt, p, _), Evt_Intro (st_evt, st, _)) =>
+      if p = st_evnt then match_symbolic_term_insert val_store (p, st)
+      else NONE |
 
-    (Evt_Send_Val (p, _), Evt_Send_Val (st, _)) =>
-      match_symbolic_term_insert val_store (p, st) |
-
-    (Evt_Recv_Intro (p, _), Evt_Recv_Intro (st, _)) =>
-      match_symbolic_term_insert val_store (p, st) |
-
-    (Evt_Recv_Val (p, _), Evt_Recv_Val (st, _)) =>
-      match_symbolic_term_insert val_store (p, st) |
-
-    (Evt_Wrap_Intro (p, _), Evt_Wrap_Intro (st, _)) =>
-      match_symbolic_term_insert val_store (p, st) |
-
-    (Evt_Wrap_Val (p, _), Evt_Wrap_Val (st, _)) =>
-      match_symbolic_term_insert val_store (p, st) |
-
-    (Evt_Choose_Intro (p, _), Evt_Choose_Intro (st, _)) =>
-      match_symbolic_term_insert val_store (p, st) |
-
-    (Evt_Choose_Val (p, _), Evt_Choose_Val (st, _)) =>
-      match_symbolic_term_insert val_store (p, st) |
+(*
+TODO:
+    (Evt_Val p_base_events, Evt_Val st_base_events) =>
+      match_symbolic_base_events_insert val_store (p_base_events, st_base_events) |
+*)
 
     (Evt_Elim (p, _), Evt_Elim (st, _)) =>
       match_symbolic_term_insert val_store (p, st) |
@@ -810,7 +797,7 @@ structure Tree = struct
     (Func_Intro ([(Blank _, p_body)], _), Func_Val ([(Blank _, st_body)], _, _, _)) => (
       (* function value's local stores are ignored; only syntax is matched; *)
       (* it's up to the user to determine if syntax can actually be evaluated in alternate context *)
-      (* variables in patter are specified by pattern_var syntax (sym f); *)
+      (* variables in pattern are specified by pattern_var syntax (sym f); *)
       (* it may then be used in new context and evaluated with f () *) 
       match_symbolic_term_insert val_store (p_body, st_body)
     ) |
@@ -1004,7 +991,7 @@ structure Tree = struct
   fun is_event_value t = (case t of
     Evt_Send_Val _ => true |
     Evt_Recv_Val _ => true |
-    Evt_Wrap_Val _ => true |
+    Evt_Latch_Val _ => true |
     Evt_Choose_Val _ => true |
     _ => false
   )
@@ -1435,51 +1422,14 @@ structure Tree = struct
       chan_store, block_store, sync_store, cnt
     ) |
 
-
-    Evt_Send_Intro (t, pos) => reduce_single (
-      t, fn t => Evt_Send_Intro (t, pos), fn v => Evt_Send_Val (v, pos),
+    Evt_Intro (evt, t, pos) => reduce_single (
+      t, fn t => Evt_Intro (evt, t, pos), fn v => Evt_Val (make_base_events (evt, t)),
       val_store, cont_stack, thread_id,
       chan_store, block_store, sync_store, cnt
     ) | 
 
-    Evt_Send_Val (t, pos) => pop (
-      Evt_Send_Val (t, pos),
-      cont_stack, thread_id,
-      chan_store, block_store, sync_store, cnt
-    ) |
-
-    Evt_Recv_Intro (t, pos) => reduce_single (
-      t, fn t => Evt_Recv_Intro (t, pos), fn v => Evt_Recv_Val (v, pos),
-      val_store, cont_stack, thread_id,
-      chan_store, block_store, sync_store, cnt
-    ) | 
-
-    Evt_Recv_Val (t, pos) => pop (
-      Evt_Recv_Val (t, pos),
-      cont_stack, thread_id,
-      chan_store, block_store, sync_store, cnt
-    ) |
-
-    Evt_Wrap_Intro (t, pos) => reduce_single (
-      t, fn t => Evt_Wrap_Intro (t, pos), fn v => Evt_Wrap_Val (v, pos),
-      val_store, cont_stack, thread_id,
-      chan_store, block_store, sync_store, cnt
-    ) | 
-
-    Evt_Wrap_Val (t, pos) => pop (
-      Evt_Wrap_Val (t, pos),
-      cont_stack, thread_id,
-      chan_store, block_store, sync_store, cnt
-    ) |
-
-    Evt_Choose_Intro (t, pos) => reduce_single (
-      t, fn t => Evt_Choose_Intro (t, pos), fn v => Evt_Choose_Val (v, pos),
-      val_store, cont_stack, thread_id,
-      chan_store, block_store, sync_store, cnt
-    ) | 
-
-    Evt_Choose_Val (t, pos) => pop (
-      Evt_Choose_Val (t, pos),
+    Evt_Val bevts => pop (
+      Evt_Val bevts,
       cont_stack, thread_id,
       chan_store, block_store, sync_store, cnt
     ) |
