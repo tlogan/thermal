@@ -100,7 +100,7 @@ symbol=[\-\^\\=+!@$%&*<>/{}|?~:']|"["|"]";
 <INITIAL>"send" => (SEND (!linenum, inccol 1));
 <INITIAL>"recv" => (RECV (!linenum, inccol 1));
 
-<INITIAL>"wrap" => (WRAP (!linenum, inccol 1));
+<INITIAL>"latch" => (LATCH (!linenum, inccol 1));
 <INITIAL>"chse" => (CHSE (!linenum, inccol 1));
 <INITIAL>"sync" => (SYNC (!linenum, inccol 1));
 

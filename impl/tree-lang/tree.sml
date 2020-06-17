@@ -31,7 +31,7 @@ structure Tree = struct
       ((string, infix_option * ((term * term) list)) store) *
       int
     ) (* Func_Val (lams, val_store, mutual_store, pos) *) |
-    Func_Elim of (term * term * int) |
+    App of (term * term * int) |
 
     Compo of (term * term * int) |
     With of (term * term * int) |
@@ -51,12 +51,12 @@ structure Tree = struct
       int
     ) (* Rec_Intro (fields, pos) *) |
 
-    Rec_Elim of (term * int) |
+    Select of (term * int) |
   
 
     Evt_Intro of (event * term * int) |
     Evt_Val of (base_event list) |
-    Evt_Elim of (term * int) |
+    Sync of (term * int) |
 
     Spawn of (term * int) |
     Par of (term * int) |
@@ -78,11 +78,11 @@ structure Tree = struct
 
 
   and event = 
-    Chan_Alloc | Send |
+    Alloc_Chan | Send |
     Recv | Latch |
     Choose
 
-  datatype contin_mode = Contin_With | Contin_Norm | Contin_Func_Elim | Contin_Evt_Elim
+  datatype contin_mode = Contin_With | Contin_Norm | Contin_App | Contin_Sync
 
   type contin = (
     contin_mode * 
@@ -94,8 +94,11 @@ structure Tree = struct
   type contin_stack = (contin list)
 
   datatype base_event =
-    Base_Evt_Send of (chan_id * term * contin_stack) |
-    Base_Evt_Recv of (chan_id * contin_stack)
+    Base_Alloc_Chan | 
+    Base_Send of chan_id * term |
+    Base_Recv of chan_id
+
+  type transaction = base_event * contin_stack
 
   datatype transition_mode = 
     Mode_Start |
@@ -131,7 +134,7 @@ structure Tree = struct
   )
 
   fun event_to_string evt = (case evt of
-    Chan_Alloc => "chan_alloc" |
+    Alloc_Chan => "chan_alloc" |
     Send => "send" |
     Recv => "recv" |
     Latch => "latch" |
@@ -163,7 +166,7 @@ structure Tree = struct
 
     Compo (t1, t2, pos) => "(compo " ^ (to_string t1) ^ " " ^ (to_string t2) ^")"|
 
-    Func_Elim (t1, t2, pos) => surround "apply" (
+    App (t1, t2, pos) => surround "apply" (
       (to_string t1) ^ " " ^ (to_string t2)
     ) |
 
@@ -181,9 +184,7 @@ structure Tree = struct
       String.concatWith ",\n" (List.map from_field_to_string fs)
     ) |
 
-    Rec_Elim (t, pos) => "select " ^ (to_string t) |
-
-    Chan_Alloc (t, pos) => "alloc_chan " ^ (to_string t) |
+    Select (t, pos) => "select " ^ (to_string t) |
 
     Evt_Intro (evt, t, pos) => "evt " ^ (event_to_string evt) ^ (to_string t) |
 
@@ -191,7 +192,7 @@ structure Tree = struct
       String.concatWith "\n" (List.map base_event_to_string base_evts)
     ) |
 
-    Evt_Elim (t, pos) => "sync " ^ (to_string t) |
+    Sync (t, pos) => "sync " ^ (to_string t) |
 
     Spawn (t, pos) => "spawn " ^ (to_string t) |
 
@@ -230,23 +231,28 @@ structure Tree = struct
     "def "  ^ name ^ (from_infix_option_to_string fix_op) ^ " : " ^ (to_string t)
   )
 
-  and base_event_to_string bevt = (case of  
-    Base_Evt_Send (i, msg, stack) => String.surround "base_send " (
+  and transaction_to_string (bevt, wrap_stack) =
+    String.surround "transaction " ((base_evt_to_string bevt) ^ "\n" ^ (stack_to_string))
+
+  and base_evt_to_string bevt = (case bevt of  
+
+    Base_Alloc_Chan (i, msg) => "alloc_chan" |
+
+    Base_Send (i, msg) => String.surround "base_send " (
       (Int.toString i) ^ (to_string msg) ^
-      (String.surround "stack" (
-        String.concatWith "\n" (map stack_to_string stack)
-      ))
     ) |
 
-    Base_Evt_Recv (i, stack) => String.surround "base_recv " (
-      (Int.toString i) ^ (to_string msg) ^
-      (String.surround "stack" (
-        String.concatWith "\n" (map stack_to_string stack)
-      ))
+    Base_Recv i => String.surround "base_recv " (
+      (Int.toString i) ^ (to_string msg)
     )
   )
 
-  and stack_to_string stck = "" (* TODO *)
+
+  and stack_to_string stack = (String.surround "stack" (
+    String.concatWith "\n" (map contin_to_string stack)
+  ))
+
+  and contin_to_string cont = "CONTIN TODO"
 
 
   val empty_table = [] 
@@ -315,50 +321,42 @@ structure Tree = struct
   end)
 
 
-  fun mk_base_events (evt, t) = (case (evt, t) of
+  fun mk_transactions (evt, t) = (case (evt, t) of
   
     (Send, List_Val ([Chan_Loc i, msg], _)) =>
-      [Base_Evt_Send (i, msg, [])] |
+      [(Base_Send (i, msg), [])] |
   
     (Recv, Chan_Loc i) =>
-      [Base_Evt_Recv (i, [])] |
+      [(Base_Recv i, [])] |
 
     (Choose, List_Val (values, _)) =>
-      mk_base_events_from_list (values) |
+      mk_transactions_from_list values |
 
-    (Latch, List_Val ([Evt_Val bevts, Func_Val (lams, fnc_store, mutual_store, _)], _)) =>
+    (Latch, List_Val ([Evt_Val transactions, Func_Val (lams, fnc_store, mutual_store, _)], _)) =>
       (List.foldl
-        (fn (bevt, bevts_acc) => let
-  
-          val cont = (Contin_Evt_Elim, lams, fnc_store, mutual_store)
-  
-          val bevt' = (case bevt of
-            Base_Evt_Send (i, msg, wrap_stack) => 
-              Base_Evt_Send (i, msg, cont :: wrap_stack) |
-            Base_Evt_Recv (i, wrap_stack) => 
-              Base_Evt_Recv (i, cont :: wrap_stack)
-          ) 
+        (fn ((bevt, wrap_stack), transactions_acc) => let
+          val cont = (Contin_Sync, lams, fnc_store, mutual_store)
         in
-          bevts_acc @ [bevt']
+          transactions_acc @ [(bevt, cont :: wrap_stack)]
         end)
         []
-        bevts 
+        transactions 
       ) |
 
     _ => []
   
   )
 
-  and mk_base_events_from_list (evts) = (case evts of
+  and mk_transactions_from_list (evts) = (case evts of
     [] => [] |
     (Evt_Val base_events) :: evts' => 
-      base_events @ (mk_base_events_from_list evts') |
-    _ => raise (Fail "Internal: mk_base_events_from_list")
+      base_events @ (mk_transactions_from_list evts') |
+    _ => raise (Fail "Internal: mk_transactions_from_list")
   )
 
 
   fun poll (base, chan_store, block_store) = (case base of
-    Base_Evt_Send (i, msg, _) =>
+    Base_Send (i, msg, _) =>
       (let
         val chan_op = find (chan_store, i)
         fun poll_recv (send_q, recv_q) = (case recv_q of
@@ -382,7 +380,7 @@ structure Tree = struct
         )
       end) |
   
-     Base_Evt_Recv (i, _) =>
+     Base_Recv (i, _) =>
       (let
         val chan_op = find (chan_store, i)
         fun poll_send (send_q, recv_q) = (case send_q of
@@ -409,31 +407,31 @@ structure Tree = struct
   )
 
 
-  fun find_active_base_event (
-    bevts, chan_store, block_store
-  ) = (case bevts of
+  fun find_active_transaction (
+    transactions, chan_store, block_store
+  ) = (case transactions of
 
     [] =>
       (NONE, chan_store) |
 
-    bevt :: bevts' => (let
-      val (is_active, chan_store') = poll (bevt, chan_store, block_store)
+    transaction :: transactions' => (let
+      val (is_active, chan_store') = poll (transaction, chan_store, block_store)
     in
       if is_active then
-        (SOME bevt, chan_store')
+        (SOME transaction, chan_store')
       else 
-        find_active_base_event (bevts', chan_store', block_store)
+        find_active_transaction (transactions', chan_store', block_store)
     end)
       
   )
 
   
-  fun transact (
-    bevt, cont_stack, thread_id,
+  fun communicate (
+    (bevt, wrap_stack), cont_stack, thread_id,
     (chan_store, block_store, sync_store, cnt)
   ) = (case bevt of
 
-    Base_Evt_Send (i, msg, wrap_stack) =>
+    Base_Send (i, msg) =>
     (let
       val chan_op = find (chan_store, i)
       val recv_op = (case chan_op of
@@ -443,7 +441,7 @@ structure Tree = struct
         NONE => NONE
       )
       val (threads, md') = (case recv_op of
-        NONE => ([], Mode_Stick "transact Base_Evt_Send") |
+        NONE => ([], Mode_Stick "communicate Base_Send") |
         SOME (recv_stack, recv_thread_id) => (
           [
             (Blank 0, empty_table, wrap_stack @ cont_stack, thread_id),
@@ -467,7 +465,7 @@ structure Tree = struct
       ) 
     end) |
   
-    Base_Evt_Recv (i, wrap_stack) =>
+    Base_Recv i =>
     (let
       val chan_op = find (chan_store, i)
       val send_op = (case chan_op of
@@ -478,7 +476,7 @@ structure Tree = struct
       )
   
       val (threads, md') = (case send_op of
-        NONE => ([], Mode_Stick "transact Base_Evt_Recv") |
+        NONE => ([], Mode_Stick "communicate Base_Recv") |
         SOME (send_stack, msg, send_thread_id) => (
           [
             (Blank 0, empty_table, send_stack, send_thread_id),
@@ -504,8 +502,8 @@ structure Tree = struct
   
   )
   
-  fun block_one (bevt, cont_stack, chan_store, block_id, thread_id) = (case bevt of
-    Base_Evt_Send (i, msg, wrap_stack) =>
+  fun block_one ((bevt, wrap_stack), cont_stack, chan_store, block_id, thread_id) = (case bevt of
+    Base_Send (i, msg) =>
       (let
         val cont_stack' = wrap_stack @ cont_stack
         val chan_op = find (chan_store, i)
@@ -520,7 +518,7 @@ structure Tree = struct
         chan_store'
       end) |
   
-    Base_Evt_Recv (i, wrap_stack) =>
+    Base_Recv i =>
       (let
         val cont_stack' = wrap_stack @ cont_stack
         val chan_op = find (chan_store, i)
@@ -613,7 +611,7 @@ structure Tree = struct
       from_lams_match_symbolic_term_insert val_store (p_lams, st_lams) |
 
     
-    (Func_Elim (p1, p2, _), Func_Elim (st1, st2, _)) =>
+    (App (p1, p2, _), App (st1, st2, _)) =>
     (Option.mapPartial
       (fn val_store' =>
         match_symbolic_term_insert val_store' (p2, st2)
@@ -647,10 +645,7 @@ structure Tree = struct
     (Rec_Val (p_fields, _), Rec_Val (st_fields, _)) =>
       from_fields_match_symbolic_term_insert val_store (p_fields, st_fields) |
 
-    (Rec_Elim (p, _), Rec_Elim (st, _)) =>
-      match_symbolic_term_insert val_store (p, st) |
-
-    (Chan_Alloc (p, _), Chan_Alloc (st, _)) =>
+    (Select (p, _), Select (st, _)) =>
       match_symbolic_term_insert val_store (p, st) |
 
     (Evt_Intro (p_evt, p, _), Evt_Intro (st_evt, st, _)) =>
@@ -663,7 +658,7 @@ TODO:
       match_symbolic_base_events_insert val_store (p_base_events, st_base_events) |
 *)
 
-    (Evt_Elim (p, _), Evt_Elim (st, _)) =>
+    (Sync (p, _), Sync (st, _)) =>
       match_symbolic_term_insert val_store (p, st) |
 
     (Spawn (p, _), Spawn (st, _)) =>
@@ -1125,7 +1120,7 @@ TODO:
       (case (find (val_store, id)) of
         SOME (_, v_fn) => (
           Mode_Suspend,
-          [(Func_Elim (v_fn, t_arg, pos), val_store, cont_stack, thread_id)],
+          [(App (v_fn, t_arg, pos), val_store, cont_stack, thread_id)],
           (chan_store, block_store, sync_store, cnt)
         ) |
         _  => (
@@ -1136,7 +1131,7 @@ TODO:
 
     Func_Val (lams, fnc_store, mutual_store, _) =>
       push (
-        (t_arg, (Contin_Func_Elim, lams, fnc_store, mutual_store)),
+        (t_arg, (Contin_App, lams, fnc_store, mutual_store)),
         val_store, cont_stack, thread_id,
         chan_store, block_store, sync_store, cnt
       ) |
@@ -1149,7 +1144,7 @@ TODO:
         )
       else
         push (
-          (t_fn, (Contin_Norm, [( hole cnt, Func_Elim (hole cnt, t_arg, pos) )], val_store, [])),
+          (t_fn, (Contin_Norm, [( hole cnt, App (hole cnt, t_arg, pos) )], val_store, [])),
           val_store, cont_stack, thread_id,
           chan_store, block_store, sync_store, cnt + 1
         )
@@ -1177,7 +1172,7 @@ TODO:
             ) |
 
             _ => (let
-              val t1'' = Compo (Func_Elim (t1a, Id (id1, pos1), p1a), t1b, p1b)
+              val t1'' = Compo (App (t1a, Id (id1, pos1), p1a), t1b, p1b)
             in
               Compo (Compo (t1'', Id (id, pos), p1), t2, p2)
             end)
@@ -1187,7 +1182,7 @@ TODO:
         ) |
 
         _ => (
-          Compo (Func_Elim (t1', Id (id, pos), p1), t2, p2)
+          Compo (App (t1', Id (id, pos), p1), t2, p2)
         )
       )
     end) |
@@ -1199,7 +1194,7 @@ TODO:
     Compo (Compo (t1, Id (id, pos), p1), t2, p2) => (
       (case (find (val_store, id)) of
         SOME (SOME (direc, prec), rator) => (
-          Func_Elim (
+          App (
             Id (id, pos),
             List_Intro (
               to_func_elim val_store t1,
@@ -1211,8 +1206,8 @@ TODO:
         ) |
 
         _ => (
-          Func_Elim (
-            Func_Elim (to_func_elim val_store t1, Id (id, pos), p1),
+          App (
+            App (to_func_elim val_store t1, Id (id, pos), p1),
             to_func_elim val_store t2,
             p2
           )
@@ -1314,13 +1309,13 @@ TODO:
     end) |
 
     Compo (t1, t2, pos) => (
-      Mode_Reduce (Func_Elim (t1, t2, pos)),
-      [(Func_Elim (t1, t2, pos), val_store, cont_stack, thread_id)],
+      Mode_Reduce (App (t1, t2, pos)),
+      [(App (t1, t2, pos), val_store, cont_stack, thread_id)],
       (chan_store, block_store, sync_store, cnt)
     ) |
 
 
-    Func_Elim (t_fn, t_arg, pos) => apply (
+    App (t_fn, t_arg, pos) => apply (
       t_fn, t_arg, pos,
       val_store, cont_stack, thread_id,
       chan_store, block_store, sync_store, cnt
@@ -1387,9 +1382,9 @@ TODO:
       chan_store, block_store, sync_store, cnt
     ) |
 
-    Rec_Elim (t, pos) => reduce_single (
+    Select (t, pos) => reduce_single (
       t,
-      fn t => Rec_Elim (t, pos),
+      fn t => Select (t, pos),
       (fn
         List_Val ([Rec_Val (fields, _), Id (key, _)], _) =>
         (case find (fields, key) of
@@ -1404,16 +1399,6 @@ TODO:
 
     ) |
 
-    Chan_Alloc (_, i) => (let
-      val chan_store' = insert (chan_store, cnt, ([], []))
-      val cnt' = cnt + 1
-    in
-      pop (
-        Chan_Loc cnt,
-        cont_stack, thread_id,
-        chan_store', block_store, sync_store, cnt'
-      )
-    end) |
 
     (* internal rep *)
     Chan_Loc i => pop (
@@ -1423,7 +1408,7 @@ TODO:
     ) |
 
     Evt_Intro (evt, t, pos) => reduce_single (
-      t, fn t => Evt_Intro (evt, t, pos), fn v => Evt_Val (make_base_events (evt, t)),
+      t, fn t => Evt_Intro (evt, t, pos), fn v => Evt_Val (mk_transactions (evt, t)),
       val_store, cont_stack, thread_id,
       chan_store, block_store, sync_store, cnt
     ) | 
@@ -1434,16 +1419,31 @@ TODO:
       chan_store, block_store, sync_store, cnt
     ) |
 
-    Evt_Elim (t, pos) => (case t of
+    Sync (t, pos) => (case t of
+
+(*
+** TODO: allocate chan during sync **
+**    Alloc_Chan (_, i) => (let
+**      val chan_store' = insert (chan_store, cnt, ([], []))
+**      val cnt' = cnt + 1
+**    in
+**      pop (
+**        Chan_Loc cnt,
+**        cont_stack, thread_id,
+**        chan_store', block_store, sync_store, cnt'
+**      )
+**    end) |
+**
+*)
       (Id (id, _)) => (case (find (val_store, id)) of
         SOME (NONE, v) => (
           Mode_Suspend,
-          [(Evt_Elim (v, pos), val_store, cont_stack, thread_id)],
+          [(Sync (v, pos), val_store, cont_stack, thread_id)],
           (chan_store, block_store, sync_store, cnt)
         ) |
 
         _  => (
-          Mode_Stick ("Evt_Elim argument variable " ^ id ^ " cannot be resolved"),
+          Mode_Stick ("Sync argument variable " ^ id ^ " cannot be resolved"),
           [], (chan_store, block_store, sync_store, cnt)
         )
 
@@ -1452,22 +1452,22 @@ TODO:
       v => (if (is_event_value v) then
         (let
 
-          val bevts = mk_base_events (v, []) 
+          val transactions = mk_transactions (v, []) 
           
-          val (active_bevt_op, chan_store') = (
-            find_active_base_event (bevts, chan_store, block_store)
+          val (active_transaction_op, chan_store') = (
+            find_active_transaction (transactions, chan_store, block_store)
           )
 
         in
-          (case active_bevt_op of
-            SOME bevt =>
-              transact (
-                bevt, cont_stack, thread_id,
+          (case active_transaction_op of
+            SOME transaction =>
+              communicate (
+                transaction, cont_stack, thread_id,
                 (chan_store', block_store, sync_store, cnt)
               ) |
             NONE =>
               block (
-                bevts, cont_stack, thread_id,
+                transactions, cont_stack, thread_id,
                 (chan_store', block_store, sync_store, cnt)
               )
           )
@@ -1479,7 +1479,7 @@ TODO:
         )
       else 
         push (
-          (t, (Contin_Norm, [( hole cnt, Evt_Elim (hole cnt, pos) )], val_store, [])),
+          (t, (Contin_Norm, [( hole cnt, Sync (hole cnt, pos) )], val_store, [])),
           val_store, cont_stack, thread_id,
           chan_store, block_store, sync_store, cnt + 1
         )
@@ -1627,7 +1627,7 @@ TODO:
     Mode_Reduce t => "Reduce" |
     Mode_Continue => "Pop/Continue" |
     Mode_Spawn t => "Spawn" |
-    Mode_Block bevts => "Block" |
+    Mode_Block transactions => "Block" |
     Mode_Sync (thread_id, msg, send_id, recv_id) => "Sync" |
     Mode_Stick msg => "Stick: " ^ msg  |
     Mode_Finish t => "Finish: " ^ (to_string t)
