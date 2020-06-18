@@ -56,8 +56,8 @@ structure Tree = struct
 
     Evt_Intro of (event * term * int) |
     Evt_Val of (base_event list) |
-    Sync of (term * int) |
 
+    Sync of (term * int) |
     Spawn of (term * int) |
     Par of (term * int) |
   
@@ -78,9 +78,12 @@ structure Tree = struct
 
 
   and event = 
-    Alloc_Chan | Send |
-    Recv | Latch |
+    Alloc_Chan |
+    Send |
+    Recv |
+    Latch |
     Choose
+    (* TODO: add Offer, Block *)
 
   datatype contin_mode = Contin_With | Contin_Norm | Contin_App | Contin_Sync
 
@@ -332,6 +335,7 @@ structure Tree = struct
     (Choose, List_Val (values, _)) =>
       mk_transactions_from_list values |
 
+    (* TODO: modify to handle choose and other event results *)
     (Latch, List_Val ([Evt_Val transactions, Func_Val (lams, fnc_store, mutual_store, _)], _)) =>
       (List.foldl
         (fn ((bevt, wrap_stack), transactions_acc) => let
@@ -426,7 +430,7 @@ structure Tree = struct
   )
 
   
-  fun communicate (
+  fun proceed (
     (bevt, wrap_stack), cont_stack, thread_id,
     (chan_store, block_store, sync_store, cnt)
   ) = (case bevt of
@@ -441,7 +445,7 @@ structure Tree = struct
         NONE => NONE
       )
       val (threads, md') = (case recv_op of
-        NONE => ([], Mode_Stick "communicate Base_Send") |
+        NONE => ([], Mode_Stick "proceed Base_Send") |
         SOME (recv_stack, recv_thread_id) => (
           [
             (Blank 0, empty_table, wrap_stack @ cont_stack, thread_id),
@@ -476,7 +480,7 @@ structure Tree = struct
       )
   
       val (threads, md') = (case send_op of
-        NONE => ([], Mode_Stick "communicate Base_Recv") |
+        NONE => ([], Mode_Stick "proceed Base_Recv") |
         SOME (send_stack, msg, send_thread_id) => (
           [
             (Blank 0, empty_table, send_stack, send_thread_id),
@@ -1461,7 +1465,7 @@ TODO:
         in
           (case active_transaction_op of
             SOME transaction =>
-              communicate (
+              proceed (
                 transaction, cont_stack, thread_id,
                 (chan_store', block_store, sync_store, cnt)
               ) |
