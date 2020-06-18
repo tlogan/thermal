@@ -117,15 +117,15 @@ term_nt:
 
   EQUAL (Func_Intro ([(Id ("_param", ~1), Select (Id ("_param", EQUALleft), EQUALleft))], EQUALleft)) |
 
-  ALLOC_CHAN (Func_Intro ([(Id ("_param", ~1), Evt_Intro (Alloc_Chan, Id ("_param", ~1), ALLOC_CHANleft))], ALLOC_CHANleft)) |
+  ALLOC_CHAN (Func_Intro ([(Id ("_param", ~1), Event_Intro (Alloc_Chan, Id ("_param", ~1), ALLOC_CHANleft))], ALLOC_CHANleft)) |
 
-  SEND (Func_Intro ([(Id ("_param", ~1), Evt_Intro (Send, Id ("_param", ~1), SENDleft))], SENDleft)) |
+  SEND (Func_Intro ([(Id ("_param", ~1), Event_Intro (Send, Id ("_param", ~1), SENDleft))], SENDleft)) |
 
-  RECV (Func_Intro ([(Id ("_param", ~1), Evt_Intro (Recv, Id ("_param", ~1), RECVleft))], RECVleft)) |
+  RECV (Func_Intro ([(Id ("_param", ~1), Event_Intro (Recv, Id ("_param", ~1), RECVleft))], RECVleft)) |
 
-  LATCH (Func_Intro ([(Id ("_param", ~1), Evt_Intro (Latch, Id ("_param", ~1), LATCHleft))], LATCHleft)) |
+  LATCH (Func_Intro ([(Id ("_param", ~1), Event_Intro (Latch, Id ("_param", ~1), LATCHleft))], LATCHleft)) |
 
-  CHSE (Func_Intro ([(Id ("_param", ~1), Evt_Intro (Choose, Id ("_param", ~1), CHSEleft))], CHSEleft)) |
+  CHSE (Func_Intro ([(Id ("_param", ~1), Event_Intro (Choose, Id ("_param", ~1), CHSEleft))], CHSEleft)) |
 
   SYNC (Func_Intro ([(Id ("_param", ~1), Sync (Id ("_param", ~1), SYNCleft))], SYNCleft)) |
 

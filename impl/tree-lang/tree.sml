@@ -54,12 +54,21 @@ structure Tree = struct
     Select of (term * int) |
   
 
-    Evt_Intro of (event * term * int) |
-    Evt_Val of (base_event list) |
+    Event_Intro of (event * term * int) |
+    Event_Val of (base_event list) |
 
+
+
+
+    (* TODO: turn these into effects *)
+(*
+    Effect_Intro of (effect * term * int) |
+    Effect_Val of (base_event list) |
+*)
     Sync of (term * int) |
     Spawn of (term * int) |
     Par of (term * int) |
+    (********)
   
     String_Val of (string * int) |
 
@@ -75,8 +84,6 @@ structure Tree = struct
     ThreadId of int |
     Error of string
 
-
-
   and event = 
     Alloc_Chan |
     Send |
@@ -84,6 +91,13 @@ structure Tree = struct
     Latch |
     Choose
     (* TODO: add Offer, Block *)
+
+  and effect =
+    Stage |
+    Sync |
+    Bind |
+    Spawn |
+    Par
 
   datatype contin_mode = Contin_With | Contin_Norm | Contin_App | Contin_Sync
 
@@ -189,9 +203,9 @@ structure Tree = struct
 
     Select (t, pos) => "select " ^ (to_string t) |
 
-    Evt_Intro (evt, t, pos) => "evt " ^ (event_to_string evt) ^ (to_string t) |
+    Event_Intro (evt, t, pos) => "evt " ^ (event_to_string evt) ^ (to_string t) |
 
-    Evt_Val base_evts => String.surround "evt_val" (
+    Event_Val base_evts => String.surround "evt_val" (
       String.concatWith "\n" (List.map base_event_to_string base_evts)
     ) |
 
@@ -336,7 +350,7 @@ structure Tree = struct
       mk_transactions_from_list values |
 
     (* TODO: modify to handle choose and other event results *)
-    (Latch, List_Val ([Evt_Val transactions, Func_Val (lams, fnc_store, mutual_store, _)], _)) =>
+    (Latch, List_Val ([Event_Val transactions, Func_Val (lams, fnc_store, mutual_store, _)], _)) =>
       (List.foldl
         (fn ((bevt, wrap_stack), transactions_acc) => let
           val cont = (Contin_Sync, lams, fnc_store, mutual_store)
@@ -353,7 +367,7 @@ structure Tree = struct
 
   and mk_transactions_from_list (evts) = (case evts of
     [] => [] |
-    (Evt_Val base_events) :: evts' => 
+    (Event_Val base_events) :: evts' => 
       base_events @ (mk_transactions_from_list evts') |
     _ => raise (Fail "Internal: mk_transactions_from_list")
   )
@@ -652,13 +666,13 @@ structure Tree = struct
     (Select (p, _), Select (st, _)) =>
       match_symbolic_term_insert val_store (p, st) |
 
-    (Evt_Intro (p_evt, p, _), Evt_Intro (st_evt, st, _)) =>
+    (Event_Intro (p_evt, p, _), Event_Intro (st_evt, st, _)) =>
       if p = st_evnt then match_symbolic_term_insert val_store (p, st)
       else NONE |
 
 (*
 TODO:
-    (Evt_Val p_base_events, Evt_Val st_base_events) =>
+    (Event_Val p_base_events, Event_Val st_base_events) =>
       match_symbolic_base_events_insert val_store (p_base_events, st_base_events) |
 *)
 
@@ -824,10 +838,10 @@ TODO:
       ) |
 
 
-    (Evt_Send_Intro (t, _), Evt_Send_Intro (v, _)) =>
+    (Event_Send_Intro (t, _), Event_Send_Intro (v, _)) =>
       match_value_insert (val_store, t, v) |
 
-    (Evt_Recv_Intro (t, _), Evt_Recv_Intro (v, _)) =>
+    (Event_Recv_Intro (t, _), Event_Recv_Intro (v, _)) =>
       match_value_insert (val_store, t, v) |
 
     (Func_Val p_fnc, Func_Val v_fnc) => (
@@ -988,10 +1002,10 @@ TODO:
 
 
   fun is_event_value t = (case t of
-    Evt_Send_Val _ => true |
-    Evt_Recv_Val _ => true |
-    Evt_Latch_Val _ => true |
-    Evt_Choose_Val _ => true |
+    Event_Send_Val _ => true |
+    Event_Recv_Val _ => true |
+    Event_Latch_Val _ => true |
+    Event_Choose_Val _ => true |
     _ => false
   )
 
@@ -1411,14 +1425,14 @@ TODO:
       chan_store, block_store, sync_store, cnt
     ) |
 
-    Evt_Intro (evt, t, pos) => reduce_single (
-      t, fn t => Evt_Intro (evt, t, pos), fn v => Evt_Val (mk_transactions (evt, t)),
+    Event_Intro (evt, t, pos) => reduce_single (
+      t, fn t => Event_Intro (evt, t, pos), fn v => Event_Val (mk_transactions (evt, t)),
       val_store, cont_stack, thread_id,
       chan_store, block_store, sync_store, cnt
     ) | 
 
-    Evt_Val bevts => pop (
-      Evt_Val bevts,
+    Event_Val bevts => pop (
+      Event_Val bevts,
       cont_stack, thread_id,
       chan_store, block_store, sync_store, cnt
     ) |
