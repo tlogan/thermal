@@ -55,20 +55,11 @@ structure Tree = struct
   
 
     Event_Intro of (event * term * int) |
-    Event_Val of (base_event list) |
-
-
-
+    Event_Val of transaction list |
 
     (* TODO: turn these into effects *)
-(*
     Effect_Intro of (effect * term * int) |
-    Effect_Val of (base_event list) |
-*)
-    Sync of (term * int) |
-    Spawn of (term * int) |
-    Par of (term * int) |
-    (********)
+    Effect_Val of base_effect |
   
     String_Val of (string * int) |
 
@@ -89,8 +80,9 @@ structure Tree = struct
     Send |
     Recv |
     Latch |
-    Choose
-    (* TODO: add Offer, Block *)
+    Choose |
+    Offer |
+    Block
 
   and effect =
     Stage |
@@ -113,9 +105,20 @@ structure Tree = struct
   datatype base_event =
     Base_Alloc_Chan | 
     Base_Send of chan_id * term |
-    Base_Recv of chan_id
+    Base_Recv of chan_id |
+    Base_Offer of term |
+    Base_Block
 
   type transaction = base_event * contin_stack
+
+  datatype base_effect =
+    Base_Stage of term |
+    Base_Sync of transaction list |
+    Bind of base_effect * contin_stack |
+    Spawn of base_effect |
+    Par of base_effect
+
+  (* TODO: create evaluation modes: eval effect all the way in effect-mode = true, otherwise stop once base_effect has been reached *)
 
   datatype transition_mode = 
     Mode_Start |
