@@ -31,6 +31,7 @@ structure Tree = struct
       ((string, infix_option * ((term * term) list)) store) *
       int
     ) (* Func_Val (lams, val_store, mutual_store, pos) *) |
+
     App of (term * term * int) |
 
     Compo of (term * term * int) |
@@ -118,7 +119,10 @@ structure Tree = struct
     Spawn of base_effect |
     Par of base_effect
 
-  (* TODO: create evaluation modes: eval effect all the way in effect-mode = true, otherwise stop once base_effect has been reached *)
+  (* TODO: distinguish evaluation of effect, events from generic terms;
+  ** mark continuations as being effect, event, or generic
+  ** 
+  *)
 
   datatype transition_mode = 
     Mode_Start |
