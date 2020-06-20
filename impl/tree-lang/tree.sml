@@ -933,23 +933,6 @@ TODO:
     end)
   )
 
-  fun sym i = "_g_" ^ (Int.toString i)
-
-
-  fun push (
-    (t_arg, cont),
-    val_store, cont_stack, thread_id,
-    chan_store, block_store, sync_store, cnt
-  ) = (let
-    val cont_stack' = cont :: cont_stack
-
-  in
-    (
-      Mode_Suspend,
-      [(t_arg, val_store, cont_stack', thread_id)],
-      (chan_store, block_store, sync_store, cnt)
-    )
-  end)
 
   fun pop (
     result,
@@ -1024,31 +1007,6 @@ TODO:
 
 
 
-
-
-  fun is_event_value t = (case t of
-    Event_Send_Val _ => true |
-    Event_Recv_Val _ => true |
-    Event_Latch_Val _ => true |
-    Event_Choose_Val _ => true |
-    _ => false
-  )
-
-  fun is_value t = (case t of
-    Blank _ => true |
-    List_Val _ => true |
-    Func_Val _ => true | 
-    Rec_Val _ => true |
-    String_Val _ => true |
-    Num_Val _ => true |
-    Chan_Loc _ => true |
-    Error _ => true |
-    _ => is_event_value t 
-  )
-
-
-  fun hole i = Id (sym i, ~1)
-
   fun reduce_list (
     ts, norm_f, reduce_f,
     val_store, cont_stack, thread_id,
@@ -1107,50 +1065,6 @@ TODO:
     loop ([], ts)
   end)
   
-  fun reduce_single (
-    t, norm_f, reduce_f,
-    val_store, cont_stack, thread_id,
-    chan_store, block_store, sync_store, cnt
-  ) = (case t of
-    (Id (id, _)) =>
-      (case (find (val_store, id)) of
-        SOME (NONE, v) => (
-          Mode_Suspend,
-          [(reduce_f v, val_store, cont_stack, thread_id)],
-          (chan_store, block_store, sync_store, cnt)
-        ) |
-
-        _  =>
-          (
-            Mode_Stick ("reduce single variable " ^ id ^ " cannot be resolved")
-            ,
-            [], (chan_store, block_store, sync_store, cnt)
-          )
-
-      ) |
-
-    _ =>
-      (if is_value t then
-        (case (reduce_f t) of
-          Error msg => (
-            Mode_Stick msg,
-            [], (chan_store, block_store, sync_store, cnt)
-          ) |
-
-          result => (
-            Mode_Reduce result,
-            [(result, val_store, cont_stack, thread_id)],
-            (chan_store, block_store, sync_store, cnt)
-          )
-        )
-      else
-        push (
-          (t, (Contin_Norm, [( hole cnt, norm_f (hole cnt) )], val_store, [])),
-          val_store, cont_stack, thread_id,
-          chan_store, block_store, sync_store, cnt + 1
-        )
-      )
-  )
 
 
   fun apply (
@@ -1260,6 +1174,85 @@ TODO:
   )
   *)
 
+
+  fun is_value t = (case t of
+    Blank _ => true |
+    List_Val _ => true |
+    Func_Val _ => true | 
+    Rec_Val _ => true |
+    String_Val _ => true |
+    Num_Val _ => true |
+    Chan_Loc _ => true |
+    Event_Val _ => true |
+    Effect_Val _ => true |
+    Error _ => true |
+    _ => false 
+  )
+
+  fun sym i = "_g_" ^ (Int.toString i)
+
+  fun hole i = Id (sym i, ~1)
+
+  fun push (
+    (t_arg, cont),
+    val_store, cont_stack, thread_id,
+    chan_store, block_store, sync_store, cnt
+  ) = (let
+    val cont_stack' = cont :: cont_stack
+
+  in
+    (
+      Mode_Suspend,
+      [(t_arg, val_store, cont_stack', thread_id)],
+      (chan_store, block_store, sync_store, cnt)
+    )
+  end)
+
+  fun reduce_single (
+    t, norm_f, reduce_f,
+    val_store, cont_stack, thread_id,
+    chan_store, block_store, sync_store, cnt
+  ) = (case t of
+    (Id (id, _)) =>
+      (case (find (val_store, id)) of
+        SOME (NONE, v) => (
+          Mode_Suspend,
+          [(reduce_f v, val_store, cont_stack, thread_id)],
+          (chan_store, block_store, sync_store, cnt)
+        ) |
+
+        _  =>
+          (
+            Mode_Stick ("reduce single variable " ^ id ^ " cannot be resolved")
+            ,
+            [], (chan_store, block_store, sync_store, cnt)
+          )
+
+      ) |
+
+    _ =>
+      (if is_value t then
+        (case (reduce_f t) of
+          Error msg => (
+            Mode_Stick msg,
+            [], (chan_store, block_store, sync_store, cnt)
+          ) |
+
+          result => (
+            Mode_Reduce result,
+            [(result, val_store, cont_stack, thread_id)],
+            (chan_store, block_store, sync_store, cnt)
+          )
+        )
+      else
+        push (
+          (t, (Contin_Norm, [( hole cnt, norm_f (hole cnt) )], val_store, [])),
+          val_store, cont_stack, thread_id,
+          chan_store, block_store, sync_store, cnt + 1
+        )
+      )
+  )
+
   fun seq_step (
     md,
     (t, val_store, cont_stack, thread_id),
@@ -1270,18 +1263,12 @@ TODO:
     case t of
 
 
-    _ => (
-      Mode_Stick "TODO",
-      [], (chan_store, block_store, sync_store, cnt)
-    )
-
-    (* **TODO**
-
     Assoc (term, pos) => (
       Mode_Reduce term,
       [(term, val_store, cont_stack, thread_id)],
       (chan_store, block_store, sync_store, cnt)
     ) |
+
 
     Log (t, pos) => reduce_single (
       t,
@@ -1293,6 +1280,14 @@ TODO:
       val_store, cont_stack, thread_id,
       chan_store, block_store, sync_store, cnt
     ) | 
+
+    _ => (
+      Mode_Stick "TODO",
+      [], (chan_store, block_store, sync_store, cnt)
+    )
+
+    (* **TODO**
+
 
     Id (id, pos) => (case (find (val_store, id)) of
       SOME (NONE, v) => (
@@ -1500,7 +1495,7 @@ TODO:
 
       ) |
 
-      v => (if (is_event_value v) then
+      Event_Val v =>
         (let
 
           val transactions = mk_transactions (v, []) 
@@ -1523,7 +1518,7 @@ TODO:
               )
           )
         end)
-      else if (is_value v) then
+      v => if (is_value v) then
         (
           Mode_Stick "sync with non-event",
           [], (chan_store, block_store, sync_store, cnt)
