@@ -586,8 +586,22 @@ structure Tree = struct
     (Mode_Block base_events, [], (chan_store', block_store', sync_store, cnt'))
   end)
 
+  *)
 
 
+  fun is_value t = (case t of
+    Blank _ => true |
+    List_Val _ => true |
+    Func_Val _ => true | 
+    Rec_Val _ => true |
+    String_Val _ => true |
+    Num_Val _ => true |
+    Chan_Loc _ => true |
+    Event_Val _ => true |
+    Effect_Val _ => true |
+    Error _ => true |
+    _ => false 
+  )
 
   fun match_symbolic_term_insert val_store (pattern, symbolic_term) = (case (pattern, symbolic_term) of
     (Blank _, _) => SOME val_store |
@@ -683,24 +697,19 @@ structure Tree = struct
       match_symbolic_term_insert val_store (p, st) |
 
     (Event_Intro (p_evt, p, _), Event_Intro (st_evt, st, _)) =>
-      if p = st_evnt then match_symbolic_term_insert val_store (p, st)
+      if p_evt = st_evt then match_symbolic_term_insert val_store (p, st)
       else NONE |
 
 (*
 TODO:
-    (Event_Val p_base_events, Event_Val st_base_events) =>
-      match_symbolic_base_events_insert val_store (p_base_events, st_base_events) |
+    (Event_Val p_transactions, Event_Val st_transactions) =>
+      match_symbolic_transactions_insert val_store (p_transactions, st_transactions) |
 *)
 
-    (Sync (p, _), Sync (st, _)) =>
-      match_symbolic_term_insert val_store (p, st) |
+    (Effect_Intro (p_effect, p, _), Effect_Intro (st_effect, st, _)) =>
+      if p_effect = st_effect then match_symbolic_term_insert val_store (p, st)
+      else NONE |
 
-    (Spawn (p, _), Spawn (st, _)) =>
-      match_symbolic_term_insert val_store (p, st) |
-
-    (Par (p, _), Par (st, _)) =>
-      match_symbolic_term_insert val_store (p, st) |
-    
     (String_Val (p_str, _), String_Val (st_str, _)) =>
     (if p_str = st_str then
       SOME val_store
@@ -799,6 +808,9 @@ TODO:
   else
     NONE
   )
+
+
+
 
   fun match_value_insert (val_store, pat, value) = (case (pat, value) of
 
@@ -934,6 +946,31 @@ TODO:
   )
 
 
+
+
+
+
+
+
+  fun sym i = "_g_" ^ (Int.toString i)
+
+  fun hole i = Id (sym i, ~1)
+
+  fun push (
+    (t_arg, cont),
+    val_store, cont_stack, thread_id,
+    chan_store, block_store, sync_store, cnt
+  ) = (let
+    val cont_stack' = cont :: cont_stack
+
+  in
+    (
+      Mode_Suspend,
+      [(t_arg, val_store, cont_stack', thread_id)],
+      (chan_store, block_store, sync_store, cnt)
+    )
+  end)
+
   fun pop (
     result,
     cont_stack, thread_id,
@@ -946,8 +983,7 @@ TODO:
         Effect_Val base_effect => (run_effect base_effect) |
         *)
         _ => (
-          Mode_Stick "top-level code with non-effect",
-          [], (chan_store, block_store, sync_store, cnt)
+          [], Mode_Stick "top-level code with non-effect"
         )
       ) |
       (cmode, lams, val_store', mutual_store) :: cont_stack' => (let
@@ -1006,65 +1042,6 @@ TODO:
   end)
 
 
-
-  fun reduce_list (
-    ts, norm_f, reduce_f,
-    val_store, cont_stack, thread_id,
-    chan_store, block_store, sync_store, cnt
-  ) = (let
-
-    fun loop (prefix, postfix) = (case postfix of
-      [] => (case (reduce_f prefix) of 
-        Error msg => (
-          Mode_Stick msg,
-          [], (chan_store, block_store, sync_store, cnt)
-        ) |
-
-        result => (
-          Mode_Reduce result,
-          [(result, val_store, cont_stack, thread_id)],
-          (chan_store, block_store, sync_store, cnt)
-        )
-
-      ) |
-
-      x :: xs => (case x of
-        (Id (id, _)) =>
-          (case (find (val_store, id)) of
-            SOME (NONE, v) => loop (prefix @ [v], xs) |
-            _ => (
-              Mode_Stick ("reduce list variable " ^ id ^ " cannot be resolved"),
-              [], (chan_store, block_store, sync_store, cnt)
-            )
-          ) |
-
-        _ =>
-          (if is_value x then 
-            loop (prefix @ [x], xs)
-          else
-            (push (
-              (
-                x,
-                (
-                  Contin_Norm,
-                  [( hole cnt, norm_f (prefix @ (hole cnt :: xs)) )],
-                  val_store,
-                  []
-                )
-              ),
-              val_store, cont_stack, thread_id,
-              chan_store, block_store, sync_store, cnt + 1
-            )
-            )
-          )
-
-      )
-    )
-
-  in
-    loop ([], ts)
-  end)
-  
 
 
   fun apply (
@@ -1172,41 +1149,9 @@ TODO:
     ) |
     _ => t
   )
-  *)
 
 
-  fun is_value t = (case t of
-    Blank _ => true |
-    List_Val _ => true |
-    Func_Val _ => true | 
-    Rec_Val _ => true |
-    String_Val _ => true |
-    Num_Val _ => true |
-    Chan_Loc _ => true |
-    Event_Val _ => true |
-    Effect_Val _ => true |
-    Error _ => true |
-    _ => false 
-  )
 
-  fun sym i = "_g_" ^ (Int.toString i)
-
-  fun hole i = Id (sym i, ~1)
-
-  fun push (
-    (t_arg, cont),
-    val_store, cont_stack, thread_id,
-    chan_store, block_store, sync_store, cnt
-  ) = (let
-    val cont_stack' = cont :: cont_stack
-
-  in
-    (
-      Mode_Suspend,
-      [(t_arg, val_store, cont_stack', thread_id)],
-      (chan_store, block_store, sync_store, cnt)
-    )
-  end)
 
   fun reduce_single (
     t, norm_f, reduce_f,
@@ -1253,6 +1198,69 @@ TODO:
       )
   )
 
+
+  fun reduce_list (
+    ts, norm_f, reduce_f,
+    val_store, cont_stack, thread_id,
+    chan_store, block_store, sync_store, cnt
+  ) = (let
+
+    fun loop (prefix, postfix) = (case postfix of
+      [] => (case (reduce_f prefix) of 
+        Error msg => (
+          Mode_Stick msg,
+          [], (chan_store, block_store, sync_store, cnt)
+        ) |
+
+        result => (
+          Mode_Reduce result,
+          [(result, val_store, cont_stack, thread_id)],
+          (chan_store, block_store, sync_store, cnt)
+        )
+
+      ) |
+
+      x :: xs => (case x of
+        (Id (id, _)) =>
+          (case (find (val_store, id)) of
+            SOME (NONE, v) => loop (prefix @ [v], xs) |
+            _ => (
+              Mode_Stick ("reduce list variable " ^ id ^ " cannot be resolved"),
+              [], (chan_store, block_store, sync_store, cnt)
+            )
+          ) |
+
+        _ =>
+          (if is_value x then 
+            loop (prefix @ [x], xs)
+          else
+            (push (
+              (
+                x,
+                (
+                  Contin_Norm,
+                  [( hole cnt, norm_f (prefix @ (hole cnt :: xs)) )],
+                  val_store,
+                  []
+                )
+              ),
+              val_store, cont_stack, thread_id,
+              chan_store, block_store, sync_store, cnt + 1
+            )
+            )
+          )
+
+      )
+    )
+
+  in
+    loop ([], ts)
+  end)
+  
+
+
+
+
   fun seq_step (
     md,
     (t, val_store, cont_stack, thread_id),
@@ -1281,12 +1289,6 @@ TODO:
       chan_store, block_store, sync_store, cnt
     ) | 
 
-    _ => (
-      Mode_Stick "TODO",
-      [], (chan_store, block_store, sync_store, cnt)
-    )
-
-    (* **TODO**
 
 
     Id (id, pos) => (case (find (val_store, id)) of
@@ -1301,6 +1303,7 @@ TODO:
         [], (chan_store, block_store, sync_store, cnt)
       )
     ) |
+
 
     List_Intro (t, t', pos) => reduce_list (
       [t, t'],
@@ -1323,6 +1326,13 @@ TODO:
       cont_stack, thread_id,
       chan_store, block_store, sync_store, cnt
     ) |
+
+    _ => (
+      Mode_Stick "TODO",
+      [], (chan_store, block_store, sync_store, cnt)
+    )
+    (* **TODO**
+
 
     Func_Intro (lams, pos) => pop (
       Func_Val (lams, val_store, [], pos),
