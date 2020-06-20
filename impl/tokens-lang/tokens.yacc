@@ -127,11 +127,11 @@ term_nt:
 
   CHSE (Func_Intro ([(Id ("_param", ~1), Event_Intro (Choose, Id ("_param", ~1), CHSEleft))], CHSEleft)) |
 
-  SYNC (Func_Intro ([(Id ("_param", ~1), Sync (Id ("_param", ~1), SYNCleft))], SYNCleft)) |
+  SYNC (Func_Intro ([(Id ("_param", ~1), Effect_Intro (Sync, Id ("_param", ~1), SYNCleft))], SYNCleft)) |
 
-  SPAWN (Func_Intro ([(Id ("_param", ~1), Spawn (Id ("_param", ~1), SPAWNleft))], SPAWNleft)) |
+  SPAWN (Func_Intro ([(Id ("_param", ~1), Effect_Intro (Spawn, Id ("_param", ~1), SPAWNleft))], SPAWNleft)) |
 
-  LANG term_nt RANG (Par (term_nt, LANGleft)) |
+  LANG term_nt RANG (Effect_Intro (Par, term_nt, LANGleft)) |
 
   LRPAREN (Blank LRPARENleft) | 
 

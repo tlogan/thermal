@@ -105,9 +105,9 @@ structure Tree = struct
   and base_effect =
     Base_Stage of term |
     Base_Sync of transaction list |
-    Bind of base_effect * contin list |
-    Spawn of base_effect |
-    Par of base_effect
+    Base_Bind of base_effect * contin list |
+    Base_Spawn of base_effect |
+    Base_Par of base_effect
 
   and transaction = Tx of base_event * contin list 
 
@@ -153,11 +153,13 @@ structure Tree = struct
   )
 
   fun event_to_string evt = (case evt of
-    Alloc_Chan => "chan_alloc" |
+    Alloc_Chan => "alloc_chan" |
     Send => "send" |
     Recv => "recv" |
     Latch => "latch" |
-    Choose => "choose"
+    Choose => "choose" |
+    Offer => "offer" | 
+    Block => "block"
   )
 
   fun to_string t = (case t of
@@ -1256,6 +1258,7 @@ TODO:
     ) |
     _ => t
   )
+  *)
 
   fun seq_step (
     md,
@@ -1265,6 +1268,14 @@ TODO:
     (* print ("stack size: " ^ (Int.toString (List.length cont_stack)) ^ "\n"); *)
     (*print ("\n(*** thread " ^ (Int.toString thread_id) ^ " ***)\n" ^ (to_string t) ^ "\n\n");*)
     case t of
+
+
+    _ => (
+      Mode_Stick "TODO",
+      [], (chan_store, block_store, sync_store, cnt)
+    )
+
+    (* **TODO**
 
     Assoc (term, pos) => (
       Mode_Reduce term,
@@ -1646,13 +1657,6 @@ TODO:
       chan_store, block_store, sync_store, cnt
 
     ) |
-
-    _ => (
-      Mode_Stick "TODO",
-      [], (chan_store, block_store, sync_store, cnt)
-    )
-
-    (* **TODO**
   
 
     Par of (term * int) |
@@ -1660,6 +1664,7 @@ TODO:
     *)
 
   )
+
 
   fun from_mode_to_string md = "----" ^ (case md of
     Mode_Start => "Start" |
@@ -1673,7 +1678,6 @@ TODO:
     Mode_Finish t => "Finish: " ^ (to_string t)
   ) ^ "----"
 
-*)
 
 
   fun concur_step (
