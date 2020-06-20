@@ -3,7 +3,6 @@ structure Tree = struct
   type chan_id = int
   type thread_id = int
 
-
   type ('a, 'b) store = ('a * 'b) list
 
   datatype left_right = Left | Right
@@ -36,6 +35,8 @@ structure Tree = struct
     Log of (term * int) |
 
     List_Intro of (term * term * int) |
+
+    (* TODO: factor out single Val constructor *)
     List_Val of ((term list) * int) |
 
     Func_Intro of (
