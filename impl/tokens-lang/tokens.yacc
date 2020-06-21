@@ -83,13 +83,13 @@ term_nt:
   LPAREN term_nt RPAREN (Assoc (term_nt, LPARENleft)) |
 
   HASH term_nt term_nt (List_Intro (term_nt1, term_nt2, HASHleft)) |
-  HASH term_nt (List_Intro (term_nt, Blank HASHright, HASHleft)) |
+  HASH term_nt (List_Intro (term_nt, Blank_Intro HASHright, HASHleft)) |
 
   lam_nt (Func_Intro ([lam_nt], lam_ntleft)) |
   LPAREN lams_nt (Func_Intro (lams_nt, lams_ntleft)) |
 
   WITH term_nt term_nt (With (term_nt1, term_nt2, WITHleft)) |
-  WITH term_nt (With (term_nt1, Blank WITHright, WITHleft)) |
+  WITH term_nt (With (term_nt1, Blank_Intro WITHright, WITHleft)) |
 
   PIPE term_nt term_nt (App (term_nt2, term_nt1, PIPEleft)) |
 
@@ -102,14 +102,14 @@ term_nt:
   term_nt LSQ term_nt RSQ
     (Select (List_Intro (
       term_nt1,
-      List_Intro (term_nt2, Blank RSQright, RSQleft),
+      List_Intro (term_nt2, Blank_Intro RSQright, RSQleft),
       LSQleft
     ), LSQleft)) |
 
   term_nt DOT ID
     (Select (List_Intro (
       term_nt,
-      List_Intro (String_Val (ID, IDleft), Blank IDright, IDleft),
+      List_Intro (String_Intro (ID, IDleft), Blank_Intro IDright, IDleft),
       DOTleft
   ), DOTleft)) |
 
@@ -133,11 +133,11 @@ term_nt:
 
   LANG term_nt RANG (Effect_Intro (Par, term_nt, LANGleft)) |
 
-  LRPAREN (Blank LRPARENleft) | 
+  LRPAREN (Blank_Intro LRPARENleft) | 
 
   ID (Id (ID, IDleft)) |
 
-  NUM (Num_Val (NUM, NUMleft)) |
+  NUM (Num_Intro (NUM, NUMleft)) |
 
   ADD (Func_Intro ([(Id ("_param", ~1), Num_Add (Id ("_param", ~1), ADDleft))], ADDleft)) |
 
@@ -147,7 +147,7 @@ term_nt:
 
   DIV (Func_Intro ([(Id ("_param", ~1), Num_Div (Id ("_param", ~1), DIVleft))], DIVleft)) |
 
-  STRING (String_Val (STRING, STRINGleft)) |
+  STRING (String_Intro (STRING, STRINGleft)) |
 
   term_nt term_nt %prec COMPO (Compo (term_nt1, term_nt2, term_nt1left))
 
