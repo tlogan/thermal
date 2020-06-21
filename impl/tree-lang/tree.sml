@@ -132,9 +132,7 @@ structure Tree = struct
 
   datatype transition_mode = 
     Mode_Start |
-    Mode_Suspend |
-    Mode_Reduce of value |
-    Mode_Continue |
+    Mode_Hidden |
     Mode_Spawn of term |
     Mode_Block of (base_event list) |
     Mode_Sync of (int * term * int * int)
@@ -795,7 +793,7 @@ TODO:
 
     (List_Val ([], _), List_Val ([], _)) => SOME val_store | 
 
-    (List_Val (t :: ts, _), List_Val (v :: vs, _))  =>
+    (List_Val (t :: ts, _), List_Val (v :: vs, _)) =>
       (Option.mapPartial
         (fn val_store' =>
           match_value_insert (val_store', t, v)
@@ -903,7 +901,7 @@ TODO:
 
   in
     (
-      Mode_Suspend,
+      Mode_Hidden,
       [(t_arg, val_store, cont_stack', thread_id)],
       (chan_store, block_store, sync_store, cnt)
     )
@@ -965,7 +963,7 @@ TODO:
 
           SOME (t_body, val_store'''') => (
             [(t_body, val_store'''', cont_stack', thread_id)],
-            Mode_Continue  
+            Mode_Hidden  
           )
 
         )
@@ -990,7 +988,7 @@ TODO:
     (Id (id, _)) =>
       (case (find (val_store, id)) of
         SOME (_, v_fn) => (
-          Mode_Suspend,
+          Mode_Hidden,
           [(App (Value v_fn, t_arg, pos), val_store, cont_stack, thread_id)],
           (chan_store, block_store, sync_store, cnt)
         ) |
@@ -1241,7 +1239,7 @@ TODO:
 
 
     Assoc (term, pos) => (
-      Mode_Suspend,
+      Mode_Hidden,
       [(term, val_store, cont_stack, thread_id)],
       (chan_store, block_store, sync_store, cnt)
     ) |
@@ -1262,7 +1260,7 @@ TODO:
 
     Id (id, pos) => (case (find (val_store, id)) of
       SOME (NONE, v) => (
-        Mode_Suspend,
+        Mode_Hidden,
         [(Value v, val_store, cont_stack, thread_id)],
         (chan_store, block_store, sync_store, cnt)
       ) |
@@ -1302,14 +1300,14 @@ TODO:
       val t' = to_func_elim val_store t_m 
     in
       (
-        Mode_Suspend,
+        Mode_Hidden,
         [(t', val_store, cont_stack, thread_id)],
         (chan_store, block_store, sync_store, cnt)
       )
     end) |
 
     Compo (t1, t2, pos) => (
-      Mode_Suspend,
+      Mode_Hidden,
       [(App (t1, t2, pos), val_store, cont_stack, thread_id)],
       (chan_store, block_store, sync_store, cnt)
     ) |
@@ -1349,7 +1347,7 @@ TODO:
       )
     in
       (
-        Mode_Suspend,
+        Mode_Hidden,
         [(Rec_Intro_Mutual (fields', pos), val_store, cont_stack, thread_id)],
         (chan_store, block_store, sync_store, cnt)
       )
@@ -1443,7 +1441,7 @@ TODO:
 *)
       (Id (id, _)) => (case (find (val_store, id)) of
         SOME (NONE, v) => (
-          Mode_Suspend,
+          Mode_Hidden,
           [(Sync (v, pos), val_store, cont_stack, thread_id)],
           (chan_store, block_store, sync_store, cnt)
         ) |
@@ -1505,7 +1503,7 @@ TODO:
     Spawn (t, pos) =>(case t of
       (Id (id, _)) => (case (find (val_store, id)) of
         SOME (_, v) => (
-          Mode_Suspend,
+          Mode_Hidden,
           [(Spawn (v, pos), val_store, cont_stack, thread_id)],
           (chan_store, block_store, sync_store, cnt)
         ) |
@@ -1640,9 +1638,7 @@ TODO:
 
   fun from_mode_to_string md = "----" ^ (case md of
     Mode_Start => "Start" |
-    Mode_Suspend => "Push/Suspend" |
-    Mode_Reduce t => "Reduce" |
-    Mode_Continue => "Pop/Continue" |
+    Mode_Hidden => "Hidden" |
     Mode_Spawn t => "Spawn" |
     Mode_Block transactions => "Block" |
     Mode_Sync (thread_id, msg, send_id, recv_id) => "Sync" |
