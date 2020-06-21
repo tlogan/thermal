@@ -77,7 +77,6 @@ structure Tree = struct
     Event_Intro of (event * term * int) |
     Event_Val of transaction list |
 
-    (* TODO: turn these into effects *)
     Effect_Intro of (effect * term * int) |
     Effect_Val of base_effect |
   
@@ -354,40 +353,6 @@ structure Tree = struct
     Int.toString i3
   end)
 
-
-  fun mk_transactions (evt, t) = (case (evt, t) of
-  
-    (Send, List_Val ([Chan_Loc i, msg], _)) =>
-      [(Base_Send (i, msg), [])] |
-  
-    (Recv, Chan_Loc i) =>
-      [(Base_Recv i, [])] |
-
-    (Choose, List_Val (values, _)) =>
-      mk_transactions_from_list values |
-
-    (* TODO: modify to handle choose and other event results *)
-    (Latch, List_Val ([Event_Val transactions, Func_Val (lams, fnc_store, mutual_store, _)], _)) =>
-      (List.foldl
-        (fn ((bevt, wrap_stack), transactions_acc) => let
-          val cont = (Contin_Sync, lams, fnc_store, mutual_store)
-        in
-          transactions_acc @ [(bevt, cont :: wrap_stack)]
-        end)
-        []
-        transactions 
-      ) |
-
-    _ => []
-  
-  )
-
-  and mk_transactions_from_list (evts) = (case evts of
-    [] => [] |
-    (Event_Val base_events) :: evts' => 
-      base_events @ (mk_transactions_from_list evts') |
-    _ => raise (Fail "Internal: mk_transactions_from_list")
-  )
 
 
   fun poll (base, chan_store, block_store) = (case base of
@@ -1257,10 +1222,46 @@ TODO:
   in
     loop ([], ts)
   end)
+
+
+  fun mk_transactions (evt, t) = (case (evt, t) of
   
+    (Send, List_Val ([Chan_Loc i, msg], _)) =>
+      [Tx (Base_Send (i, msg), [])] |
+  
+    (Recv, Chan_Loc i) =>
+      [Tx (Base_Recv i, [])] |
 
+    (Choose, List_Val (values, _)) =>
+      mk_transactions_from_list values |
 
+    _ => []
 
+    (* TODO: modify to handle choose and other event results *)
+    (*
+    (Latch, List_Val ([Event_Val transactions, Func_Val (lams, fnc_store, mutual_store, _)], _)) =>
+      (List.foldl
+        (fn ((bevt, wrap_stack), transactions_acc) => let
+          val cont = (Contin_Sync, lams, fnc_store, mutual_store)
+        in
+          transactions_acc @ [(bevt, cont :: wrap_stack)]
+        end)
+        []
+        transactions 
+      ) |
+    *)
+
+  
+  )
+
+  and mk_transactions_from_list (evts) = (case evts of
+    [] => [] |
+    (Event_Val base_events) :: evts' => 
+      base_events @ (mk_transactions_from_list evts') |
+    _ => raise (Fail "Internal: mk_transactions_from_list")
+  )
+
+  
 
   fun seq_step (
     md,
@@ -1327,12 +1328,6 @@ TODO:
       cont_stack, thread_id,
       chan_store, block_store, sync_store, cnt
     ) |
-
-    _ => (
-      Mode_Stick "TODO",
-      [], (chan_store, block_store, sync_store, cnt)
-    )
-    (* **TODO**
 
 
     Func_Intro (lams, pos) => pop (
@@ -1464,14 +1459,21 @@ TODO:
       chan_store, block_store, sync_store, cnt
     ) |
 
+
     Event_Intro (evt, t, pos) => reduce_single (
       t, fn t => Event_Intro (evt, t, pos), fn v => Event_Val (mk_transactions (evt, t)),
       val_store, cont_stack, thread_id,
       chan_store, block_store, sync_store, cnt
     ) | 
 
-    Event_Val bevts => pop (
-      Event_Val bevts,
+    _ => (
+      Mode_Stick "TODO",
+      [], (chan_store, block_store, sync_store, cnt)
+    )
+    (* **TODO**
+
+    Event_Val transactions => pop (
+      Event_Val transactions,
       cont_stack, thread_id,
       chan_store, block_store, sync_store, cnt
     ) |
