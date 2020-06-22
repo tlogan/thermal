@@ -96,7 +96,7 @@ structure Tree = struct
 
     Event_Val of transaction list |
 
-    Effect_Val of base_effect |
+    Effect_Val of effect_value |
   
     String_Val of (string * int) |
 
@@ -113,12 +113,12 @@ structure Tree = struct
     Base_Offer of value |
     Base_Block
 
-  and base_effect =
+  and effect_value =
     Base_Stage of value |
     Base_Sync of transaction list |
-    Base_Bind of base_effect * contin list |
-    Base_Spawn of base_effect |
-    Base_Par of base_effect
+    Base_Bind of effect_value * contin list |
+    Base_Spawn of effect_value |
+    Base_Par of effect_value
 
   and transaction = Tx of base_event * contin list 
 
@@ -912,12 +912,9 @@ TODO:
     chan_store, block_store, sync_store, cnt
   ) = (let
     val (threads, md) = (case cont_stack of
-      [] => (case result of
-        (* TODO *)
-        (*
-        Effect_Val base_effect => (run_effect base_effect) |
-        *)
-        _ => (
+      [] => (
+        raise (Fail "Internal Error: pop called with value and empty stack");
+        (
           [], Mode_Stick "top-level code with non-effect"
         )
       ) |
@@ -1486,7 +1483,6 @@ TODO:
   )
 
 (* **TODO**
-  fun run_effect = (
 
     Sync (t, pos) => (case t of
 
@@ -1610,22 +1606,6 @@ TODO:
 *)
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
   fun from_mode_to_string md = "----" ^ (case md of
     Mode_Start => "Start" |
     Mode_Hidden => "Hidden" |
@@ -1644,7 +1624,9 @@ TODO:
   ) = (case threads of
     [] => ( (*print "all done!\n";*) NONE) |
     thread :: threads' => (let
+      (* TODO: check thread nature: Pure, Effect, or Sync call apropo thread_step *)
       val (md', seq_threads, env') = (seq_step (md, thread, env)) 
+      (* TODO: change seq thread to return just one thread, check if effect_val with empty: switch to alternate seq_step or finish*)
 
       (*
       val _ = print ((from_mode_to_string md') ^ "\n")
