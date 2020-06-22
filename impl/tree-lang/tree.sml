@@ -329,7 +329,6 @@ structure Tree = struct
   ) 
 
 
-(*
 
   fun num_add (n1, n2) = (let
     val i1 = (valOf o Int.fromString) n1
@@ -374,7 +373,7 @@ structure Tree = struct
   end)
 
 
-
+(*
   fun poll (base, chan_store, block_store) = (case base of
     Base_Send (i, msg, _) =>
       (let
@@ -1399,6 +1398,75 @@ TODO:
       chan_store, block_store, sync_store, cnt
     ) | 
 
+    Blank_Intro pos => pop (
+      Blank_Val,
+      cont_stack, thread_id,
+      chan_store, block_store, sync_store, cnt
+    ) |
+
+    String_Intro (str, pos) => pop (
+      String_Val (str, pos),
+      cont_stack, thread_id,
+      chan_store, block_store, sync_store, cnt
+    ) |
+
+    Num_Intro (str, pos) => pop (
+      Num_Val (str, pos),
+      cont_stack, thread_id,
+      chan_store, block_store, sync_store, cnt
+    ) |
+
+    Num_Add (t, pos) => reduce_single (
+      t, fn t => Num_Add (t, pos),
+      (fn
+        List_Val ([Num_Val (n1, _), Num_Val (n2, _)], _) =>
+          Num_Val (num_add (n1, n2), pos) |
+        _ => Error "adding non-numbers"
+      ),
+      val_store, cont_stack, thread_id,
+      chan_store, block_store, sync_store, cnt
+
+    ) |
+
+    Num_Sub (t, pos) => reduce_single (
+      t, fn t => Num_Sub (t, pos),
+      (fn
+        List_Val ([Num_Val (n1, _), Num_Val (n2, _)], _) => (
+          Num_Val (num_sub (n1, n2), pos)
+        ) |
+        _ => Error "subtracting non-numbers"
+      ),
+      val_store, cont_stack, thread_id,
+      chan_store, block_store, sync_store, cnt
+
+    ) |
+
+    Num_Mul (t, pos) => reduce_single (
+      t, fn t => Num_Mul (t, pos),
+      (fn
+        List_Val ([Num_Val (n1, _), Num_Val (n2, _)], _) => (
+          Num_Val (num_mul (n1, n2), pos)
+        ) |
+        _ => Error "multplying non-numbers"
+      ),
+      val_store, cont_stack, thread_id,
+      chan_store, block_store, sync_store, cnt
+
+    ) |
+
+    Num_Div (t, pos) => reduce_single (
+      t, fn t => Num_Div (t, pos),
+      (fn
+        List_Val ([Num_Val (n1, _), Num_Val (n2, _)], _) => (
+          Num_Val (num_div (n1, n2), pos)
+        ) |
+        _ => Error "dividing non-numbers"
+      ),
+      val_store, cont_stack, thread_id,
+      chan_store, block_store, sync_store, cnt
+
+    ) |
+
     Value (Func_Val (lams, [], mutual_store, pos)) => pop (
       Func_Val (lams, val_store, mutual_store, pos),
       cont_stack, thread_id,
@@ -1415,13 +1483,10 @@ TODO:
       Mode_Stick "TODO",
       [], (chan_store, block_store, sync_store, cnt)
     )
-    (* **TODO**
+  )
 
-    Event_Val transactions => pop (
-      Event_Val transactions,
-      cont_stack, thread_id,
-      chan_store, block_store, sync_store, cnt
-    ) |
+(* **TODO**
+  fun run_effect = (
 
     Sync (t, pos) => (case t of
 
@@ -1492,13 +1557,6 @@ TODO:
 
     ) |
 
-    (* internal rep *)
-    ThreadId i => pop (
-      ThreadId i,
-      cont_stack, thread_id,
-      chan_store, block_store, sync_store, cnt
-    ) |
-
 
     Spawn (t, pos) =>(case t of
       (Id (id, _)) => (case (find (val_store, id)) of
@@ -1544,81 +1602,13 @@ TODO:
       )
     ) |
 
-    Blank_Intro pos => pop (
-      Blank_Val,
-      cont_stack, thread_id,
-      chan_store, block_store, sync_store, cnt
-    ) |
-
-    String_Intro (str, pos) => pop (
-      String_Val (str, pos),
-      cont_stack, thread_id,
-      chan_store, block_store, sync_store, cnt
-    ) |
-
-    Num_Intro (str, pos) => pop (
-      Num_Val (str, pos),
-      cont_stack, thread_id,
-      chan_store, block_store, sync_store, cnt
-    ) |
-
-    Num_Add (t, pos) => reduce_single (
-      t, fn t => Num_Add (t, pos),
-      (fn
-        List_Val ([Num_Val (n1, _), Num_Val (n2, _)], _) =>
-          Num_Val (num_add (n1, n2), pos) |
-        _ => Error "adding non-numbers"
-      ),
-      val_store, cont_stack, thread_id,
-      chan_store, block_store, sync_store, cnt
-
-    ) |
-
-    Num_Sub (t, pos) => reduce_single (
-      t, fn t => Num_Sub (t, pos),
-      (fn
-        List_Val ([Num_Val (n1, _), Num_Val (n2, _)], _) => (
-          Num_Val (num_sub (n1, n2), pos)
-        ) |
-        _ => Error "subtracting non-numbers"
-      ),
-      val_store, cont_stack, thread_id,
-      chan_store, block_store, sync_store, cnt
-
-    ) |
-
-    Num_Mul (t, pos) => reduce_single (
-      t, fn t => Num_Mul (t, pos),
-      (fn
-        List_Val ([Num_Val (n1, _), Num_Val (n2, _)], _) => (
-          Num_Val (num_mul (n1, n2), pos)
-        ) |
-        _ => Error "multplying non-numbers"
-      ),
-      val_store, cont_stack, thread_id,
-      chan_store, block_store, sync_store, cnt
-
-    ) |
-
-    Num_Div (t, pos) => reduce_single (
-      t, fn t => Num_Div (t, pos),
-      (fn
-        List_Val ([Num_Val (n1, _), Num_Val (n2, _)], _) => (
-          Num_Val (num_div (n1, n2), pos)
-        ) |
-        _ => Error "dividing non-numbers"
-      ),
-      val_store, cont_stack, thread_id,
-      chan_store, block_store, sync_store, cnt
-
-    ) |
   
 
     Par of (term * int) |
   
-    *)
-
   )
+*)
+
 
 
 
