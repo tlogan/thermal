@@ -19,7 +19,7 @@ structure Tree = struct
     Block
 
   datatype effect =
-    Stage |
+    Return |
     Sync |
     Bind |
     Spawn |
@@ -78,49 +78,49 @@ structure Tree = struct
     Value of value 
 
   and value =
-    Blank_Val |
-    List_Val of (value list * int) |
+    Blank_Value |
+    List_Value of (value list * int) |
 
-    Func_Val of (
+    Func_Value of (
       ((term * term) list) *
       ((string, infix_option * value) store) *
       ((string, infix_option * ((term * term) list)) store) *
       int
-    ) (* Func_Val (lams, val_store, mutual_store, pos) *) |
+    ) (* Func_Value (lams, value_store, mutual_store, pos) *) |
 
-    Rec_Val of (
+    Rec_Value of (
       ((string * (infix_option * value)) list) *
       int
     ) (* Rec_Intro (fields, pos) *) |
 
 
-    Event_Val of transaction list |
+    Event_Value of transaction list |
 
-    Effect_Val of effect_value |
+    Effect_Value of effect_value |
   
-    String_Val of (string * int) |
+    String_Value of (string * int) |
 
-    Num_Val of (string * int) |
+    Num_Value of (string * int) |
     Chan_Loc of int |
     ThreadId of int |
     Error of string
 
 
-  and base_event =
-    Base_Alloc_Chan | 
-    Base_Send of chan_id * value |
-    Base_Recv of chan_id |
-    Base_Offer of value |
-    Base_Block
+  and event_value =
+    Alloc_Chan_Value | 
+    Send_Value of chan_id * value |
+    Recv_Value of chan_id |
+    Offer_Value of value |
+    Block_Value
 
   and effect_value =
-    Base_Stage of value |
-    Base_Sync of transaction list |
-    Base_Bind of effect_value * contin list |
-    Base_Spawn of effect_value |
-    Base_Par of effect_value
+    Return_Value of value |
+    Sync_Value of transaction list |
+    Bind_Value of effect_value * contin list |
+    Spawn_Value of effect_value |
+    Par_Value of effect_value
 
-  and transaction = Tx of base_event * contin list 
+  and transaction = Tx of event_value * contin list 
 
   and contin = Contin of (
     contin_mode * 
@@ -137,7 +137,7 @@ structure Tree = struct
   )
 
   type sender = (int * contin list * value * thread_id)
-    (* (block_id, cont_stack, msg, thread_id) *)
+    (* (block_id, contin_stack, msg, thread_id) *)
   type receiver = (int * contin list * thread_id)
 
   type channel = sender * receiver 
@@ -156,7 +156,7 @@ structure Tree = struct
   )
   (*
     t,
-    (val_store, cont_stack, thread_id),
+    (value_store, contin_stack, thread_id),
     (chan_store, block_store, cnt)
   *)
 
@@ -241,7 +241,7 @@ structure Tree = struct
 
     Id (name, pos) => name |
 
-    String_Val (str, pos) => str |
+    String_Value (str, pos) => str |
 
     Chan_Loc i => "chan_loc_" ^ (Int.toString i) |
 
@@ -264,19 +264,19 @@ structure Tree = struct
 
   and value_to_string v = (case v of
 
-    List_Val (vs, pos) => surround "" ( 
+    List_Value (vs, pos) => surround "" ( 
       String.concatWith "\n" (List.map (fn v => "# " ^ (value_to_string v)) vs)
     ) |
 
-    Func_Val (lams, fnc_store, mutual_store, pos) => String.surround "val" (
+    Func_Value (lams, fnc_store, mutual_store, pos) => String.surround "val" (
       String.concatWith "\n" (List.map (fn t => (from_lam_to_string t)) lams)
     ) |
 
-    Rec_Val (fs, pos) => String.surround "val" (
+    Rec_Value (fs, pos) => String.surround "val" (
       String.concatWith ",\n" (List.map from_field_value_to_string fs)
     ) |
 
-    Event_Val transactions => String.surround "evt_val" (
+    Event_Value transactions => String.surround "evt_val" (
       String.concatWith "\n" (List.map transaction_to_string transactions)
     ) |
 
@@ -296,24 +296,24 @@ structure Tree = struct
     "def "  ^ name ^ (from_infix_option_to_string fix_op) ^ " : " ^ (to_string t)
   )
 
-  and transaction_to_string (Tx (bevt, wrap_stack)) =
+  and transaction_to_string (Tx (evt_val, wrap_stack)) =
     String.surround "transaction" (
-      (base_event_to_string bevt) ^ "\n" ^ (stack_to_string wrap_stack)
+      (event_value_to_string evt_val) ^ "\n" ^ (stack_to_string wrap_stack)
     )
 
-  and base_event_to_string bevt = (case bevt of  
+  and event_value_to_string evt_val = (case evt_val of  
 
-    Base_Alloc_Chan => "alloc_chan" |
+    Alloc_Chan_Value => "alloc_chan" |
 
-    Base_Send (i, msg) => String.surround "base_send " (
+    Send_Value (i, msg) => String.surround "send_value " (
       (Int.toString i) ^ (value_to_string msg)
     ) |
 
-    Base_Recv i => String.surround "base_recv " (
+    Recv_Value i => String.surround "recv_value " (
       (Int.toString i)
     ) |
 
-    _ => "(NOT IMPLE: base_event_to_string)"
+    _ => "(NOT IMPLE: event_value_to_string)"
 
   )
 
@@ -332,8 +332,8 @@ structure Tree = struct
   )
   
   
-  fun insert_table (val_store_base, val_store_top) = (
-    val_store_top @ val_store_base
+  fun insert_table (value_store_base, value_store_top) = (
+    value_store_top @ value_store_base
   )
   
   fun find (table, key) =
@@ -395,12 +395,12 @@ structure Tree = struct
 
 (*
   fun poll (base, chan_store, block_store) = (case base of
-    Base_Send (i, msg, _) =>
+    Send_Value (i, msg, _) =>
       (let
         val chan_op = find (chan_store, i)
         fun poll_recv (send_q, recv_q) = (case recv_q of
           [] => (false, chan_store) |
-          (block_id, cont_stack, _) :: recv_q' =>
+          (block_id, contin_stack, _) :: recv_q' =>
             (case (find (block_store, block_id)) of
                 SOME () => (true, chan_store) |
                 NONE => poll (
@@ -419,12 +419,12 @@ structure Tree = struct
         )
       end) |
   
-     Base_Recv (i, _) =>
+     Recv_Value (i, _) =>
       (let
         val chan_op = find (chan_store, i)
         fun poll_send (send_q, recv_q) = (case send_q of
           [] => (false, chan_store) |
-          (block_id, cont_stack, msg, _) :: send_q' =>
+          (block_id, contin_stack, msg, _) :: send_q' =>
             (case (find (block_store, block_id)) of
               SOME () => (true, chan_store) |
               NONE => poll (
@@ -467,11 +467,11 @@ structure Tree = struct
 
   
   fun proceed (
-    (bevt, wrap_stack), cont_stack, thread_id,
+    (evt_val, wrap_stack), contin_stack, thread_id,
     (chan_store, block_store, sync_store, cnt)
-  ) = (case bevt of
+  ) = (case evt_val of
 
-    Base_Send (i, msg) =>
+    Send_Value (i, msg) =>
     (let
       val chan_op = find (chan_store, i)
       val recv_op = (case chan_op of
@@ -481,10 +481,10 @@ structure Tree = struct
         NONE => NONE
       )
       val (threads, md') = (case recv_op of
-        NONE => Stick "proceed Base_Send" |
+        NONE => Stick "proceed Send"_Value |
         SOME (recv_stack, recv_thread_id) => (
           [
-            (Blank 0, empty_table, wrap_stack @ cont_stack, thread_id),
+            (Blank 0, empty_table, wrap_stack @ contin_stack, thread_id),
             (msg, empty_table, recv_stack, recv_thread_id)
           ],
           Mode_Sync (i, msg, thread_id, recv_thread_id)
@@ -505,7 +505,7 @@ structure Tree = struct
       ) 
     end) |
   
-    Base_Recv i =>
+    Recv_Value i =>
     (let
       val chan_op = find (chan_store, i)
       val send_op = (case chan_op of
@@ -516,11 +516,11 @@ structure Tree = struct
       )
   
       val (threads, md') = (case send_op of
-        NONE => ([], Mode_Stick "proceed Base_Recv") |
+        NONE => ([], Mode_Stick "proceed Recv")_Value |
         SOME (send_stack, msg, send_thread_id) => (
           [
             (Value Blank_Val, empty_table, send_stack, send_thread_id),
-            (Value msg, empty_table, wrap_stack @ cont_stack, thread_id)
+            (Value msg, empty_table, wrap_stack @ contin_stack, thread_id)
           ],
           Mode_Sync (i, msg, send_thread_id, thread_id)
         )
@@ -542,31 +542,31 @@ structure Tree = struct
   
   )
   
-  fun block_one ((bevt, wrap_stack), cont_stack, chan_store, block_id, thread_id) = (case bevt of
-    Base_Send (i, msg) =>
+  fun block_one ((evt_val, wrap_stack), contin_stack, chan_store, block_id, thread_id) = (case evt_val of
+    Send_Value (i, msg) =>
       (let
-        val cont_stack' = wrap_stack @ cont_stack
+        val contin_stack' = wrap_stack @ contin_stack
         val chan_op = find (chan_store, i)
         val chan' = (case chan_op of
           NONE =>
-            ([(block_id, cont_stack', msg, thread_id)], []) |
+            ([(block_id, contin_stack', msg, thread_id)], []) |
           SOME (send_q, recv_q) =>
-            (send_q @ [(block_id, cont_stack', msg, thread_id)], recv_q)
+            (send_q @ [(block_id, contin_stack', msg, thread_id)], recv_q)
         )
         val chan_store' = insert (chan_store, i, chan')
       in
         chan_store'
       end) |
   
-    Base_Recv i =>
+    Recv_Value i =>
       (let
-        val cont_stack' = wrap_stack @ cont_stack
+        val contin_stack' = wrap_stack @ contin_stack
         val chan_op = find (chan_store, i)
         val chan' = (case chan_op of
           NONE =>
-            ([], [(block_id, cont_stack', thread_id)]) | 
+            ([], [(block_id, contin_stack', thread_id)]) | 
           SOME (send_q, recv_q) =>
-            (send_q, recv_q @ [(block_id, cont_stack', thread_id)])
+            (send_q, recv_q @ [(block_id, contin_stack', thread_id)])
         )
         val chan_store' = insert (chan_store, i, chan')
       in
@@ -576,115 +576,115 @@ structure Tree = struct
   )
   
   fun block (
-    base_events, cont_stack, thread_id,
+    event_values, contin_stack, thread_id,
     (chan_store, block_store, sync_store, cnt)
   ) = (let
     val chan_store' = (List.foldl  
-      (fn (bevt, chan_store) =>
-        block_one (bevt, cont_stack, chan_store, cnt, thread_id)
+      (fn (evt_val, chan_store) =>
+        block_one (evt_val, contin_stack, chan_store, cnt, thread_id)
       )
       chan_store
-      base_events
+      event_values
     )
     val block_store' = insert (block_store, cnt, ())
     val cnt' = cnt + 1
   in
-    (Mode_Block base_events, [], (chan_store', block_store', sync_store, cnt'))
+    (Mode_Block event_values, [], (chan_store', block_store', sync_store, cnt'))
   end)
 
   *)
 
 
-  fun match_symbolic_term_insert val_store (pattern, symbolic_term) = (case (pattern, symbolic_term) of
-    (Blank_Intro _, _) => SOME val_store |
+  fun match_symbolic_term_insert value_store (pattern, symbolic_term) = (case (pattern, symbolic_term) of
+    (Blank_Intro _, _) => SOME value_store |
 
     (Sym (Id (id, _), _), _) => (let
-      val thunk = Func_Val ([(Blank_Intro ~1, symbolic_term)], val_store, [], ~1)
+      val thunk = Func_Value ([(Blank_Intro ~1, symbolic_term)], value_store, [], ~1)
     in
-      SOME (insert (val_store, id, (NONE, thunk)))
+      SOME (insert (value_store, id, (NONE, thunk)))
     end) |
 
     (Id (p_id, _), Id (st_id, _)) =>
     (if p_id = st_id then
-      SOME val_store
+      SOME value_store
     else
       NONE
     ) |
 
     (Assoc (p, _), Assoc (st, _)) =>
-      match_symbolic_term_insert val_store (p, st) |
+      match_symbolic_term_insert value_store (p, st) |
 
     (Log (p, _), Log (st, _)) =>
-      match_symbolic_term_insert val_store (p, st) |
+      match_symbolic_term_insert value_store (p, st) |
 
     (List_Intro (p1, p2, _), List_Intro (st1, st2, _)) => (
       (Option.mapPartial
-        (fn val_store' =>
-          match_symbolic_term_insert val_store' (p2, st2)
+        (fn value_store' =>
+          match_symbolic_term_insert value_store' (p2, st2)
         )
-        (match_symbolic_term_insert val_store (p1, st1))
+        (match_symbolic_term_insert value_store (p1, st1))
       )
     ) |
 
     (Func_Intro (p_lams, _), Func_Intro (st_lams, _)) =>
-      from_lams_match_symbolic_term_insert val_store (p_lams, st_lams) |
+      from_lams_match_symbolic_term_insert value_store (p_lams, st_lams) |
 
     (App (p1, p2, _), App (st1, st2, _)) =>
     (Option.mapPartial
-      (fn val_store' =>
-        match_symbolic_term_insert val_store' (p2, st2)
+      (fn value_store' =>
+        match_symbolic_term_insert value_store' (p2, st2)
       )
-      (match_symbolic_term_insert val_store (p1, st1))
+      (match_symbolic_term_insert value_store (p1, st1))
     ) |
 
     (Compo (p1, p2, _), Compo (st1, st2, _)) => (
       (Option.mapPartial
-        (fn val_store' =>
-          match_symbolic_term_insert val_store' (p2, st2)
+        (fn value_store' =>
+          match_symbolic_term_insert value_store' (p2, st2)
         )
-        (match_symbolic_term_insert val_store (p1, st1))
+        (match_symbolic_term_insert value_store (p1, st1))
       )
     ) |
 
     (With (p1, p2, _), With (st1, st2, _)) =>
     (Option.mapPartial
-      (fn val_store' =>
-        match_symbolic_term_insert val_store' (p2, st2)
+      (fn value_store' =>
+        match_symbolic_term_insert value_store' (p2, st2)
       )
-      (match_symbolic_term_insert val_store (p1, st1))
+      (match_symbolic_term_insert value_store (p1, st1))
     ) |
 
 
     (Rec_Intro_Mutual (p_fields, _), Rec_Intro_Mutual (st_fields, _)) =>
-      from_fields_match_symbolic_term_insert val_store (p_fields, st_fields) |
+      from_fields_match_symbolic_term_insert value_store (p_fields, st_fields) |
 
 
     (Select (p, _), Select (st, _)) =>
-      match_symbolic_term_insert val_store (p, st) |
+      match_symbolic_term_insert value_store (p, st) |
 
     (Event_Intro (p_evt, p, _), Event_Intro (st_evt, st, _)) =>
-      if p_evt = st_evt then match_symbolic_term_insert val_store (p, st)
+      if p_evt = st_evt then match_symbolic_term_insert value_store (p, st)
       else NONE |
 
 (*
 TODO:
-    (Event_Val p_transactions, Event_Val st_transactions) =>
-      match_symbolic_transactions_insert val_store (p_transactions, st_transactions) |
+    (Event_Value p_transactions, Event_Value st_transactions) =>
+      match_symbolic_transactions_insert value_store (p_transactions, st_transactions) |
 *)
 
 (*
-**    (List_Val (ps, _), Value (List_Val (sts, _))) =>
+**    (List_Value (ps, _), Value (List_Value (sts, _))) =>
 **    (if (List.length ps = List.length sts) then
 **      (List.foldl
-**        (fn ((p, st), val_store_op) => 
+**        (fn ((p, st), value_store_op) => 
 **          (Option.mapPartial
-**            (fn val_store' =>
-**              match_symbolic_term_insert val_store' (p, st)
+**            (fn value_store' =>
+**              match_symbolic_term_insert value_store' (p, st)
 **            )
-**            val_store_op
+**            value_store_op
 **          )
 **        )
-**        (SOME val_store)
+**        (SOME value_store)
 **        (ListPair.zip (ps, sts))
 **      )
 **    else
@@ -695,26 +695,26 @@ TODO:
 
     (Value p_v, Value st_v) =>
     (if p_v = st_v then
-      SOME val_store
+      SOME value_store
     else
       NONE
     ) |
 
     (Effect_Intro (p_effect, p, _), Effect_Intro (st_effect, st, _)) =>
-      if p_effect = st_effect then match_symbolic_term_insert val_store (p, st)
+      if p_effect = st_effect then match_symbolic_term_insert value_store (p, st)
       else NONE |
 
     (Num_Add (p, _), Num_Add (st, _)) =>
-      match_symbolic_term_insert val_store (p, st) |
+      match_symbolic_term_insert value_store (p, st) |
 
     (Num_Sub (p, _), Num_Sub (st, _)) =>
-      match_symbolic_term_insert val_store (p, st) |
+      match_symbolic_term_insert value_store (p, st) |
 
     (Num_Mul (p, _), Num_Mul (st, _)) =>
-      match_symbolic_term_insert val_store (p, st) |
+      match_symbolic_term_insert value_store (p, st) |
 
     (Num_Div (p, _), Num_Div (st, _)) =>
-      match_symbolic_term_insert val_store (p, st) |
+      match_symbolic_term_insert value_store (p, st) |
 
     _ => (
       NONE
@@ -723,86 +723,86 @@ TODO:
 
   )
 
-  and from_lams_match_symbolic_term_insert val_store (p_lams, st_lams) = 
+  and from_lams_match_symbolic_term_insert value_store (p_lams, st_lams) = 
   (if (List.length p_lams = List.length st_lams) then
     (List.foldl
-      (fn (((p1, p2), (st1, st2)), val_store_op) =>
+      (fn (((p1, p2), (st1, st2)), value_store_op) =>
         (Option.mapPartial
-          (fn val_store' =>
+          (fn value_store' =>
             (Option.mapPartial
-              (fn val_store' =>
-                match_symbolic_term_insert val_store' (p2, st2)
+              (fn value_store' =>
+                match_symbolic_term_insert value_store' (p2, st2)
               )
-              (match_symbolic_term_insert val_store (p1, st1))
+              (match_symbolic_term_insert value_store (p1, st1))
             )
           )
-          val_store_op
+          value_store_op
         )
       )
-      (SOME val_store)
+      (SOME value_store)
       (ListPair.zip (p_lams, st_lams))
     )
   else
     NONE
   )
 
-  and from_fields_match_symbolic_term_insert val_store (p_fields, st_fields) =
+  and from_fields_match_symbolic_term_insert value_store (p_fields, st_fields) =
   (if (List.length p_fields = List.length st_fields) then
     (List.foldl
-      (fn (((p_key, (p_fop, p)), (st_key, (st_fop, st))), val_store_op) =>
+      (fn (((p_key, (p_fop, p)), (st_key, (st_fop, st))), value_store_op) =>
         (if p_key = st_key andalso p_fop = st_fop then
           (Option.mapPartial
-            (fn val_store' =>
-              match_symbolic_term_insert val_store (p, st)
+            (fn value_store' =>
+              match_symbolic_term_insert value_store (p, st)
             )
-            val_store_op
+            value_store_op
           )
         else 
           NONE
         )
       )
-      (SOME val_store)
+      (SOME value_store)
       (ListPair.zip (p_fields, st_fields))
     )
   else
     NONE
   )
 
-  fun match_value_insert (val_store, pat, value) = (case (pat, value) of
+  fun match_value_insert (value_store, pat, value) = (case (pat, value) of
 
     (Assoc (pat', _), _) =>
-      match_value_insert (val_store, pat', value) |
+      match_value_insert (value_store, pat', value) |
 
     (Blank_Intro _, _) =>
-      SOME val_store |
+      SOME value_store |
 
     (Id (str, _), v) =>
-      SOME (insert (val_store, str, (NONE, v))) |
+      SOME (insert (value_store, str, (NONE, v))) |
 
-    (List_Intro (t, t', _), List_Val (v :: vs, _)) =>
+    (List_Intro (t, t', _), List_Value (v :: vs, _)) =>
       (Option.mapPartial
-        (fn val_store' =>
-          match_value_insert (val_store', t, v)
+        (fn value_store' =>
+          match_value_insert (value_store', t, v)
         )
-        (match_value_insert (val_store, t', List_Val (vs, ~1)))
+        (match_value_insert (value_store, t', List_Value (vs, ~1)))
       ) |
 
-    (Rec_Intro (p_fields, _), Rec_Val (v_fields, _)) => (
-      from_fields_match_value_insert val_store (p_fields, v_fields)
+    (Rec_Intro (p_fields, _), Rec_Value (v_fields, _)) => (
+      from_fields_match_value_insert value_store (p_fields, v_fields)
     ) |
 
-    (Func_Intro ([(Blank_Intro _, p_body)], _), Func_Val ([(Blank_Intro _, st_body)], _, _, _)) => (
+    (Func_Intro ([(Blank_Intro _, p_body)], _), Func_Value ([(Blank_Intro _, st_body)], _, _, _)) => (
       (* function value's local stores are ignored; only syntax is matched; *)
       (* it's up to the user to determine if syntax can actually be evaluated in alternate context *)
       (* variables in pattern are specified by pattern_var syntax (sym f); *)
       (* it may then be used in new context and evaluated with f () *) 
-      match_symbolic_term_insert val_store (p_body, st_body)
+      match_symbolic_term_insert value_store (p_body, st_body)
     ) |
 
 
-    (Num_Intro (n, _), Num_Val (nv, _)) => (
+    (Num_Intro (n, _), Num_Value (nv, _)) => (
       if n = nv then
-        SOME val_store
+        SOME value_store
       else
         NONE
     ) |
@@ -811,40 +811,40 @@ TODO:
 
     (* **TODO**
 
-    (List_Val ([], _), List_Val ([], _)) => SOME val_store | 
+    (List_Value ([], _), List_Value ([], _)) => SOME value_store | 
 
-    (List_Val (t :: ts, _), List_Val (v :: vs, _)) =>
+    (List_Value (t :: ts, _), List_Value (v :: vs, _)) =>
       (Option.mapPartial
-        (fn val_store' =>
-          match_value_insert (val_store', t, v)
+        (fn value_store' =>
+          match_value_insert (value_store', t, v)
         )
-        (match_value_insert (val_store, List_Val (ts, ~1), List_Val (vs, ~1)))
+        (match_value_insert (value_store, List_Value (ts, ~1), List_Value (vs, ~1)))
       ) |
 
 
     (Event_Send_Intro (t, _), Event_Send_Intro (v, _)) =>
-      match_value_insert (val_store, t, v) |
+      match_value_insert (value_store, t, v) |
 
     (Event_Recv_Intro (t, _), Event_Recv_Intro (v, _)) =>
-      match_value_insert (val_store, t, v) |
+      match_value_insert (value_store, t, v) |
 
-    (Func_Val p_fnc, Func_Val v_fnc) => (
+    (Func_Value p_fnc, Func_Value v_fnc) => (
       if fnc_equal (p_fnc, v_fnc) then
-        SOME val_store
+        SOME value_store
       else
         NONE
     ) |
 
-    (String_Val (str, _), String_Val (strv, _)) => (
+    (String_Value (str, _), String_Value (strv, _)) => (
       if str = strv then
-        SOME val_store
+        SOME value_store
       else
         NONE
     ) |
 
     (Rec_Intro (p_fields, _), Rec_Intro (v_fields, _)) => (case (p_fields, v_fields) of
       ([], []) =>
-        SOME val_store |
+        SOME value_store |
 
       ((pk, t) :: ps, _ :: _) => (let
         val (match, remainder) = (List.partition  
@@ -854,8 +854,8 @@ TODO:
       in
         (case match of
           [(k, v)] => (Option.mapPartial
-            (fn val_store' => match_value_insert (val_store', t, v))
-            (match_value_insert (val_store, Rec_Intro (ps, ~1), Rec_Intro (remainder, ~1)))
+            (fn value_store' => match_value_insert (value_store', t, v))
+            (match_value_insert (value_store, Rec_Intro (ps, ~1), Rec_Intro (remainder, ~1)))
           ) |
 
           _ => NONE
@@ -870,8 +870,8 @@ TODO:
     *)
   )
 
-  and from_fields_match_value_insert val_store (p_fields, v_fields) = (case p_fields of
-    [] => SOME val_store |
+  and from_fields_match_value_insert value_store (p_fields, v_fields) = (case p_fields of
+    [] => SOME value_store |
     (pname, (pfix_op, p)) :: pfs => (let
       val (key_matches, vfs) = (List.partition
         (fn (vname, (vfix_op, _)) =>
@@ -883,20 +883,20 @@ TODO:
       fun match_term key_matches = (case key_matches of
         [] => NONE |
         [(vname,(vfix_op, v))] => (Option.mapPartial
-          (fn val_store' =>
-            SOME (insert (val_store', vname, (vfix_op, v)))
+          (fn value_store' =>
+            SOME (insert (value_store', vname, (vfix_op, v)))
           )
-          (match_value_insert (val_store, p, v))
+          (match_value_insert (value_store, p, v))
         ) |
         _ :: key_matches' => match_term key_matches'
       )
-      val val_store_op = match_term key_matches
+      val value_store_op = match_term key_matches
     in
       (Option.mapPartial
-        (fn val_store' =>
-          from_fields_match_value_insert val_store' (pfs, vfs)
+        (fn value_store' =>
+          from_fields_match_value_insert value_store' (pfs, vfs)
         )
-        val_store_op
+        value_store_op
       )
     end)
   )
@@ -914,55 +914,55 @@ TODO:
 
   fun push (
     (t_arg, cont),
-    val_store, cont_stack, thread_id,
+    value_store, contin_stack, thread_id,
     chan_store, block_store, sync_store, cnt
   ) = (let
-    val cont_stack' = cont :: cont_stack
+    val contin_stack' = cont :: contin_stack
 
   in
     (
       t_arg 
-      (val_store, cont_stack', thread_id),
+      (value_store, contin_stack', thread_id),
       (chan_store, block_store, sync_store, cnt)
     )
   end)
 
   fun pop (
     result,
-    cont_stack, thread_id,
+    contin_stack, thread_id,
     chan_store, block_store, sync_store, cnt
-  ) = (case cont_stack of
+  ) = (case contin_stack of
     [] => (
       raise (Fail "Internal Error: pop called with value and empty stack")
     ) |
-    (cmode, lams, val_store', mutual_store) :: cont_stack' => (let
+    (cmode, lams, value_store', mutual_store) :: contin_stack' => (let
 
-      val val_store'' = (case result of
-        Rec_Val (fields, _) => (if cmode = Contin_With then
-          insert_table (val_store', fields)
+      val value_store'' = (case result of
+        Rec_Value (fields, _) => (if cmode = Contin_With then
+          insert_table (value_store', fields)
         else
-          val_store'
+          value_store'
         ) |
-        _ => val_store'
+        _ => value_store'
       )
 
       (* embed mutual_store within self's functions *)
       val fnc_store = (map 
         (fn (k, (fix_op, lams)) =>
-          (k, (fix_op, Func_Val (lams, val_store'', mutual_store, ~1)))
+          (k, (fix_op, Func_Value (lams, value_store'', mutual_store, ~1)))
         )
         mutual_store
       )
 
-      val val_store''' = insert_table (val_store'', fnc_store)
+      val value_store''' = insert_table (value_store'', fnc_store)
 
       fun match_first lams = (case lams of
         [] => NONE |
         (p, t) :: lams' =>
-          (case (match_value_insert (val_store''', p, result)) of
+          (case (match_value_insert (value_store''', p, result)) of
             NONE => match_first lams' |
-            SOME val_store'''' => (
-              SOME (t, val_store'''')
+            SOME value_store'''' => (
+              SOME (t, value_store'''')
             )
           )
       )
@@ -975,9 +975,9 @@ TODO:
           " - does not match continuation hole pattern"
         ) |
 
-        SOME (t_body, val_store'''') => (
+        SOME (t_body, value_store'''') => (
           t_body, 
-          (val_store'''', cont_stack', thread_id)
+          (value_store'''', contin_stack', thread_id)
           (chan_store, block_store, sync_store, cnt)
         )
       )
@@ -985,7 +985,7 @@ TODO:
     in
       (
         next_term, 
-        (val_store'''', cont_stack', thread_id)
+        (value_store'''', contin_stack', thread_id)
         (chan_store, block_store, sync_store, cnt)
       )
     end)
@@ -996,60 +996,60 @@ TODO:
 
   fun apply (
     t_fn, t_arg, pos,
-    val_store, cont_stack, thread_id,
+    value_store, contin_stack, thread_id,
     chan_store, block_store, sync_store, cnt
   ) = (case t_fn of
     (Id (id, _)) =>
-      (case (find (val_store, id)) of
+      (case (find (value_store, id)) of
         SOME (_, v_fn) => (
           App (Value v_fn, t_arg, pos), 
-          (val_store, cont_stack, thread_id),
+          (value_store, contin_stack, thread_id),
           (chan_store, block_store, sync_store, cnt)
         ) |
 
         _  => SOME (_, v_fn) => (
           Error ("apply arg variable " ^ id ^ " cannot be resolved"),
-          (val_store, cont_stack, thread_id),
+          (value_store, contin_stack, thread_id),
           (chan_store, block_store, sync_store, cnt)
         ) |
 
       ) |
 
-    Value (Func_Val (lams, fnc_store, mutual_store, _)) =>
+    Value (Func_Value (lams, fnc_store, mutual_store, _)) =>
       push (
         (t_arg, (Contin_App, lams, fnc_store, mutual_store)),
-        val_store, cont_stack, thread_id,
+        value_store, contin_stack, thread_id,
         chan_store, block_store, sync_store, cnt
       ) |
 
     Value v => (
       Error ("application of non-function: " ^ (value_to_string v)) |
-      (val_store, cont_stack, thread_id),
+      (value_store, contin_stack, thread_id),
       (chan_store, block_store, sync_store, cnt)
     ) |
 
     _ =>
       push (
-        (t_fn, (Contin_Norm, [( hole cnt, App (hole cnt, t_arg, pos) )], val_store, [])),
-        val_store, cont_stack, thread_id,
+        (t_fn, (Contin_Norm, [( hole cnt, App (hole cnt, t_arg, pos) )], value_store, [])),
+        value_store, contin_stack, thread_id,
         chan_store, block_store, sync_store, cnt + 1
       )
   )
 
 
-  fun associate_infix val_store t = (case t of
+  fun associate_infix value_store t = (case t of
     Compo (Compo (t1, Id (id, pos), p1), t2, p2) => (let
-      val t1' = associate_infix val_store t1
+      val t1' = associate_infix value_store t1
     in
-      (case (find (val_store, id)) of
+      (case (find (value_store, id)) of
         SOME (SOME (direc, prec), rator) => (case t1' of 
           Compo (Compo (t1a, Id (id1, pos1), p1a), t1b, p1b) =>
-          (case (find (val_store, id1)) of
+          (case (find (value_store, id1)) of
             SOME (SOME (direc', prec'), rator') =>
             (if (prec' = prec andalso direc = Right) orelse (prec > prec') then
               Compo (
                 Compo (t1a, Id (id1, pos1), p1a),
-                associate_infix val_store (Compo (Compo (t1b, Id (id, pos), p1b), t2, p2)),
+                associate_infix value_store (Compo (Compo (t1b, Id (id, pos), p1b), t2, p2)),
                 p1
               )
             else 
@@ -1075,15 +1075,15 @@ TODO:
     _ => t
   )
 
-  fun to_func_elim val_store t = (case t of
+  fun to_func_elim value_store t = (case t of
     Compo (Compo (t1, Id (id, pos), p1), t2, p2) => (
-      (case (find (val_store, id)) of
+      (case (find (value_store, id)) of
         SOME (SOME (direc, prec), rator) => (
           App (
             Id (id, pos),
             List_Intro (
-              to_func_elim val_store t1,
-              List_Intro (to_func_elim val_store t2, Blank_Intro 0, pos),
+              to_func_elim value_store t1,
+              List_Intro (to_func_elim value_store t2, Blank_Intro 0, pos),
               pos
             ),
             pos
@@ -1092,8 +1092,8 @@ TODO:
 
         _ => (
           App (
-            App (to_func_elim val_store t1, Id (id, pos), p1),
-            to_func_elim val_store t2,
+            App (to_func_elim value_store t1, Id (id, pos), p1),
+            to_func_elim value_store t2,
             p2
           )
         )
@@ -1107,21 +1107,21 @@ TODO:
 
   fun reduce_single (
     t, norm_f, reduce_f,
-    val_store, cont_stack, thread_id,
+    value_store, contin_stack, thread_id,
     chan_store, block_store, sync_store, cnt
   ) = (case t of
     (Id (id, _)) =>
-      (case (find (val_store, id)) of
+      (case (find (value_store, id)) of
         SOME (NONE, v) =>
           pop (
             reduce_f v,
-            cont_stack, thread_id,
+            contin_stack, thread_id,
             chan_store, block_store, sync_store, cnt
           ) |
 
         _  => (
           Error ("reduce single variable " ^ id ^ " cannot be resolved")
-          (val_store, cont_stack, thread_id),
+          (value_store, contin_stack, thread_id),
           (chan_store, block_store, sync_store, cnt)
         ) |
 
@@ -1132,22 +1132,22 @@ TODO:
         Error msg =>
           (
             Error msg, 
-            (val_store, cont_stack, thread_id),
+            (value_store, contin_stack, thread_id),
             (chan_store, block_store, sync_store, cnt)
           ) |
 
         result =>
           pop (
             result,
-            cont_stack, thread_id,
+            contin_stack, thread_id,
             chan_store, block_store, sync_store, cnt
           )
 
       ) |
     _ => 
       push (
-        (t, (Contin_Norm, [( hole cnt, norm_f (hole cnt) )], val_store, [])),
-        val_store, cont_stack, thread_id,
+        (t, (Contin_Norm, [( hole cnt, norm_f (hole cnt) )], value_store, [])),
+        value_store, contin_stack, thread_id,
         chan_store, block_store, sync_store, cnt + 1
       )
   )
@@ -1155,7 +1155,7 @@ TODO:
 
   fun reduce_list (
     ts, norm_f, reduce_f,
-    val_store, cont_stack, thread_id,
+    value_store, contin_stack, thread_id,
     chan_store, block_store, sync_store, cnt
   ) = (let
 
@@ -1164,25 +1164,25 @@ TODO:
         Error msg =>
           (
             Error msg, 
-            (val_store, cont_stack, thread_id),
+            (value_store, contin_stack, thread_id),
             (chan_store, block_store, sync_store, cnt)
           )
 
         v =>
           pop (
             v,
-            cont_stack, thread_id,
+            contin_stack, thread_id,
             chan_store, block_store, sync_store, cnt
           )
       ) |
 
       x :: xs => (case x of
         (Id (id, _)) =>
-          (case (find (val_store, id)) of
+          (case (find (value_store, id)) of
             SOME (NONE, v) => loop (prefix @ [v], xs) |
             _ => (
               Error ("reduce list variable " ^ id ^ " cannot be resolved"),
-              (val_store, cont_stack, thread_id),
+              (value_store, contin_stack, thread_id),
               (chan_store, block_store, sync_store, cnt)
             )
 
@@ -1196,11 +1196,11 @@ TODO:
               (
                 Contin_Norm,
                 [( hole cnt, norm_f ((map (fn v => Value v) prefix) @ (hole cnt :: xs)) )],
-                val_store,
+                value_store,
                 []
               )
             ),
-            val_store, cont_stack, thread_id,
+            value_store, contin_stack, thread_id,
             chan_store, block_store, sync_store, cnt + 1
           ))
       )
@@ -1213,25 +1213,25 @@ TODO:
 
   fun mk_transactions (evt, v) = (case (evt, v) of
   
-    (Send, List_Val ([Chan_Loc i, msg], _)) =>
-      [Tx (Base_Send (i, msg), [])] |
+    (Send, List_Value ([Chan_Loc i, msg], _)) =>
+      [Tx (Send_Value (i, msg), [])] |
   
     (Recv, Chan_Loc i) =>
-      [Tx (Base_Recv i, [])] |
+      [Tx (Recv_Value i, [])] |
 
-    (Choose, List_Val (values, _)) =>
+    (Choose, List_Value (values, _)) =>
       mk_transactions_from_list values |
 
     _ => []
 
     (* TODO: modify to handle choose and other event results *)
     (*
-    (Latch, List_Val ([Event_Val transactions, Func_Val (lams, fnc_store, mutual_store, _)], _)) =>
+    (Latch, List_Value ([Event_Value transactions, Func_Value (lams, fnc_store, mutual_store, _)], _)) =>
       (List.foldl
-        (fn ((bevt, wrap_stack), transactions_acc) => let
+        (fn ((evt_val, wrap_stack), transactions_acc) => let
           val cont = (Contin_Sync, lams, fnc_store, mutual_store)
         in
-          transactions_acc @ [(bevt, cont :: wrap_stack)]
+          transactions_acc @ [(evt_val, cont :: wrap_stack)]
         end)
         []
         transactions 
@@ -1243,8 +1243,8 @@ TODO:
 
   and mk_transactions_from_list (evts) = (case evts of
     [] => [] |
-    (Event_Val base_events) :: evts' => 
-      base_events @ (mk_transactions_from_list evts') |
+    (Event_Value event_values) :: evts' => 
+      event_values @ (mk_transactions_from_list evts') |
     _ => raise (Fail "Internal: mk_transactions_from_list")
   )
 
@@ -1252,17 +1252,19 @@ TODO:
 
   fun term_step (
     t,
-    (val_store, cont_stack, thread_id),
+    (value_store, contin_stack, thread_id),
     (chan_store, block_store, cnt)
   ) = (
-    (* print ("stack size: " ^ (Int.toString (List.length cont_stack)) ^ "\n"); *)
+    (* print ("stack size: " ^ (Int.toString (List.length contin_stack)) ^ "\n"); *)
     (*print ("\n(*** thread " ^ (Int.toString thread_id) ^ " ***)\n" ^ (to_string t) ^ "\n\n");*)
     case t of
 
+    Value _ =>
+      raise (Fail "internal error: term_step: value as input to term_step") |
 
     Assoc (term, pos) => (
       term,
-      (val_store, cont_stack, thread_id),
+      (value_store, contin_stack, thread_id),
       (chan_store, block_store, sync_store, cnt)
     ) |
 
@@ -1274,22 +1276,22 @@ TODO:
         print ((value_to_string v) ^ "\n");
         v
       ),
-      val_store, cont_stack, thread_id,
+      value_store, contin_stack, thread_id,
       chan_store, block_store, sync_store, cnt
     ) | 
 
 
 
-    Id (id, pos) => (case (find (val_store, id)) of
+    Id (id, pos) => (case (find (value_store, id)) of
       SOME (NONE, v) => pop (
         v,
-        cont_stack, thread_id,
+        contin_stack, thread_id,
         chan_store, block_store, sync_store, cnt
       ) |
 
       _ => (
         Error ("variable " ^ id ^ " cannot be resolved"),
-        (val_store, cont_stack, thread_id),
+        (value_store, contin_stack, thread_id),
         (chan_store, block_store, sync_store, cnt)
       )
 
@@ -1303,50 +1305,59 @@ TODO:
         _ => raise (Fail "Internal: List_Intro")
       ),
       (fn
-        [v, Blank_Val] => List_Val ([v], pos) |
-        [v, List_Val (ts, _)] => List_Val (v :: ts, pos) |
+        [v, Blank_Val] => List_Value ([v], pos) |
+        [v, List_Value (ts, _)] => List_Value (v :: ts, pos) |
         _ => Error "cons with non-list"
       ),
-      val_store, cont_stack, thread_id,
+      value_store, contin_stack, thread_id,
       chan_store, block_store, sync_store, cnt
 
     ) |
 
 
     Func_Intro (lams, pos) => pop (
-      Func_Val (lams, val_store, [], pos),
-      cont_stack, thread_id,
+      Func_Value (lams, value_store, [], pos),
+      contin_stack, thread_id,
       chan_store, block_store, sync_store, cnt
     ) |
 
+    (*
+    Func_Mutual (lams, [], mutual_store, pos)) => pop (
+      Func_Value (lams, value_store, mutual_store, pos),
+      contin_stack, thread_id,
+      chan_store, block_store, sync_store, cnt
+    ) |
+    *)
+
+
     Compo (Compo (t1, Id (id, pos), p1), t2, p2) => (let
-      val t_m = associate_infix val_store t
-      val t' = to_func_elim val_store t_m 
+      val t_m = associate_infix value_store t
+      val t' = to_func_elim value_store t_m 
     in
       (
         t',
-        (val_store, cont_stack, thread_id),
+        (value_store, contin_stack, thread_id),
         (chan_store, block_store, sync_store, cnt)
       )
     end) |
 
     Compo (t1, t2, pos) => (
       App (t1, t2, pos), 
-      (val_store, cont_stack, thread_id),
+      (value_store, contin_stack, thread_id),
       (chan_store, block_store, sync_store, cnt)
     ) |
 
 
     App (t_fn, t_arg, pos) => apply (
       t_fn, t_arg, pos,
-      val_store, cont_stack, thread_id,
+      value_store, contin_stack, thread_id,
       chan_store, block_store, sync_store, cnt
     ) |
 
 
     With (t1, t2, _) => push (
-      (t1, (Contin_With, [(hole cnt, t2)], val_store, [])),
-      val_store, cont_stack, thread_id,
+      (t1, (Contin_With, [(hole cnt, t2)], value_store, [])),
+      value_store, contin_stack, thread_id,
       chan_store, block_store, sync_store, cnt + 1
     ) |
 
@@ -1364,7 +1375,7 @@ TODO:
       val fields' = (map
         (fn
           (k, (fix_op, Func_Intro (lams, pos))) =>
-            (k, (fix_op, Value (Func_Val (lams, val_store, mutual_store, pos)))) |
+            (k, (fix_op, Value (Func_Value (lams, value_store, mutual_store, pos)))) |
           field => field 
         )
        fields 
@@ -1372,7 +1383,7 @@ TODO:
     in
       (
         Rec_Intro_Mutual (fields', pos), 
-        (val_store, cont_stack, thread_id),
+        (value_store, contin_stack, thread_id),
         (chan_store, block_store, sync_store, cnt)
       )
     end) |
@@ -1393,7 +1404,7 @@ TODO:
     in
       reduce_list (
         ts, f Rec_Intro_Mutual, f Rec_Val, 
-        val_store, cont_stack, thread_id,
+        value_store, contin_stack, thread_id,
         chan_store, block_store, sync_store, cnt
       )
     end) |
@@ -1402,7 +1413,7 @@ TODO:
       t,
       fn t => Select (t, pos),
       (fn
-        List_Val ([Rec_Val (fields, _), String_Val (key, _)], _) =>
+        List_Value ([Rec_Value (fields, _), String_Value (key, _)], _) =>
         (case find (fields, key) of
           SOME (_, v) => v |
           NONE => Error "selection not found"
@@ -1410,7 +1421,7 @@ TODO:
 
         _ => Error "selecting from non-record"
       ),
-      val_store, cont_stack, thread_id,
+      value_store, contin_stack, thread_id,
       chan_store, block_store, sync_store, cnt
 
     ) |
@@ -1418,37 +1429,37 @@ TODO:
     Event_Intro (evt, t, pos) => reduce_single (
       t,
       fn t => Event_Intro (evt, t, pos),
-      fn v => Event_Val (mk_transactions (evt, v)),
-      val_store, cont_stack, thread_id,
+      fn v => Event_Value (mk_transactions (evt, v)),
+      value_store, contin_stack, thread_id,
       chan_store, block_store, sync_store, cnt
     ) | 
 
     Blank_Intro pos => pop (
       Blank_Val,
-      cont_stack, thread_id,
+      contin_stack, thread_id,
       chan_store, block_store, sync_store, cnt
     ) |
 
     String_Intro (str, pos) => pop (
-      String_Val (str, pos),
-      cont_stack, thread_id,
+      String_Value (str, pos),
+      contin_stack, thread_id,
       chan_store, block_store, sync_store, cnt
     ) |
 
     Num_Intro (str, pos) => pop (
-      Num_Val (str, pos),
-      cont_stack, thread_id,
+      Num_Value (str, pos),
+      contin_stack, thread_id,
       chan_store, block_store, sync_store, cnt
     ) |
 
     Num_Add (t, pos) => reduce_single (
       t, fn t => Num_Add (t, pos),
       (fn
-        List_Val ([Num_Val (n1, _), Num_Val (n2, _)], _) =>
-          Num_Val (num_add (n1, n2), pos) |
+        List_Value ([Num_Value (n1, _), Num_Value (n2, _)], _) =>
+          Num_Value (num_add (n1, n2), pos) |
         _ => Error "adding non-numbers"
       ),
-      val_store, cont_stack, thread_id,
+      value_store, contin_stack, thread_id,
       chan_store, block_store, sync_store, cnt
 
     ) |
@@ -1456,12 +1467,12 @@ TODO:
     Num_Sub (t, pos) => reduce_single (
       t, fn t => Num_Sub (t, pos),
       (fn
-        List_Val ([Num_Val (n1, _), Num_Val (n2, _)], _) => (
-          Num_Val (num_sub (n1, n2), pos)
+        List_Value ([Num_Value (n1, _), Num_Value (n2, _)], _) => (
+          Num_Value (num_sub (n1, n2), pos)
         ) |
         _ => Error "subtracting non-numbers"
       ),
-      val_store, cont_stack, thread_id,
+      value_store, contin_stack, thread_id,
       chan_store, block_store, sync_store, cnt
 
     ) |
@@ -1469,12 +1480,12 @@ TODO:
     Num_Mul (t, pos) => reduce_single (
       t, fn t => Num_Mul (t, pos),
       (fn
-        List_Val ([Num_Val (n1, _), Num_Val (n2, _)], _) => (
-          Num_Val (num_mul (n1, n2), pos)
+        List_Value ([Num_Value (n1, _), Num_Value (n2, _)], _) => (
+          Num_Value (num_mul (n1, n2), pos)
         ) |
         _ => Error "multplying non-numbers"
       ),
-      val_store, cont_stack, thread_id,
+      value_store, contin_stack, thread_id,
       chan_store, block_store, sync_store, cnt
 
     ) |
@@ -1482,26 +1493,14 @@ TODO:
     Num_Div (t, pos) => reduce_single (
       t, fn t => Num_Div (t, pos),
       (fn
-        List_Val ([Num_Val (n1, _), Num_Val (n2, _)], _) => (
-          Num_Val (num_div (n1, n2), pos)
+        List_Value ([Num_Value (n1, _), Num_Value (n2, _)], _) => (
+          Num_Value (num_div (n1, n2), pos)
         ) |
         _ => Error "dividing non-numbers"
       ),
-      val_store, cont_stack, thread_id,
+      value_store, contin_stack, thread_id,
       chan_store, block_store, sync_store, cnt
 
-    ) |
-
-    Value (Func_Val (lams, [], mutual_store, pos)) => pop (
-      Func_Val (lams, val_store, mutual_store, pos),
-      cont_stack, thread_id,
-      chan_store, block_store, sync_store, cnt
-    ) |
-
-    Value v => pop (
-      v,
-      cont_stack, thread_id,
-      chan_store, block_store, sync_store, cnt
     ) |
 
     _ => raise (Fail "TODO")
@@ -1521,16 +1520,16 @@ TODO:
 **    in
 **      pop (
 **        Chan_Loc cnt,
-**        cont_stack, thread_id,
+**        contin_stack, thread_id,
 **        chan_store', block_store, sync_store, cnt'
 **      )
 **    end) |
 **
 *)
-      (Id (id, _)) => (case (find (val_store, id)) of
+      (Id (id, _)) => (case (find (value_store, id)) of
         SOME (NONE, v) => (
           Mode_Hidden,
-          [(Sync (v, pos), val_store, cont_stack, thread_id)],
+          [(Sync (v, pos), value_store, contin_stack, thread_id)],
           (chan_store, block_store, sync_store, cnt)
         ) |
 
@@ -1541,7 +1540,7 @@ TODO:
 
       ) |
 
-      Event_Val v =>
+      Event_Value v =>
         (let
 
           val transactions = mk_transactions (v, []) 
@@ -1554,12 +1553,12 @@ TODO:
           (case active_transaction_op of
             SOME transaction =>
               proceed (
-                transaction, cont_stack, thread_id,
+                transaction, contin_stack, thread_id,
                 (chan_store', block_store, sync_store, cnt)
               ) |
             NONE =>
               block (
-                transactions, cont_stack, thread_id,
+                transactions, contin_stack, thread_id,
                 (chan_store', block_store, sync_store, cnt)
               )
           )
@@ -1573,8 +1572,8 @@ TODO:
 
       _ =>
         push (
-          (t, (Contin_Norm, [( hole cnt, Sync (hole cnt, pos) )], val_store, [])),
-          val_store, cont_stack, thread_id,
+          (t, (Contin_Norm, [( hole cnt, Sync (hole cnt, pos) )], value_store, [])),
+          value_store, contin_stack, thread_id,
           chan_store, block_store, sync_store, cnt + 1
         )
 
@@ -1582,10 +1581,10 @@ TODO:
 
 
     Spawn (t, pos) =>(case t of
-      (Id (id, _)) => (case (find (val_store, id)) of
+      (Id (id, _)) => (case (find (value_store, id)) of
         SOME (_, v) => (
           Mode_Hidden,
-          [(Spawn (v, pos), val_store, cont_stack, thread_id)],
+          [(Spawn (v, pos), value_store, contin_stack, thread_id)],
           (chan_store, block_store, sync_store, cnt)
         ) |
 
@@ -1597,15 +1596,15 @@ TODO:
 
       ) |
 
-      Func_Val ([(Blank_Intro _, t_body)], fnc_store, mutual_store, _) => (let
+      Func_Value ([(Blank_Intro _, t_body)], fnc_store, mutual_store, _) => (let
         val spawn_id = cnt
         val cnt' = cnt + 1
       in
         (
           Mode_Spawn t_body,
           [
-            (List_Val ([], pos), val_store, cont_stack, thread_id),
-            (t_body, val_store, [], spawn_id)
+            (List_Value ([], pos), value_store, contin_stack, thread_id),
+            (t_body, value_store, [], spawn_id)
           ],
           (chan_store, block_store, sync_store, cnt')
         )
@@ -1618,8 +1617,8 @@ TODO:
         )
       else
         push (
-          (t, (Contin_Norm, [( hole cnt, Spawn (hole cnt, pos) )], val_store, [])),
-          val_store, cont_stack, thread_id,
+          (t, (Contin_Norm, [( hole cnt, Spawn (hole cnt, pos) )], value_store, [])),
+          value_store, contin_stack, thread_id,
           chan_store, block_store, sync_store, cnt + 1
         )
       )
@@ -1635,13 +1634,13 @@ TODO:
 
 
   fun effect_step (effect, thread_config, global_config) = (case effect of
-    Base_Stage value => raise (Fail "internal error: step applied to effect result")
+    Return_Value value => raise (Fail "internal error: step applied to effect result")
     (*
     ** TODO
-    ** Base_Bind of effect_value * contin list |
-    ** Base_Sync of transaction list |
-    ** Base_Spawn of effect_value |
-    ** Base_Par of effect_value
+    ** Bind_Value of effect_value * contin list |
+    ** Sync_Value of transaction list |
+    ** Spawn_Value of effect_value |
+    ** Par_Value of effect_value
     *)
   )
 
@@ -1660,13 +1659,13 @@ TODO:
   ) = (case threads of
     [] => ( (*print "all done!\n";*) NONE) |
     (control, thread_config, gloabl_config) :: threads' => (let
-      val (val_store, cont_stack, thread_id) = thread_config
+      val (value_store, contin_stack, thread_id) = thread_config
       val (chan_store, block_store, cnt) = global_config
-      val result_thread = (case (control, cont_stack) of
-        (Term (Val (Effect_Val effect)), []) =>
+      val result_thread = (case (control, contin_stack) of
+        (Term (Value (Effect_Value effect)), []) =>
           effect_lift (effect_step (effect, thread_config, global_config))
 
-        (Term (Val _), []) =>
+        (Term (Value _), []) =>
           (
             Term (Error "top level value is not effect"),
             thread_config,
@@ -1676,13 +1675,13 @@ TODO:
         (Term t, _) =>
           term_lift (term_step (t, thread_config, global_config)) |
 
-        (Effect (Base_Stage v), []) =>
+        (Effect (Return_Value v), []) =>
           (Result v, thread_config, global_config) |
 
-        (Effect (Base_Stage v), _) =>
+        (Effect (Return_Value v), _) =>
           term_lift (pop (
             v,
-            cont_stack, thread_id,
+            contin_stack, thread_id,
             chan_store, block_store, sync_store, cnt
           )) |
 
@@ -1720,10 +1719,10 @@ TODO:
 
   fun eval t = (let
 
-    val val_store = empty_table 
-    val cont_stack = []
+    val value_store = empty_table 
+    val contin_stack = []
     val thread_id = 0
-    val thread = (t, val_store, cont_stack, thread_id)
+    val thread = (t, value_store, contin_stack, thread_id)
 
     val chan_store = empty_table
     val block_store = empty_table
