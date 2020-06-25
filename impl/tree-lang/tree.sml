@@ -1634,8 +1634,24 @@ TODO:
 
 
 
-  term_lift (t, thread_config, gloabl_config) = (Term t, thread_config, gloabl_config)
-  effect_lift (effect, thread_config, gloabl_config) = (Effect effect, thread_config, gloabl_config)
+  fun effect_step (effect, thread_config, global_config) = (case effect of
+    Base_Stage value => raise (Fail "internal error: step applied to effect result")
+    (*
+    ** TODO
+    ** Base_Bind of effect_value * contin list |
+    ** Base_Sync of transaction list |
+    ** Base_Spawn of effect_value |
+    ** Base_Par of effect_value
+    *)
+  )
+
+
+
+  fun term_lift (t, thread_config, gloabl_config) =
+    (Term t, thread_config, gloabl_config)
+
+  fun effect_lift (effect, thread_config, gloabl_config) =
+    (Effect effect, thread_config, gloabl_config)
 
 
   fun concur_step (
@@ -1649,15 +1665,31 @@ TODO:
       val result_thread = (case (control, cont_stack) of
         (Term (Val (Effect_Val effect)), []) =>
           effect_lift (effect_step (effect, thread_config, global_config))
+
         (Term (Val _), []) =>
           (
             Term (Error "top level value is not effect"),
             thread_config,
             global_config
           ) |
+
         (Term t, _) =>
-          term_lift (term_step (t, thread_config, global_config))
-        _ => (* TODO: handle Effect cases *)
+          term_lift (term_step (t, thread_config, global_config)) |
+
+        (Effect (Base_Stage v), []) =>
+          (Result v, thread_config, global_config) |
+
+        (Effect (Base_Stage v), _) =>
+          term_lift (pop (
+            v,
+            cont_stack, thread_id,
+            chan_store, block_store, sync_store, cnt
+          )) |
+
+        (Effect effect, _) =>
+          effect_lift (effect_step (effect, thread_config, global_config)) |
+
+        _ => raise (Fail "TODO: handle Effect cases")
       )
     in
       (* TODO:
