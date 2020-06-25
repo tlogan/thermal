@@ -137,7 +137,7 @@ structure Tree = struct
   )
 
   type sender = (int * contin list * value * thread_id)
-    (* (block_id, cont_stack, msg, thread_id) *
+    (* (block_id, cont_stack, msg, thread_id) *)
   type receiver = (int * contin list * thread_id)
 
   type channel = sender * receiver 
@@ -149,7 +149,7 @@ structure Tree = struct
   )
   (* (chan_store, block_store, cnt) *)
 
-  type seq_step = (
+  type term_step = (
     term *
     thread_config *
     global_config
@@ -159,9 +159,6 @@ structure Tree = struct
     (val_store, cont_stack, thread_id),
     (chan_store, block_store, cnt)
   *)
-
-  datatype seq_step_mode =
-    Progress of seq_step | Stuck of string 
 
 
   val surround_with = String.surround_with
@@ -923,7 +920,7 @@ TODO:
     val cont_stack' = cont :: cont_stack
 
   in
-    Progress (
+    (
       t_arg 
       (val_store, cont_stack', thread_id),
       (chan_store, block_store, sync_store, cnt)
@@ -936,8 +933,7 @@ TODO:
     chan_store, block_store, sync_store, cnt
   ) = (case cont_stack of
     [] => (
-      raise (Fail "Internal Error: pop called with value and empty stack");
-      (Stuck "Interal Error: pop")
+      raise (Fail "Internal Error: pop called with value and empty stack")
     ) |
     (cmode, lams, val_store', mutual_store) :: cont_stack' => (let
 
@@ -971,21 +967,26 @@ TODO:
           )
       )
 
-    in
-      (case (match_first lams) of
+      val next_term = (case (match_first lams) of
 
-        NONE => Stuck (
+        NONE => Error (
           "result - " ^
           (value_to_string result) ^
           " - does not match continuation hole pattern"
         ) |
 
-        SOME (t_body, val_store'''') => Progress (
+        SOME (t_body, val_store'''') => (
           t_body, 
           (val_store'''', cont_stack', thread_id)
           (chan_store, block_store, sync_store, cnt)
         )
+      )
 
+    in
+      (
+        next_term, 
+        (val_store'''', cont_stack', thread_id)
+        (chan_store, block_store, sync_store, cnt)
       )
     end)
   )
@@ -1000,13 +1001,18 @@ TODO:
   ) = (case t_fn of
     (Id (id, _)) =>
       (case (find (val_store, id)) of
-        SOME (_, v_fn) => Progress(
+        SOME (_, v_fn) => (
           App (Value v_fn, t_arg, pos), 
           (val_store, cont_stack, thread_id),
           (chan_store, block_store, sync_store, cnt)
         ) |
 
-        _  => Stuck "apply arg variable " ^ id ^ " cannot be resolved"
+        _  => SOME (_, v_fn) => (
+          Error ("apply arg variable " ^ id ^ " cannot be resolved"),
+          (val_store, cont_stack, thread_id),
+          (chan_store, block_store, sync_store, cnt)
+        ) |
+
       ) |
 
     Value (Func_Val (lams, fnc_store, mutual_store, _)) =>
@@ -1016,7 +1022,11 @@ TODO:
         chan_store, block_store, sync_store, cnt
       ) |
 
-    Value v => Stuck ("application of non-function: " ^ (value_to_string v)) |
+    Value v => (
+      Error ("application of non-function: " ^ (value_to_string v)) |
+      (val_store, cont_stack, thread_id),
+      (chan_store, block_store, sync_store, cnt)
+    ) |
 
     _ =>
       push (
@@ -1109,13 +1119,22 @@ TODO:
             chan_store, block_store, sync_store, cnt
           ) |
 
-        _  => Stuck ("reduce single variable " ^ id ^ " cannot be resolved")
+        _  => (
+          Error ("reduce single variable " ^ id ^ " cannot be resolved")
+          (val_store, cont_stack, thread_id),
+          (chan_store, block_store, sync_store, cnt)
+        ) |
 
       ) |
 
     Value v =>
       (case (reduce_f v) of
-        Error msg => Stuck msg |
+        Error msg =>
+          (
+            Error msg, 
+            (val_store, cont_stack, thread_id),
+            (chan_store, block_store, sync_store, cnt)
+          ) |
 
         result =>
           pop (
@@ -1142,7 +1161,12 @@ TODO:
 
     fun loop (prefix, postfix) = (case postfix of
       [] => (case (reduce_f prefix) of 
-        Error msg => Stuck msg |
+        Error msg =>
+          (
+            Error msg, 
+            (val_store, cont_stack, thread_id),
+            (chan_store, block_store, sync_store, cnt)
+          )
 
         v =>
           pop (
@@ -1156,10 +1180,12 @@ TODO:
         (Id (id, _)) =>
           (case (find (val_store, id)) of
             SOME (NONE, v) => loop (prefix @ [v], xs) |
-            _ => Stuck (
-              "reduce list variable " ^
-              id ^ " cannot be resolved"
+            _ => (
+              Error ("reduce list variable " ^ id ^ " cannot be resolved"),
+              (val_store, cont_stack, thread_id),
+              (chan_store, block_store, sync_store, cnt)
             )
+
           ) |
 
         Value v => loop (prefix @ [v], xs) |
@@ -1224,7 +1250,7 @@ TODO:
 
   
 
-  fun seq_step (
+  fun term_step (
     t,
     (val_store, cont_stack, thread_id),
     (chan_store, block_store, cnt)
@@ -1234,9 +1260,9 @@ TODO:
     case t of
 
 
-    Assoc (term, pos) => Progress (
+    Assoc (term, pos) => (
       term,
-      ( val_store, cont_stack, thread_id),
+      (val_store, cont_stack, thread_id),
       (chan_store, block_store, sync_store, cnt)
     ) |
 
@@ -1261,7 +1287,12 @@ TODO:
         chan_store, block_store, sync_store, cnt
       ) |
 
-      _ => Stuck ("variable " ^ id ^ " cannot be resolved")
+      _ => (
+        Error ("variable " ^ id ^ " cannot be resolved"),
+        (val_store, cont_stack, thread_id),
+        (chan_store, block_store, sync_store, cnt)
+      )
+
     ) |
 
 
@@ -1292,14 +1323,14 @@ TODO:
       val t_m = associate_infix val_store t
       val t' = to_func_elim val_store t_m 
     in
-      Progress (
+      (
         t',
-        (val_store, cont_stack, thread_id)],
+        (val_store, cont_stack, thread_id),
         (chan_store, block_store, sync_store, cnt)
       )
     end) |
 
-    Compo (t1, t2, pos) => Progress (
+    Compo (t1, t2, pos) => (
       App (t1, t2, pos), 
       (val_store, cont_stack, thread_id),
       (chan_store, block_store, sync_store, cnt)
@@ -1339,7 +1370,7 @@ TODO:
        fields 
       )
     in
-      Progress (
+      (
         Rec_Intro_Mutual (fields', pos), 
         (val_store, cont_stack, thread_id),
         (chan_store, block_store, sync_store, cnt)
@@ -1473,7 +1504,8 @@ TODO:
       chan_store, block_store, sync_store, cnt
     ) |
 
-    _ => Stuck "TODO"
+    _ => raise (Fail "TODO")
+
     )
   )
 
@@ -1601,15 +1633,42 @@ TODO:
 *)
 
 
+
+  term_lift (t, thread_config, gloabl_config) = (Term t, thread_config, gloabl_config)
+  effect_lift (effect, thread_config, gloabl_config) = (Effect effect, thread_config, gloabl_config)
+
+
   fun concur_step (
     md, threads, env 
   
   ) = (case threads of
     [] => ( (*print "all done!\n";*) NONE) |
     (control, thread_config, gloabl_config) :: threads' => (let
-      (* TODO: check thread nature: Pure, Effect, or Sync, then call apropo thread_step *)
-      val (md', seq_threads, env') = (seq_step (md, thread, env)) 
-      (* TODO: change seq thread to return just one thread, check if effect_val with empty: switch to alternate seq_step or finish*)
+      val (val_store, cont_stack, thread_id) = thread_config
+      val (chan_store, block_store, cnt) = global_config
+      val result_thread = (case (control, cont_stack) of
+        (Term (Val (Effect_Val effect)), []) =>
+          effect_lift (effect_step (effect, thread_config, global_config))
+        (Term (Val _), []) =>
+          (
+            Term (Error "top level value is not effect"),
+            thread_config,
+            global_config
+          ) |
+        (Term t, _) =>
+          term_lift (term_step (t, thread_config, global_config))
+        _ => (* TODO: handle Effect cases *)
+      )
+    in
+      (* TODO:
+      ** - if result thread has error, abort program
+      ** - if resut thread is complete, remove from thread pool
+      *)
+    end)
+    (let
+      (* TODO: check thread nature: Term, Effect, or Sync, then call apropo thread_step *)
+      val (md', seq_threads, env') = (term_step (md, thread, env)) 
+      (* TODO: change seq thread to return just one thread, check if effect_val with empty: switch to alternate term_step or finish*)
 
       (*
       val _ = print ((from_mode_to_string md') ^ "\n")
