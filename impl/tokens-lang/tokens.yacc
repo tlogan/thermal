@@ -17,7 +17,7 @@ open Tree
   EQUAL | 
   ALLOC_MEM | SIZE | SLICE | SET | GET |
   ALLOC_CHAN | SEND | RECV | 
-  LATCH | CHSE | SYNC | SPAWN | 
+  LATCH | CHSE | SYNC | EXEC | 
   LPAREN | RPAREN | LANG | RANG | LRPAREN | 
   INFIXL | INFIXR | DIGIT of int |
 
@@ -49,7 +49,7 @@ open Tree
 
 %right FATARROW CASE COLON DEF
 
-%left ALLOC_CHAN SEND RECV LATCH CHSE SPAWN SYNC ADD SUB MUL DIV SELECT EQUAL
+%left ALLOC_CHAN SEND RECV LATCH CHSE EXEC SYNC ADD SUB MUL DIV SELECT EQUAL
 %nonassoc INFIXL INFIXR DIGIT
 
 %left LPAREN LANG
@@ -117,21 +117,19 @@ term_nt:
 
   EQUAL (Func_Intro ([(Id ("_param", ~1), Select (Id ("_param", EQUALleft), EQUALleft))], EQUALleft)) |
 
-  ALLOC_CHAN (Func_Intro ([(Id ("_param", ~1), Event_Intro (Alloc_Chan, Id ("_param", ~1), ALLOC_CHANleft))], ALLOC_CHANleft)) |
+  ALLOC_CHAN (Func_Intro ([(Id ("_param", ~1), Event_Intro (Alloc_Chan_Intro, Id ("_param", ~1), ALLOC_CHANleft))], ALLOC_CHANleft)) |
 
-  SEND (Func_Intro ([(Id ("_param", ~1), Event_Intro (Send, Id ("_param", ~1), SENDleft))], SENDleft)) |
+  SEND (Func_Intro ([(Id ("_param", ~1), Event_Intro (Send_Intro, Id ("_param", ~1), SENDleft))], SENDleft)) |
 
-  RECV (Func_Intro ([(Id ("_param", ~1), Event_Intro (Recv, Id ("_param", ~1), RECVleft))], RECVleft)) |
+  RECV (Func_Intro ([(Id ("_param", ~1), Event_Intro (Recv_Intro, Id ("_param", ~1), RECVleft))], RECVleft)) |
 
-  LATCH (Func_Intro ([(Id ("_param", ~1), Event_Intro (Latch, Id ("_param", ~1), LATCHleft))], LATCHleft)) |
+  LATCH (Func_Intro ([(Id ("_param", ~1), Event_Intro (Latch_Intro, Id ("_param", ~1), LATCHleft))], LATCHleft)) |
 
-  CHSE (Func_Intro ([(Id ("_param", ~1), Event_Intro (Choose, Id ("_param", ~1), CHSEleft))], CHSEleft)) |
+  CHSE (Func_Intro ([(Id ("_param", ~1), Event_Intro (Choose_Intro, Id ("_param", ~1), CHSEleft))], CHSEleft)) |
 
-  SYNC (Func_Intro ([(Id ("_param", ~1), Effect_Intro (Sync, Id ("_param", ~1), SYNCleft))], SYNCleft)) |
+  SYNC (Func_Intro ([(Id ("_param", ~1), Effect_Intro (Sync_Intro, Id ("_param", ~1), SYNCleft))], SYNCleft)) |
 
-  SPAWN (Func_Intro ([(Id ("_param", ~1), Effect_Intro (Spawn, Id ("_param", ~1), SPAWNleft))], SPAWNleft)) |
-
-  LANG term_nt RANG (Effect_Intro (Par, term_nt, LANGleft)) |
+  EXEC (Func_Intro ([(Id ("_param", ~1), Effect_Intro (Exec_Intro, Id ("_param", ~1), EXECleft))], EXECleft)) |
 
   LRPAREN (Blank_Intro LRPARENleft) | 
 

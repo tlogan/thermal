@@ -104,7 +104,7 @@ symbol=[\-\^\\=+!@$%&*<>/{}|?~:']|"["|"]";
 <INITIAL>"chse" => (CHSE (!linenum, inccol 1));
 <INITIAL>"sync" => (SYNC (!linenum, inccol 1));
 
-<INITIAL>"spawn" => (SPAWN (!linenum, inccol 1));
+<INITIAL>"exec" => (EXEC (!linenum, inccol 1));
 
 
 <INITIAL>"(" => (LPAREN (!linenum, inccol 1));

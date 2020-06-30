@@ -9,21 +9,20 @@ structure Tree = struct
 
   type infix_option = (left_right * int) option
 
-  datatype event = 
-    Alloc_Chan |
-    Send |
-    Recv |
-    Latch |
-    Choose |
-    Offer |
-    Block
+  datatype event_Intro = 
+    Alloc_Chan_Intro |
+    Send_Intro |
+    Recv_Intro |
+    Latch_Intro |
+    Choose_Intro |
+    Offer_Intro |
+    Block_Intro
 
-  datatype effect =
-    Return |
-    Sync |
-    Bind |
-    Spawn |
-    Par
+  datatype effect_intro =
+    Return_Intro |
+    Sync_Intro |
+    Bind_Intro |
+    Exec_Intro
 
   datatype contin_mode = Contin_With | Contin_Norm | Contin_App | Contin_Sync
 
@@ -61,10 +60,10 @@ structure Tree = struct
     Select of (term * int) |
   
 
-    Event_Intro of (event * term * int) |
+    Event_Intro of (event_intro * term * int) |
 
 
-    Effect_Intro of (effect * term * int) |
+    Effect_Intro of (effect_intro * term * int) |
 
     Num_Intro of (string * int) |
 
@@ -94,9 +93,9 @@ structure Tree = struct
     ) (* Rec_Intro (fields, pos) *) |
 
 
-    Event_Value of transaction list |
+    Event of transaction list |
 
-    Effect_Value of effect_value |
+    Effect of effect |
   
     String_Value of (string * int) |
 
@@ -106,19 +105,18 @@ structure Tree = struct
     Error of string
 
 
-  and event_value =
-    Alloc_Chan_Value | 
-    Send_Value of chan_id * value |
-    Recv_Value of chan_id |
-    Offer_Value of value |
-    Block_Value
+  and event =
+    Alloc_Chan | 
+    Send of chan_id * value |
+    Recv of chan_id |
+    Offer of value |
+    Block
 
-  and effect_value =
-    Return_Value of value |
-    Sync_Value of transaction list |
-    Bind_Value of effect_value * contin list |
-    Spawn_Value of effect_value |
-    Par_Value of effect_value
+  and effect =
+    Return of value |
+    Sync of transaction list |
+    Bind of effect_value * contin list |
+    Exec of effect_value
 
   and transaction = Tx of event_value * contin list 
 
@@ -233,9 +231,7 @@ structure Tree = struct
     (*
     Sync (t, pos) => "sync " ^ (to_string t) |
 
-    Spawn (t, pos) => "spawn " ^ (to_string t) |
-
-    Par (t, pos) =>  surround_with "<|" "" (to_string t) "|>" |
+    Exec (t, pos) => "exec " ^ (to_string t) |
 
     Blank_Intro pos => "()" |
 
@@ -276,7 +272,7 @@ structure Tree = struct
       String.concatWith ",\n" (List.map from_field_value_to_string fs)
     ) |
 
-    Event_Value transactions => String.surround "evt_val" (
+    Event_Value transactions => String.surround "evt" (
       String.concatWith "\n" (List.map transaction_to_string transactions)
     ) |
 
@@ -296,12 +292,12 @@ structure Tree = struct
     "def "  ^ name ^ (from_infix_option_to_string fix_op) ^ " : " ^ (to_string t)
   )
 
-  and transaction_to_string (Tx (evt_val, wrap_stack)) =
+  and transaction_to_string (Tx (evt, wrap_stack)) =
     String.surround "transaction" (
-      (event_value_to_string evt_val) ^ "\n" ^ (stack_to_string wrap_stack)
+      (event_value_to_string evt) ^ "\n" ^ (stack_to_string wrap_stack)
     )
 
-  and event_value_to_string evt_val = (case evt_val of  
+  and event_value_to_string evt = (case evt of  
 
     Alloc_Chan_Value => "alloc_chan" |
 
@@ -467,9 +463,9 @@ structure Tree = struct
 
   
   fun proceed (
-    (evt_val, wrap_stack), contin_stack, thread_id,
+    (evt, wrap_stack), contin_stack, thread_id,
     (chan_store, block_store, sync_store, cnt)
-  ) = (case evt_val of
+  ) = (case evt of
 
     Send_Value (i, msg) =>
     (let
@@ -542,7 +538,7 @@ structure Tree = struct
   
   )
   
-  fun block_one ((evt_val, wrap_stack), contin_stack, chan_store, block_id, thread_id) = (case evt_val of
+  fun block_one ((evt, wrap_stack), contin_stack, chan_store, block_id, thread_id) = (case evt of
     Send_Value (i, msg) =>
       (let
         val contin_stack' = wrap_stack @ contin_stack
@@ -580,8 +576,8 @@ structure Tree = struct
     (chan_store, block_store, sync_store, cnt)
   ) = (let
     val chan_store' = (List.foldl  
-      (fn (evt_val, chan_store) =>
-        block_one (evt_val, contin_stack, chan_store, cnt, thread_id)
+      (fn (evt, chan_store) =>
+        block_one (evt, contin_stack, chan_store, cnt, thread_id)
       )
       chan_store
       event_values
@@ -1228,10 +1224,10 @@ TODO:
     (*
     (Latch, List_Value ([Event_Value transactions, Func_Value (lams, fnc_store, mutual_store, _)], _)) =>
       (List.foldl
-        (fn ((evt_val, wrap_stack), transactions_acc) => let
+        (fn ((evt, wrap_stack), transactions_acc) => let
           val cont = (Contin_Sync, lams, fnc_store, mutual_store)
         in
-          transactions_acc @ [(evt_val, cont :: wrap_stack)]
+          transactions_acc @ [(evt, cont :: wrap_stack)]
         end)
         []
         transactions 
@@ -1580,16 +1576,16 @@ TODO:
     ) |
 
 
-    Spawn (t, pos) =>(case t of
+    Exec (t, pos) =>(case t of
       (Id (id, _)) => (case (find (value_store, id)) of
         SOME (_, v) => (
           Mode_Hidden,
-          [(Spawn (v, pos), value_store, contin_stack, thread_id)],
+          [(Exec (v, pos), value_store, contin_stack, thread_id)],
           (chan_store, block_store, sync_store, cnt)
         ) |
 
         _  => (
-          Mode_Stick ("Spawn argument variable " ^ id ^ " cannot be resolved"),
+          Mode_Stick ("Exec argument variable " ^ id ^ " cannot be resolved"),
           [], (chan_store, block_store, sync_store, cnt)
         )
 
@@ -1597,14 +1593,14 @@ TODO:
       ) |
 
       Func_Value ([(Blank_Intro _, t_body)], fnc_store, mutual_store, _) => (let
-        val spawn_id = cnt
+        val exec_id = cnt
         val cnt' = cnt + 1
       in
         (
-          Mode_Spawn t_body,
+          Mode_Exec t_body,
           [
             (List_Value ([], pos), value_store, contin_stack, thread_id),
-            (t_body, value_store, [], spawn_id)
+            (t_body, value_store, [], exec_id)
           ],
           (chan_store, block_store, sync_store, cnt')
         )
@@ -1612,37 +1608,39 @@ TODO:
       
       v => (if is_value v then
         (
-          Mode_Stick "spawn with non-function",
+          Mode_Stick "exec with non-function",
           [], (chan_store, block_store, sync_store, cnt)
         )
       else
         push (
-          (t, (Contin_Norm, [( hole cnt, Spawn (hole cnt, pos) )], value_store, [])),
+          (t, (Contin_Norm, [( hole cnt, Exec (hole cnt, pos) )], value_store, [])),
           value_store, contin_stack, thread_id,
           chan_store, block_store, sync_store, cnt + 1
         )
       )
-    ) |
+    )
 
-  
-
-    Par of (term * int) |
   
   )
 *)
 
 
 
-  fun effect_step (effect, thread_config, global_config) = (case effect of
-    Return_Value value => raise (Fail "internal error: step applied to effect result")
-    (*
-    ** TODO
-    ** Bind_Value of effect_value * contin list |
-    ** Sync_Value of transaction list |
-    ** Spawn_Value of effect_value |
-    ** Par_Value of effect_value
-    *)
-  )
+  fun effect_step (effect, thread_config, global_config) = (let
+    val (value_store, contin_stack, thread_id) = thread_config
+    val (chan_store, block_store, cnt) = global_config
+  in
+    (case effect of
+      Return value => raise (Fail "internal error: step applied to effect result")
+      Exec effect' =>
+        (effect')
+      (*
+      ** TODO:
+      ** Sync of transaction list |
+      ** Bind of effect * contin list
+      *)
+    )
+  end)
 
 
 
@@ -1658,38 +1656,13 @@ TODO:
   
   ) = (case threads of
     [] => ( (*print "all done!\n";*) NONE) |
-    (control, thread_config, gloabl_config) :: threads' => (let
-      val (value_store, contin_stack, thread_id) = thread_config
-      val (chan_store, block_store, cnt) = global_config
-      val result_thread = (case (control, contin_stack) of
-        (Term (Value (Effect_Value effect)), []) =>
-          effect_lift (effect_step (effect, thread_config, global_config))
-
-        (Term (Value _), []) =>
-          (
-            Term (Error "top level value is not effect"),
-            thread_config,
-            global_config
-          ) |
-
-        (Term t, _) =>
-          term_lift (term_step (t, thread_config, global_config)) |
-
-        (Effect (Return_Value v), []) =>
-          (Result v, thread_config, global_config) |
-
-        (Effect (Return_Value v), _) =>
-          term_lift (pop (
-            v,
-            contin_stack, thread_id,
-            chan_store, block_store, sync_store, cnt
-          )) |
-
-        (Effect effect, _) =>
-          effect_lift (effect_step (effect, thread_config, global_config)) |
-
-        _ => raise (Fail "TODO: handle Effect cases")
-      )
+    thread :: threads' => (**
+      TODO: check if thread is waiting is
+      - ready,
+      - waiting on transaction, or
+      - waiting on communication 
+      ** without transactions, waiting on communication was stored on channel queue
+    **)
     in
       (* TODO:
       ** - if result thread has error, abort program
@@ -1697,7 +1670,7 @@ TODO:
       *)
     end)
     (let
-      (* TODO: check thread nature: Term, Effect, or Sync, then call apropo thread_step *)
+      (* TODO: check thread nature: Reduce term, Exec effect, or Sync event, then call apropo thread_step *)
       val (md', seq_threads, env') = (term_step (md, thread, env)) 
       (* TODO: change seq thread to return just one thread, check if effect_val with empty: switch to alternate term_step or finish*)
 
