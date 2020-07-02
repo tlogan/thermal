@@ -1,44 +1,30 @@
 structure Tree = struct
 
-  type chan_id = int
-  type thread_id = int
 
-  type ('a, 'b) store = ('a * 'b) list
+  structure Thread_Key = Key_Fn (val tag = "thread")
+  structure Chan_Key = Key_Fn (val tag = "chan")
+
+  structure G_Key = Key_Fn (val tag = "_g")
 
   datatype left_right = Left | Right
 
   type infix_option = (left_right * int) option
 
-  datatype event_Intro = 
-    Alloc_Chan_Intro |
-    Send_Intro |
-    Recv_Intro |
-    Latch_Intro |
-    Choose_Intro |
-    Offer_Intro |
-    Block_Intro
-
-  datatype effect_intro =
-    Return_Intro |
-    Sync_Intro |
-    Bind_Intro |
-    Exec_Intro
 
   datatype contin_mode = Contin_With | Contin_Norm | Contin_App | Contin_Sync
 
   datatype term = 
-    Blank_Intro of int |
     Sym of (term * int) |
     Id of (string * int) |
     Assoc of (term * int) |
     Log of (term * int) |
 
-    List_Intro of (term * term * int) |
+    Intro_List of (term * term * int) |
 
-    Func_Intro of (
+    Intro_Func of (
       ((term * term) list) *
       int
-    ) (* Func_Intro (lams, pos) *) |
+    ) (* Intro_Func (lams, pos) *) |
 
 
     App of (term * term * int) |
@@ -46,35 +32,49 @@ structure Tree = struct
     Compo of (term * term * int) |
     With of (term * term * int) |
 
-    Rec_Intro of (
+    Intro_Rec of (
       ((string * (infix_option * term)) list) *
       int
-    ) (* Rec_Intro (fields, pos) *) |
+    ) (* Intro_Rec (fields, pos) *) |
 
-    Rec_Intro_Mutual of (
+    Intro_Mutual_Rec of (
       ((string * (infix_option * term)) list) *
       int
-    ) (* Rec_Intro (fields, pos) *) |
-
+    ) (* Intro_Rec (fields, pos) *) |
 
     Select of (term * int) |
-  
-
-    Event_Intro of (event_intro * term * int) |
 
 
-    Effect_Intro of (effect_intro * term * int) |
+    (* event *)
+    (*
+    ** TODO **
+    Intro_Send of (term * int) |
+    Intro_Recv of (term * int) |
+    Intro_Latch of (term * int) |
+    Intro_Choose of (term * int) |
+    Intro_Offer of (term * int) |
+    Intro_Block of (term * int)
+    *)
 
-    Num_Intro of (string * int) |
+    (* effect *)
+    (*
+    ** TODO **
+    Intro_Return |
+    Intro_Sync |
+    Intro_Bind |
+    Intro_Exec
+    *)
 
-    Num_Add of (term * int) |
-    Num_Sub of (term * int) |
-    Num_Mul of (term * int) |
-    Num_Div of (term * int) |
+    (* number *)
+    Add_Num of (term * int) |
+    Sub_Num of (term * int) |
+    Mul_Num of (term * int) |
+    Div_Num of (term * int) |
 
-    String_Intro of (string * int) |
+    (* string *)
 
-    Value of value 
+    (* value *)
+    Value of (value * int)
 
   and value =
     Blank |
@@ -82,43 +82,58 @@ structure Tree = struct
 
     Func of (
       ((term * term) list) *
-      ((string, infix_option * value) store) *
-      ((string, infix_option * ((term * term) list)) store) *
+      ((string, infix_option * value) list) *
+      ((string, infix_option * ((term * term) list)) list) *
       int
     ) (* Func (lams, value_store, mutual_store, pos) *) |
 
     Rec of (
       ((string * (infix_option * value)) list) *
       int
-    ) (* Rec_Intro (fields, pos) *) |
+    ) (* Intro_Rec (fields, pos) *) |
 
 
-    Event of transaction list |
+    Event of event |
 
     Effect of effect |
   
     String of (string * int) |
 
     Num of (string * int) |
-    Chan_Loc of int |
-    ThreadId of int |
+
+    Chan_Loc of Chan_Key.t |
+
+    Thread_Id of Thread_Key.t |
+
     Error of string
-
-
-  and event =
-    Alloc_Chan | 
-    Send of chan_id * value |
-    Recv of chan_id |
-    Offer of value |
-    Block
 
   and effect =
     Return of value |
-    Sync of transaction list |
-    Bind of effect_value * contin list |
-    Exec of effect_value
+    (*
+    ** TODO **
+    Sync of event * action list |
+    Bind of effect * term |
+    Exec of effect
+    *)
 
-  and transaction = Tx of event_value * contin list 
+  and event =
+    Offer of value |
+    Block |
+    (*
+    ** TODO **
+    Alloc_Chan | 
+    Send of Chan_Store.key * value |
+    Recv of Chan_Store.key |
+    *)
+
+  and past_event =  
+    Choose_Left |
+    Choose_Right |
+    (*
+    ** TODO **
+    Commun_Send of Thread_Store.key * Tx_Store.key * Tx_Store.key |
+    Commun_Recv of Thread_Store.key * Tx_Store.key * Tx_Store.key
+    *)
 
   and contin = Contin of (
     contin_mode * 
@@ -128,36 +143,11 @@ structure Tree = struct
   )
 
 
-  type thread_config = (
-    (string, infix_option * value) store *
-    contin list *
-    thread_id 
-  )
-
-  type sender = (int * contin list * value * thread_id)
+  type sender = (Block_Store.key * contin list * value * Thread_Store.key)
     (* (block_id, contin_stack, msg, thread_id) *)
-  type receiver = (int * contin list * thread_id)
+  type receiver = (Block_Store.key * contin list * Thread_Store.key)
 
   type channel = sender * receiver 
-
-  type global_config = (
-    (thread_id, channel) store *
-    (int, unit) *
-    int
-  )
-  (* (chan_store, block_store, cnt) *)
-
-  type term_step = (
-    term *
-    thread_config *
-    global_config
-  )
-  (*
-    t,
-    (value_store, contin_stack, thread_id),
-    (chan_store, block_store, cnt)
-  *)
-
 
   val surround_with = String.surround_with
   val surround = String.surround
@@ -196,11 +186,11 @@ structure Tree = struct
     Log (t, pos) => "log " ^  (to_string t) |
     Sym (t, pos) => "sym " ^ (to_string t) |
 
-    List_Intro (t1, t2, pos) => (
+    Intro_List (t1, t2, pos) => (
       (to_string t1) ^ ", " ^ (to_string t2)
     ) |
 
-    Func_Intro (lams, pos) => String.surround "" (
+    Intro_Func (lams, pos) => String.surround "" (
       String.concatWith "\n" (List.map (fn t => (from_lam_to_string t)) lams)
     ) |
 
@@ -212,17 +202,17 @@ structure Tree = struct
 
     With (t1, t2, pos) => "with " ^ (to_string t1) ^ "\n" ^ (to_string t2) |
 
-    Rec_Intro (fs, pos) => String.surround "" (
+    Intro_Rec (fs, pos) => String.surround "" (
       String.concatWith ",\n" (List.map from_field_to_string fs)
     ) |
 
-    Rec_Intro_Mutual (fs, pos) => String.surround "mutual" (
+    Intro_Mutual_Rec (fs, pos) => String.surround "mutual" (
       String.concatWith ",\n" (List.map from_field_to_string fs)
     ) |
 
     Select (t, pos) => "select " ^ (to_string t) |
 
-    Event_Intro (evt, t, pos) => "evt " ^ (event_to_string evt) ^ (to_string t) |
+    Intro_Event (evt, t, pos) => "evt " ^ (event_to_string evt) ^ (to_string t) |
 
     Value v => value_to_string v |
 
@@ -233,23 +223,21 @@ structure Tree = struct
 
     Exec (t, pos) => "exec " ^ (to_string t) |
 
-    Blank_Intro pos => "()" |
-
     Id (name, pos) => name |
 
     String (str, pos) => str |
 
     Chan_Loc i => "chan_loc_" ^ (Int.toString i) |
 
-    ThreadId i => "thread_" ^ (Int.toString i) |
+    Thread_Id i => "thread_" ^ (Int.toString i) |
 
-    Num_Add (t, pos) => "add " ^ (to_string t) |
+    Add_Num (t, pos) => "add " ^ (to_string t) |
 
-    Num_Sub (t, pos) => "sub " ^ (to_string t) |
+    Sub_Num (t, pos) => "sub " ^ (to_string t) |
 
-    Num_Mul (t, pos) => "mul " ^ (to_string t) |
+    Mul_Num (t, pos) => "mul " ^ (to_string t) |
 
-    Num_Div (t, pos) => "div " ^ (to_string t) |
+    Div_Num (t, pos) => "div " ^ (to_string t) |
 
     Error msg => "(ERROR: " ^ msg ^ ")"
     *)
@@ -389,10 +377,10 @@ structure Tree = struct
 
 
   fun match_symbolic_term_insert value_store (pattern, symbolic_term) = (case (pattern, symbolic_term) of
-    (Blank_Intro _, _) => SOME value_store |
+    (Intro_Blank _, _) => SOME value_store |
 
     (Sym (Id (id, _), _), _) => (let
-      val thunk = Func ([(Blank_Intro ~1, symbolic_term)], value_store, [], ~1)
+      val thunk = Func ([(Intro_Blank ~1, symbolic_term)], value_store, [], ~1)
     in
       SOME (insert (value_store, id, (NONE, thunk)))
     end) |
@@ -410,7 +398,7 @@ structure Tree = struct
     (Log (p, _), Log (st, _)) =>
       match_symbolic_term_insert value_store (p, st) |
 
-    (List_Intro (p1, p2, _), List_Intro (st1, st2, _)) => (
+    (Intro_List (p1, p2, _), List_Intro (st1, st2, _)) => (
       (Option.mapPartial
         (fn value_store' =>
           match_symbolic_term_insert value_store' (p2, st2)
@@ -419,7 +407,7 @@ structure Tree = struct
       )
     ) |
 
-    (Func_Intro (p_lams, _), Func_Intro (st_lams, _)) =>
+    (Intro_Func (p_lams, _), Func_Intro (st_lams, _)) =>
       from_lams_match_symbolic_term_insert value_store (p_lams, st_lams) |
 
     (App (p1, p2, _), App (st1, st2, _)) =>
@@ -448,14 +436,14 @@ structure Tree = struct
     ) |
 
 
-    (Rec_Intro_Mutual (p_fields, _), Rec_Intro_Mutual (st_fields, _)) =>
+    (Intro_Mutual_Rec (p_fields, _), Rec_Intro_Mutual (st_fields, _)) =>
       from_fields_match_symbolic_term_insert value_store (p_fields, st_fields) |
 
 
     (Select (p, _), Select (st, _)) =>
       match_symbolic_term_insert value_store (p, st) |
 
-    (Event_Intro (p_evt, p, _), Event_Intro (st_evt, st, _)) =>
+    (Intro_Event (p_evt, p, _), Event_Intro (st_evt, st, _)) =>
       if p_evt = st_evt then match_symbolic_term_insert value_store (p, st)
       else NONE |
 
@@ -493,20 +481,20 @@ TODO:
       NONE
     ) |
 
-    (Effect_Intro (p_effect, p, _), Effect_Intro (st_effect, st, _)) =>
+    (Intro_Effect (p_effect, p, _), Effect_Intro (st_effect, st, _)) =>
       if p_effect = st_effect then match_symbolic_term_insert value_store (p, st)
       else NONE |
 
-    (Num_Add (p, _), Num_Add (st, _)) =>
+    (Add_Num (p, _), Add_Num (st, _)) =>
       match_symbolic_term_insert value_store (p, st) |
 
-    (Num_Sub (p, _), Num_Sub (st, _)) =>
+    (Sub_Num (p, _), Sub_Num (st, _)) =>
       match_symbolic_term_insert value_store (p, st) |
 
-    (Num_Mul (p, _), Num_Mul (st, _)) =>
+    (Mul_Num (p, _), Mul_Num (st, _)) =>
       match_symbolic_term_insert value_store (p, st) |
 
-    (Num_Div (p, _), Num_Div (st, _)) =>
+    (Div_Num (p, _), Div_Num (st, _)) =>
       match_symbolic_term_insert value_store (p, st) |
 
     _ => (
@@ -566,13 +554,13 @@ TODO:
     (Assoc (pat', _), _) =>
       match_value_insert (value_store, pat', value) |
 
-    (Blank_Intro _, _) =>
+    (Intro_Blank _, _) =>
       SOME value_store |
 
     (Id (str, _), v) =>
       SOME (insert (value_store, str, (NONE, v))) |
 
-    (List_Intro (t, t', _), List (v :: vs, _)) =>
+    (Intro_List (t, t', _), List (v :: vs, _)) =>
       (Option.mapPartial
         (fn value_store' =>
           match_value_insert (value_store', t, v)
@@ -580,11 +568,11 @@ TODO:
         (match_value_insert (value_store, t', List (vs, ~1)))
       ) |
 
-    (Rec_Intro (p_fields, _), Rec (v_fields, _)) => (
+    (Intro_Rec (p_fields, _), Rec (v_fields, _)) => (
       from_fields_match_value_insert value_store (p_fields, v_fields)
     ) |
 
-    (Func_Intro ([(Blank_Intro _, p_body)], _), Func ([(Blank_Intro _, st_body)], _, _, _)) => (
+    (Intro_Func ([(Blank_Intro _, p_body)], _), Func ([(Blank_Intro _, st_body)], _, _, _)) => (
       (* function value's local stores are ignored; only syntax is matched; *)
       (* it's up to the user to determine if syntax can actually be evaluated in alternate context *)
       (* variables in pattern are specified by pattern_var syntax (sym f); *)
@@ -593,7 +581,7 @@ TODO:
     ) |
 
 
-    (Num_Intro (n, _), Num (nv, _)) => (
+    (Value (Num (n, _)), Num (nv, _)) => (
       if n = nv then
         SOME value_store
       else
@@ -615,10 +603,10 @@ TODO:
       ) |
 
 
-    (Event_Send_Intro (t, _), Event_Send_Intro (v, _)) =>
+    (Intro_Event_Send (t, _), Event_Send_Intro (v, _)) =>
       match_value_insert (value_store, t, v) |
 
-    (Event_Recv_Intro (t, _), Event_Recv_Intro (v, _)) =>
+    (Intro_Event_Recv (t, _), Event_Recv_Intro (v, _)) =>
       match_value_insert (value_store, t, v) |
 
     (Func p_fnc, Func v_fnc) => (
@@ -635,7 +623,7 @@ TODO:
         NONE
     ) |
 
-    (Rec_Intro (p_fields, _), Rec_Intro (v_fields, _)) => (case (p_fields, v_fields) of
+    (Intro_Rec (p_fields, _), Rec_Intro (v_fields, _)) => (case (p_fields, v_fields) of
       ([], []) =>
         SOME value_store |
 
@@ -648,7 +636,7 @@ TODO:
         (case match of
           [(k, v)] => (Option.mapPartial
             (fn value_store' => match_value_insert (value_store', t, v))
-            (match_value_insert (value_store, Rec_Intro (ps, ~1), Rec_Intro (remainder, ~1)))
+            (match_value_insert (value_store, Intro_Rec (ps, ~1), Rec_Intro (remainder, ~1)))
           ) |
 
           _ => NONE
@@ -695,31 +683,23 @@ TODO:
   )
 
 
-
-
-
-
-
-
-  fun sym i = "_g_" ^ (Int.toString i)
-
-  fun hole i = Id (sym i, ~1)
+  fun hole k = Id (G_Key.to_string k, ~1)
 
   fun push (
     (t_arg, cont),
     value_store, contin_stack,
-    cnt
+    g_key
   ) = (let
     val contin_stack' = cont :: contin_stack
 
   in
     (
       t_arg, value_store, contin_stack',
-      cnt
+      g_key
     )
   end)
 
-  fun pop (result, contin, contin_stack', cnt) = (let
+  fun pop (result, contin, contin_stack', g_key) = (let
     val (cmode, lams, value_store', mutual_store) = contin
   
     val value_store'' = (case result of
@@ -763,34 +743,32 @@ TODO:
       SOME (t_body, value_store'''') => (
         t_body, 
         value_store'''', contin_stack'
-        cnt
+        g_key
       )
     )
 
   in
-    (next_term, value_store'''', contin_stack', cnt)
+    (next_term, value_store'''', contin_stack', g_key)
   end)
-
-
 
 
   fun apply (
     t_fn, t_arg, pos,
     value_store, contin_stack,
-    cnt
+    g_key
   ) = (case t_fn of
     (Id (id, _)) =>
       (case (find (value_store, id)) of
         SOME (_, v_fn) => (
           App (Value v_fn, t_arg, pos), 
           value_store, contin_stack
-          cnt
+          g_key
         ) |
 
         _  => SOME (_, v_fn) => (
           Error ("apply arg variable " ^ id ^ " cannot be resolved"),
           value_store, contin_stack,
-          cnt
+          g_key
         ) |
 
       ) |
@@ -799,20 +777,20 @@ TODO:
       push (
         (t_arg, (Contin_App, lams, fnc_store, mutual_store)),
         value_store, contin_stack,
-        cnt
+        g_key
       ) |
 
     Value v => (
       Error ("application of non-function: " ^ (value_to_string v)) |
       value_store, contin_stack,
-      cnt
+      g_key
     ) |
 
     _ =>
       push (
-        (t_fn, (Contin_Norm, [( hole cnt, App (hole cnt, t_arg, pos) )], value_store, [])),
+        (t_fn, (Contin_Norm, [( hole g_key, App (hole g_key, t_arg, pos) )], value_store, [])),
         value_store, contin_stack,
-        cnt + 1
+        G_Key.inc g_key
       )
   )
 
@@ -855,15 +833,15 @@ TODO:
     _ => t
   )
 
-  fun to_func_elim value_store t = (case t of
+  fun to_app value_store t = (case t of
     Compo (Compo (t1, Id (id, pos), p1), t2, p2) => (
       (case (find (value_store, id)) of
         SOME (SOME (direc, prec), rator) => (
           App (
             Id (id, pos),
-            List_Intro (
-              to_func_elim value_store t1,
-              List_Intro (to_func_elim value_store t2, Blank_Intro 0, pos),
+            Intro_List (
+              to_app value_store t1,
+              Intro_List (to_app value_store t2, Blank_Intro 0, pos),
               pos
             ),
             pos
@@ -872,8 +850,8 @@ TODO:
 
         _ => (
           App (
-            App (to_func_elim value_store t1, Id (id, pos), p1),
-            to_func_elim value_store t2,
+            App (to_app value_store t1, Id (id, pos), p1),
+            to_app value_store t2,
             p2
           )
         )
@@ -888,17 +866,17 @@ TODO:
   fun reduce_single (
     t, norm_f, reduce_f,
     value_store, contin_stack,
-    cnt
+    g_key
   ) = (case t of
     (Id (id, _)) =>
       (case (find (value_store, id)) of
         SOME (NONE, v) =>
-          (Value (reduce_f v), value_store, contin_stack, cnt) |
+          (Value (reduce_f v), value_store, contin_stack, g_key) |
 
         _  => (
           Error ("reduce single variable " ^ id ^ " cannot be resolved")
           value_store, contin_stack,
-          cnt
+          g_key
         ) |
 
       ) |
@@ -909,18 +887,18 @@ TODO:
           (
             Error msg, 
             value_store, contin_stack,
-            cnt
+            g_key
           ) |
 
         result =>
-          (Value result, value_store, contin_stack, cnt)
+          (Value result, value_store, contin_stack, g_key)
 
       ) |
     _ => 
       push (
-        (t, (Contin_Norm, [( hole cnt, norm_f (hole cnt) )], value_store, [])),
+        (t, (Contin_Norm, [( hole g_key, norm_f (hole g_key) )], value_store, [])),
         value_store, contin_stack,
-        cnt + 1
+        G_Key.inc g_key
       )
   )
 
@@ -928,7 +906,7 @@ TODO:
   fun reduce_list (
     ts, norm_f, reduce_f,
     value_store, contin_stack,
-    cnt
+    g_key
   ) = (let
 
     fun loop (prefix, postfix) = (case postfix of
@@ -937,11 +915,11 @@ TODO:
           (
             Error msg, 
             value_store, contin_stack,
-            cnt
+            g_key
           )
 
         v =>
-          (Value v, value_store, contin_stack, cnt)
+          (Value v, value_store, contin_stack, g_key)
       ) |
 
       x :: xs => (case x of
@@ -951,7 +929,7 @@ TODO:
             _ => (
               Error ("reduce list variable " ^ id ^ " cannot be resolved"),
               value_store, contin_stack,
-              cnt
+              g_key
             )
 
           ) |
@@ -963,13 +941,13 @@ TODO:
               x,
               (
                 Contin_Norm,
-                [( hole cnt, norm_f ((map (fn v => Value v) prefix) @ (hole cnt :: xs)) )],
+                [( hole g_key, norm_f ((map (fn v => Value v) prefix) @ (hole g_key :: xs)) )],
                 value_store,
                 []
               )
             ),
             value_store, contin_stack,
-            cnt + 1
+            G_Key.inc g_key
           ))
       )
     )
@@ -980,13 +958,13 @@ TODO:
 
   
 
-  fun term_step (t, value_store, contin_stack, cnt) = (case t of
+  fun term_step (t, value_store, contin_stack, g_key) = (case t of
 
     Value v =>
       raise (Fail "internal error: term_step: value as input") |
 
     Assoc (term, pos) => (
-      term, value_store, contin_stack, cnt
+      term, value_store, contin_stack, g_key
     ) |
 
     Log (t, pos) => reduce_single (
@@ -997,27 +975,27 @@ TODO:
         v
       ),
       value_store, contin_stack,
-      cnt
+      g_key
     ) | 
 
     Id (id, pos) => (case (find (value_store, id)) of
       SOME (NONE, v) =>
-        (Value v, value_store, contin_stack, cnt) |
+        (Value v, value_store, contin_stack, g_key) |
 
       _ => (
         Error ("variable " ^ id ^ " cannot be resolved"),
         value_store, contin_stack,
-        cnt
+        g_key
       )
 
     ) |
 
 
-    List_Intro (t, t', pos) => reduce_list (
+    Intro_List (t, t', pos) => reduce_list (
       [t, t'],
       (fn
-        [t, t'] => List_Intro (t, t', pos) |
-        _ => raise (Fail "Internal: List_Intro")
+        [t, t'] => Intro_List (t, t', pos) |
+        _ => raise (Fail "Internal: Intro_List")
       ),
       (fn
         [v, Blank_Val] => List ([v], pos) |
@@ -1025,16 +1003,16 @@ TODO:
         _ => Error "cons with non-list"
       ),
       value_store, contin_stack,
-      cnt
+      g_key
 
     ) |
 
 
-    Func_Intro (lams, pos) =>
+    Intro_Func (lams, pos) =>
         (Value (Func (lams, value_store, [], pos)),
           value_store,
           contin_stack,
-          cnt
+          g_key
         ) |
 
     (*
@@ -1042,40 +1020,40 @@ TODO:
         (Value (Func (lams, value_store, mutual_store, pos)),
           value_store,
           contin_stack,
-          cnt
+          g_key
         ) |
     *)
 
 
     Compo (Compo (t1, Id (id, pos), p1), t2, p2) => (let
       val t_m = associate_infix value_store t
-      val t' = to_func_elim value_store t_m 
+      val t' = to_app value_store t_m 
     in
-      (t', value_store, contin_stack, cnt)
+      (t', value_store, contin_stack, g_key)
     end) |
 
     Compo (t1, t2, pos) => (
-      App (t1, t2, pos), value_store, contin_stack, cnt
+      App (t1, t2, pos), value_store, contin_stack, g_key
     ) |
 
 
     App (t_fn, t_arg, pos) => apply (
       t_fn, t_arg, pos,
       value_store, contin_stack,
-      cnt
+      g_key
     ) |
 
 
     With (t1, t2, _) => push (
-      (t1, (Contin_With, [(hole cnt, t2)], value_store, [])),
+      (t1, (Contin_With, [(hole g_key, t2)], value_store, [])),
       value_store, contin_stack,
-      cnt + 1
+      G_Key.inc g_key
     ) |
 
-    Rec_Intro (fields, pos) => (let
+    Intro_Rec (fields, pos) => (let
       val mutual_store = (List.mapPartial
         (fn
-          (k, (fix_op,  Func_Intro (lams, _))) => 
+          (k, (fix_op,  Intro_Func (lams, _))) => 
             SOME (k, (fix_op, lams)) |
           _ => NONE
         )
@@ -1085,7 +1063,7 @@ TODO:
       (* embed mutual ids into ts' functions *)
       val fields' = (map
         (fn
-          (k, (fix_op, Func_Intro (lams, pos))) =>
+          (k, (fix_op, Intro_Func (lams, pos))) =>
             (k, (fix_op, Value (Func (lams, value_store, mutual_store, pos)))) |
           field => field 
         )
@@ -1093,13 +1071,12 @@ TODO:
       )
     in
       (
-        Rec_Intro_Mutual (fields', pos), 
-        (value_store, contin_stack, thread_id),
-        cnt
+        Intro_Mutual_Rec (fields', pos), 
+        value_store, contin_stack, g_key
       )
     end) |
     
-    Rec_Intro_Mutual (fields, pos) => (let
+    Intro_Mutual_Rec (fields, pos) => (let
       val ts = (map (fn (k, (fix_op, t)) => t) fields)
 
       fun f con ts = (let
@@ -1114,9 +1091,9 @@ TODO:
 
     in
       reduce_list (
-        ts, f Rec_Intro_Mutual, f Rec_Val, 
+        ts, f Intro_Mutual_Rec, f Rec_Val, 
         value_store, contin_stack,
-        cnt
+        g_key
       )
     end) |
 
@@ -1133,70 +1110,61 @@ TODO:
         _ => Error "selecting from non-record"
       ),
       value_store, contin_stack,
-      cnt
+      g_key
 
     ) |
 
-    Event_Intro (evt, t, pos) => reduce_single (
+    Intro_Event (evt, t, pos) => reduce_single (
       t,
-      fn t => Event_Intro (evt, t, pos),
+      fn t => Intro_Event (evt, t, pos),
       fn v => Event (mk_transactions (evt, v)),
       value_store, contin_stack,
-      cnt
+      g_key
     ) | 
 
-    Blank_Intro pos =>
-      (Value Blank_Val, value_store, contin_stack, cnt) |
-
-    String_Intro (str, pos) =>
-      (Value (String (str, pos)), value_store, contin_stack, cnt) |
-
-    Num_Intro (str, pos) =>
-      (Value (Num (str, pos)), value_store, contin_stack, cnt) |
-
-    Num_Add (t, pos) => reduce_single (
-      t, fn t => Num_Add (t, pos),
+    Add_Num (t, pos) => reduce_single (
+      t, fn t => Add_Num (t, pos),
       (fn
         List ([Num (n1, _), Num (n2, _)], _) =>
           Num (num_add (n1, n2), pos) |
         _ => Error "adding non-numbers"
       ),
-      value_store, contin_stack, cnt
+      value_store, contin_stack, g_key
 
     ) |
 
-    Num_Sub (t, pos) => reduce_single (
-      t, fn t => Num_Sub (t, pos),
+    Sub_Num (t, pos) => reduce_single (
+      t, fn t => Sub_Num (t, pos),
       (fn
         List ([Num (n1, _), Num (n2, _)], _) => (
           Num (num_sub (n1, n2), pos)
         ) |
         _ => Error "subtracting non-numbers"
       ),
-      value_store, contin_stack, cnt
+      value_store, contin_stack, g_key
     ) |
 
-    Num_Mul (t, pos) => reduce_single (
-      t, fn t => Num_Mul (t, pos),
+    Mul_Num (t, pos) => reduce_single (
+      t, fn t => Mul_Num (t, pos),
       (fn
         List ([Num (n1, _), Num (n2, _)], _) => (
           Num (num_mul (n1, n2), pos)
         ) |
         _ => Error "multplying non-numbers"
       ),
-      value_store, contin_stack, cnt
+      value_store, contin_stack, g_key
 
     ) |
 
-    Num_Div (t, pos) => reduce_single (
-      t, fn t => Num_Div (t, pos),
+    Div_Num (t, pos) => reduce_single (
+      t, fn t => Div_Num (t, pos),
       (fn
         List ([Num (n1, _), Num (n2, _)], _) => (
           Num (num_div (n1, n2), pos)
         ) |
         _ => Error "dividing non-numbers"
       ),
-      value_store, contin_stack, cnt
+      value_store, contin_stack, g_key
 
     ) |
 
@@ -1219,7 +1187,7 @@ TODO:
       (Value v, []) => (threads', chan_store, sync_store) | 
 
       (Value v, contin :: contin_stack') => (let
-        val new_thread = pop (v, contin, contin_stack', cnt)
+        val new_thread = pop (v, contin, contin_stack', g_key)
       in
         (threads' @ new_thread, chan_store, sync_store)
       end) |
@@ -1239,7 +1207,7 @@ TODO:
 sync_store: thread_id -> Effect continuation
 chan_store: chan_id -> set of waiting sender transaction continuations, and set of waiting receiver transaction continuations  
 
-datatype term = Send_Event_Intro | ...
+datatype term = Intro_Send_Event | ...
 datatype value = Sync of value * history: represents term for synchronizing event and its transaction history
 Effect of effect: represents effect
 
@@ -1273,10 +1241,10 @@ take one thread, invariant: thread is value <-> contin stack is empty
     val thread_id = 0 
     val value_store = empty_table 
     val contin_stack = []
-    val cnt = 0
+    val g_key = 0
     val thread = (thread_id, t, value_store, contin_stack, 0)
 
-    val cnt = 1
+    val g_key = 1
 
 
     fun loop cfg = (case (concur_step cfg) of
@@ -1288,7 +1256,7 @@ take one thread, invariant: thread is value <-> contin stack is empty
   in
     loop (
       [thread],
-      (chan_store, block_store, cnt)
+      (chan_store, block_store, g_key)
     )
   end)
 
@@ -1375,7 +1343,7 @@ end
   
   fun proceed (
     (evt, wrap_stack), contin_stack, thread_id,
-    (chan_store, block_store, sync_store, cnt)
+    (chan_store, block_store, sync_store, g_key)
   ) = (case evt of
 
     Send (i, msg) =>
@@ -1408,7 +1376,7 @@ end
       (
         md', 
         threads,
-        (chan_store', block_store, sync_store, cnt)
+        (chan_store', block_store, sync_store, g_key)
       ) 
     end) |
   
@@ -1443,7 +1411,7 @@ end
       (
         md',
         threads,
-        (chan_store', block_store, sync_store, cnt)
+        (chan_store', block_store, sync_store, g_key)
       )
     end)
   
@@ -1484,19 +1452,19 @@ end
   
   fun block (
     event_values, contin_stack, thread_id,
-    (chan_store, block_store, sync_store, cnt)
+    (chan_store, block_store, sync_store, g_key)
   ) = (let
     val chan_store' = (List.foldl  
       (fn (evt, chan_store) =>
-        block_one (evt, contin_stack, chan_store, cnt, thread_id)
+        block_one (evt, contin_stack, chan_store, g_key, thread_id)
       )
       chan_store
       event_values
     )
-    val block_store' = insert (block_store, cnt, ())
-    val cnt' = cnt + 1
+    val block_store' = insert (block_store, g_key, ())
+    val g_key' = G_Key.inc g_key
   in
-    (Mode_Block event_values, [], (chan_store', block_store', sync_store, cnt'))
+    (Mode_Block event_values, [], (chan_store', block_store', sync_store, g_key'))
   end)
 
   *)
@@ -1553,10 +1521,10 @@ end
 (*
 ** TODO: allocate chan during sync **
     Alloc_Chan (_, i) => (let
-      val chan_store' = insert (chan_store, cnt, ([], []))
-      val cnt' = cnt + 1
+      val chan_store' = insert (chan_store, g_key, ([], []))
+      val g_key' = G_Key.inc g_key
     in
-      (Value (Chan_Loc cnt), value_store, contin_stack, cnt) |
+      (Value (Chan_Loc g_key), value_store, contin_stack, g_key) |
     end) |
 
 *)
@@ -1564,12 +1532,12 @@ end
         SOME (NONE, v) => (
           Mode_Hidden,
           [(Sync (v, pos), value_store, contin_stack, thread_id)],
-          (chan_store, block_store, sync_store, cnt)
+          (chan_store, block_store, sync_store, g_key)
         ) |
 
         _  => (
           Mode_Stick ("Sync argument variable " ^ id ^ " cannot be resolved"),
-          [], (chan_store, block_store, sync_store, cnt)
+          [], (chan_store, block_store, sync_store, g_key)
         )
 
       ) |
@@ -1588,12 +1556,12 @@ end
             SOME transaction =>
               proceed (
                 transaction, contin_stack, thread_id,
-                (chan_store', block_store, sync_store, cnt)
+                (chan_store', block_store, sync_store, g_key)
               ) |
             NONE =>
               block (
                 transactions, contin_stack, thread_id,
-                (chan_store', block_store, sync_store, cnt)
+                (chan_store', block_store, sync_store, g_key)
               )
           )
         end)
@@ -1601,14 +1569,14 @@ end
       Value _ =>
         (
           Mode_Stick "sync with non-event",
-          [], (chan_store, block_store, sync_store, cnt)
+          [], (chan_store, block_store, sync_store, g_key)
         ) |
 
       _ =>
         push (
-          (t, (Contin_Norm, [( hole cnt, Sync (hole cnt, pos) )], value_store, [])),
+          (t, (Contin_Norm, [( hole g_key, Sync (hole g_key, pos) )], value_store, [])),
           value_store, contin_stack,
-          chan_store, block_store, sync_store, cnt + 1
+          chan_store, block_store, sync_store, G_Key.inc g_key
         )
 
     ) |
@@ -1619,20 +1587,20 @@ end
         SOME (_, v) => (
           Mode_Hidden,
           [(Exec (v, pos), value_store, contin_stack, thread_id)],
-          (chan_store, block_store, sync_store, cnt)
+          (chan_store, block_store, sync_store, g_key)
         ) |
 
         _  => (
           Mode_Stick ("Exec argument variable " ^ id ^ " cannot be resolved"),
-          [], (chan_store, block_store, sync_store, cnt)
+          [], (chan_store, block_store, sync_store, g_key)
         )
 
 
       ) |
 
-      Func ([(Blank_Intro _, t_body)], fnc_store, mutual_store, _) => (let
-        val exec_id = cnt
-        val cnt' = cnt + 1
+      Func ([(Value (Blank, _), t_body)], fnc_store, mutual_store, _) => (let
+        val exec_id = g_key
+        val g_key' = G_Key.inc g_key
       in
         (
           Mode_Exec t_body,
@@ -1640,20 +1608,20 @@ end
             (List ([], pos), value_store, contin_stack, thread_id),
             (t_body, value_store, [], exec_id)
           ],
-          (chan_store, block_store, sync_store, cnt')
+          (chan_store, block_store, sync_store, g_key')
         )
       end) |
       
       v => (if is_value v then
         (
           Mode_Stick "exec with non-function",
-          [], (chan_store, block_store, sync_store, cnt)
+          [], (chan_store, block_store, sync_store, g_key)
         )
       else
         push (
-          (t, (Contin_Norm, [( hole cnt, Exec (hole cnt, pos) )], value_store, [])),
+          (t, (Contin_Norm, [( hole g_key, Exec (hole g_key, pos) )], value_store, [])),
           value_store, contin_stack,
-          chan_store, block_store, sync_store, cnt + 1
+          chan_store, block_store, sync_store, G_Key.inc g_key
         )
       )
     )

@@ -82,70 +82,70 @@ term_nt:
 
   LPAREN term_nt RPAREN (Assoc (term_nt, LPARENleft)) |
 
-  HASH term_nt term_nt (List_Intro (term_nt1, term_nt2, HASHleft)) |
-  HASH term_nt (List_Intro (term_nt, Blank_Intro HASHright, HASHleft)) |
+  HASH term_nt term_nt (Intro_List (term_nt1, term_nt2, HASHleft)) |
+  HASH term_nt (Intro_List (term_nt, Value (Blank, HASHright), HASHleft)) |
 
-  lam_nt (Func_Intro ([lam_nt], lam_ntleft)) |
-  LPAREN lams_nt (Func_Intro (lams_nt, lams_ntleft)) |
+  lam_nt (Intro_Func ([lam_nt], lam_ntleft)) |
+  LPAREN lams_nt (Intro_Func (lams_nt, lams_ntleft)) |
 
   WITH term_nt term_nt (With (term_nt1, term_nt2, WITHleft)) |
-  WITH term_nt (With (term_nt1, Blank_Intro WITHright, WITHleft)) |
+  WITH term_nt (With (term_nt1, Value (Blank, WITHright), WITHleft)) |
 
   PIPE term_nt term_nt (App (term_nt2, term_nt1, PIPEleft)) |
 
   LOG term_nt (Log (term_nt, LOGleft)) |
   SYM term_nt (Sym (term_nt, SYMleft)) | 
 
-  field_nt (Rec_Intro ([field_nt], field_ntleft)) |
-  LPAREN fields_nt (Rec_Intro (fields_nt, LPARENleft)) |
+  field_nt (Intro_Rec ([field_nt], field_ntleft)) |
+  LPAREN fields_nt (Intro_Rec (fields_nt, LPARENleft)) |
 
   term_nt LSQ term_nt RSQ
-    (Select (List_Intro (
+    (Select (Intro_List (
       term_nt1,
-      List_Intro (term_nt2, Blank_Intro RSQright, RSQleft),
+      Intro_List (term_nt2, Value (Blank, RSQright), RSQleft),
       LSQleft
     ), LSQleft)) |
 
   term_nt DOT ID
-    (Select (List_Intro (
+    (Select (Intro_List (
       term_nt,
-      List_Intro (String_Intro (ID, IDleft), Blank_Intro IDright, IDleft),
+      Intro_List (String_Intro (ID, IDleft), Value (Blank, IDright), IDleft),
       DOTleft
   ), DOTleft)) |
 
-  SELECT (Func_Intro ([(Id ("_param", ~1), Select (Id ("_param", SELECTleft), SELECTleft))], SELECTleft)) |
+  SELECT (Intro_Func ([(Id ("_param", ~1), Select (Id ("_param", SELECTleft), SELECTleft))], SELECTleft)) |
 
-  EQUAL (Func_Intro ([(Id ("_param", ~1), Select (Id ("_param", EQUALleft), EQUALleft))], EQUALleft)) |
+  EQUAL (Intro_Func ([(Id ("_param", ~1), Select (Id ("_param", EQUALleft), EQUALleft))], EQUALleft)) |
 
-  ALLOC_CHAN (Func_Intro ([(Id ("_param", ~1), Event_Intro (Alloc_Chan_Intro, Id ("_param", ~1), ALLOC_CHANleft))], ALLOC_CHANleft)) |
+  ALLOC_CHAN (Intro_Func ([(Id ("_param", ~1), Event_Intro (Value (Alloc_Chan, ALLOC_CHANleft)))], ALLOC_CHANleft)) |
 
-  SEND (Func_Intro ([(Id ("_param", ~1), Event_Intro (Send_Intro, Id ("_param", ~1), SENDleft))], SENDleft)) |
+  SEND (Intro_Func ([(Id ("_param", ~1), Event_Intro (Send_Intro, Id ("_param", ~1), SENDleft))], SENDleft)) |
 
-  RECV (Func_Intro ([(Id ("_param", ~1), Event_Intro (Recv_Intro, Id ("_param", ~1), RECVleft))], RECVleft)) |
+  RECV (Intro_Func ([(Id ("_param", ~1), Event_Intro (Recv_Intro, Id ("_param", ~1), RECVleft))], RECVleft)) |
 
-  LATCH (Func_Intro ([(Id ("_param", ~1), Event_Intro (Latch_Intro, Id ("_param", ~1), LATCHleft))], LATCHleft)) |
+  LATCH (Intro_Func ([(Id ("_param", ~1), Event_Intro (Latch_Intro, Id ("_param", ~1), LATCHleft))], LATCHleft)) |
 
-  CHSE (Func_Intro ([(Id ("_param", ~1), Event_Intro (Choose_Intro, Id ("_param", ~1), CHSEleft))], CHSEleft)) |
+  CHSE (Intro_Func ([(Id ("_param", ~1), Event_Intro (Choose_Intro, Id ("_param", ~1), CHSEleft))], CHSEleft)) |
 
-  SYNC (Func_Intro ([(Id ("_param", ~1), Effect_Intro (Sync_Intro, Id ("_param", ~1), SYNCleft))], SYNCleft)) |
+  SYNC (Intro_Func ([(Id ("_param", ~1), Effect_Intro (Sync_Intro, Id ("_param", ~1), SYNCleft))], SYNCleft)) |
 
-  EXEC (Func_Intro ([(Id ("_param", ~1), Effect_Intro (Exec_Intro, Id ("_param", ~1), EXECleft))], EXECleft)) |
+  EXEC (Intro_Func ([(Id ("_param", ~1), Effect_Intro (Exec_Intro, Id ("_param", ~1), EXECleft))], EXECleft)) |
 
-  LRPAREN (Blank_Intro LRPARENleft) | 
+  LRPAREN (Value (Blank, LRPARENleft)) | 
 
   ID (Id (ID, IDleft)) |
 
-  NUM (Num_Intro (NUM, NUMleft)) |
+  NUM (Value (Num NUM, NUMleft)) |
 
-  ADD (Func_Intro ([(Id ("_param", ~1), Num_Add (Id ("_param", ~1), ADDleft))], ADDleft)) |
+  ADD (Intro_Func ([(Id ("_param", ~1), Add_Num (Id ("_param", ~1), ADDleft))], ADDleft)) |
 
-  SUB (Func_Intro ([(Id ("_param", ~1), Num_Sub (Id ("_param", ~1), SUBleft))], SUBleft)) |
+  SUB (Intro_Func ([(Id ("_param", ~1), Sub_Num (Id ("_param", ~1), SUBleft))], SUBleft)) |
 
-  MUL (Func_Intro ([(Id ("_param", ~1), Num_Mul (Id ("_param", ~1), MULleft))], MULleft)) |
+  MUL (Intro_Func ([(Id ("_param", ~1), Mul_Num (Id ("_param", ~1), MULleft))], MULleft)) |
 
-  DIV (Func_Intro ([(Id ("_param", ~1), Num_Div (Id ("_param", ~1), DIVleft))], DIVleft)) |
+  DIV (Intro_Func ([(Id ("_param", ~1), Div_Num (Id ("_param", ~1), DIVleft))], DIVleft)) |
 
-  STRING (String_Intro (STRING, STRINGleft)) |
+  STRING (Value (String STRING, STRINGleft)) |
 
   term_nt term_nt %prec COMPO (Compo (term_nt1, term_nt2, term_nt1left))
 
