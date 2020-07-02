@@ -2,7 +2,10 @@ structure Tree = struct
 
 
   structure Thread_Key = Key_Fn (val tag = "thread")
+
   structure Chan_Key = Key_Fn (val tag = "chan")
+
+  structure History_Key = Key_Fn (val tag = "history")
 
   structure G_Key = Key_Fn (val tag = "_g")
 
@@ -131,8 +134,8 @@ structure Tree = struct
     Choose_Right |
     (*
     ** TODO **
-    Commun_Send of Thread_Store.key * Tx_Store.key * Tx_Store.key |
-    Commun_Recv of Thread_Store.key * Tx_Store.key * Tx_Store.key
+    Commun_Send of Thread_Key.t * History_Key.t * History_Key.t |
+    Commun_Recv of Thread_Key.t * History_Key.t * History_Key.t
     *)
 
   and contin = Contin of (
@@ -1174,28 +1177,63 @@ TODO:
   )
 
 
-  fun concur_step (threads, chan_store, sync_store) = (case threads of
+(*
+
+  type channel = (sender list * receiver list)
+  type value_store = (string * value) list 
+  type history = (thread_key * past_event list)
+
+  type thread = term * value_store * contin list  
+  type config =
+  { thread_store : (Thread_Key.t * thread) list
+  , sync_store : (Thread_Key.t * (contin list))  
+  , thread_key : Thread_Key.t
+
+  , chan_store : (Chan_Key.t * channel) list,
+  , chan_key : Chan_Key.t
+
+  , history_store : (History_Key.t * history list) list,
+
+  , g_key : G_Key.t
+  }
+ *)
+
+  fun concur_step (thread_store, g_key) = (case thread_store of
     [] => ( (*print "all done!\n";*) NONE) |
-    (t, value_store, contin_stack) :: threads' => (case (t, contin_stack) of
+    (t, value_store, contin_stack) :: thread_store' => (case (t, contin_stack) of
 
       (Value (Effect effect), []) => (let
-        val (new_threads, chan_store', sync_store') = execute (effect, chan_store, sync_store) 
+        val (new_thread_store, chan_store', sync_store') = (
+          execute (effect, chan_store, sync_store) 
+        )
       in
-        (threads' @ new_threads, chan_store', sync_store')
+        (
+          thread_store' @ new_thread_store,
+          sync_store', 
+          thread_key,
+
+          chan_store',
+          chan_key,
+
+          transaction_store,
+          transactin_key, (* tx_key -> (thread_key * past_event list) list *) 
+
+          g_key,
+        )
       end) |
 
-      (Value v, []) => (threads', chan_store, sync_store) | 
+      (Value v, []) => (thread_store', g_key) | 
 
       (Value v, contin :: contin_stack') => (let
-        val new_thread = pop (v, contin, contin_stack', g_key)
+        val new_thread = pop (v, contin, contin_stack')
       in
-        (threads' @ new_thread, chan_store, sync_store)
+        (thread_store' @ [new_thread], g_key)
       end) |
 
       _ => (let
-        val new_thread = term_step (t, value_store, contin_stack)
+        val (new_thread, g_key') = term_step ((t, value_store, contin_stack), g_key)
       in
-        (threads' @ new_thread, chan_store, sync_store)
+        (thread_store' @ [new_thread], g_key')
       end) 
     )
   )
@@ -1238,26 +1276,22 @@ take one thread, invariant: thread is value <-> contin stack is empty
 
   fun eval t = (let
 
-    val thread_id = 0 
-    val value_store = empty_table 
+    val thread_id = Thread_Key.zero 
+    val value_store = [] 
     val contin_stack = []
-    val g_key = 0
-    val thread = (thread_id, t, value_store, contin_stack, 0)
-
-    val g_key = 1
-
+    val g_key = G_Key.zero
+    val thread = (t, value_store, contin_stack)
 
     fun loop cfg = (case (concur_step cfg) of
       NONE => () |
       SOME (cfg') =>
         loop cfg' 
     )
+
+    val thread_store = [(thread_id, thread)]
   
   in
-    loop (
-      [thread],
-      (chan_store, block_store, g_key)
-    )
+    loop (thread_store, g_key)
   end)
 
 end
