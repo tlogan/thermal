@@ -7,7 +7,7 @@ structure Tree = struct
 
   structure History_Key = Key_Fn (val tag = "history")
 
-  structure G_Key = Key_Fn (val tag = "_g")
+  structure Hole_Key = Key_Fn (val tag = "_g")
 
   datatype left_right = Left | Right
 
@@ -104,39 +104,31 @@ structure Tree = struct
 
     Num of (string * int) |
 
-    Chan_Loc of Chan_Key.t |
+    Chan of Chan_Key.t |
 
-    Thread_Id of Thread_Key.t |
+    Thread of Thread_Key.t |
 
     Error of string
 
   and effect =
     Return of value |
-    (*
-    ** TODO **
-    Sync of event * action list |
     Bind of effect * term |
-    Exec of effect
-    *)
+    Exec of effect |
+    Sync of event |
+    Search of event * past_event list
 
   and event =
     Offer of value |
     Block |
-    (*
-    ** TODO **
     Alloc_Chan | 
-    Send of Chan_Store.key * value |
-    Recv of Chan_Store.key |
-    *)
+    Send of Chan_Key.t * value |
+    Recv of Chan_Key.t |
 
   and past_event =  
     Choose_Left |
     Choose_Right |
-    (*
-    ** TODO **
     Commun_Send of Thread_Key.t * History_Key.t * History_Key.t |
     Commun_Recv of Thread_Key.t * History_Key.t * History_Key.t
-    *)
 
   and contin = Contin of (
     contin_mode * 
@@ -145,26 +137,39 @@ structure Tree = struct
     ((string, infix_option * (term * term) list) store)
   )
 
+(*
 
-  type sender = (Block_Store.key * contin list * value * Thread_Store.key)
-    (* (block_id, contin_stack, msg, thread_id) *)
-  type receiver = (Block_Store.key * contin list * Thread_Store.key)
+  ** Question: is there no way to retry transaction if it fails? ** 
+  ** if you exhaust all paths and it cannot commit, then does it retry? ** 
 
-  type channel = sender * receiver 
+  type sender = (Thread_Store.key * past_event list * contin list * value)
+  (* thread_id, trace of synched events, transaction continuation, message *)
+
+  type receiver = (Thread_Store.key * past_event list * contin list)
+
+  type channel = sender list * receiver list
+
+  type value_store = (string * value) list 
+  type history = (thread_key * past_event list)
+
+  type thread = term * value_store * contin list  
+
+  type config =
+  {
+    thread_store : (Thread_Key.t * thread) list,
+    sync_store : (Thread_Key.t * (contin list)),
+    thread_key : Thread_Key.t,
+    chan_store : (Chan_Key.t * channel) list,
+    chan_key : Chan_Key.t,
+    history_store : (History_Key.t * history list) list,
+    hole_key : Hole_Key.t
+  }
+ *)
+
 
   val surround_with = String.surround_with
+
   val surround = String.surround
-(*
-  fun surround tag body = (let
-    val abc = "(" ^ tag
-    val bodyLines = String.tokens (fn c => c = #"\n") body
-    val indentedLines = map (fn l => "  " ^ l) bodyLines
-    val indentedBody = String.concatWith "\n" indentedLines 
-    val xyz = if body = "" then ")" else "\n" ^ indentedBody ^ ")"
-  in
-    abc ^ xyz 
-  end)
-*)
 
   fun from_infix_option_to_string fix_op = (case fix_op of
     SOME (Left, d) => " infixl d" ^ (Int.toString d) |
@@ -230,9 +235,9 @@ structure Tree = struct
 
     String (str, pos) => str |
 
-    Chan_Loc i => "chan_loc_" ^ (Int.toString i) |
+    Chan k => "chan_" ^ (Chan_Key.to_string k) |
 
-    Thread_Id i => "thread_" ^ (Int.toString i) |
+    Thread k => "thread_" ^ (Chan_Key.to_string k) |
 
     Add_Num (t, pos) => "add " ^ (to_string t) |
 
@@ -686,23 +691,23 @@ TODO:
   )
 
 
-  fun hole k = Id (G_Key.to_string k, ~1)
+  fun hole k = Id (Hole_Key.to_string k, ~1)
 
   fun push (
     (t_arg, cont),
     value_store, contin_stack,
-    g_key
+    hole_key
   ) = (let
     val contin_stack' = cont :: contin_stack
 
   in
     (
       t_arg, value_store, contin_stack',
-      g_key
+      hole_key
     )
   end)
 
-  fun pop (result, contin, contin_stack', g_key) = (let
+  fun pop (result, contin, contin_stack', hole_key) = (let
     val (cmode, lams, value_store', mutual_store) = contin
   
     val value_store'' = (case result of
@@ -746,32 +751,32 @@ TODO:
       SOME (t_body, value_store'''') => (
         t_body, 
         value_store'''', contin_stack'
-        g_key
+        hole_key
       )
     )
 
   in
-    (next_term, value_store'''', contin_stack', g_key)
+    (next_term, value_store'''', contin_stack', hole_key)
   end)
 
 
   fun apply (
     t_fn, t_arg, pos,
     value_store, contin_stack,
-    g_key
+    hole_key
   ) = (case t_fn of
     (Id (id, _)) =>
       (case (find (value_store, id)) of
         SOME (_, v_fn) => (
           App (Value v_fn, t_arg, pos), 
           value_store, contin_stack
-          g_key
+          hole_key
         ) |
 
         _  => SOME (_, v_fn) => (
           Error ("apply arg variable " ^ id ^ " cannot be resolved"),
           value_store, contin_stack,
-          g_key
+          hole_key
         ) |
 
       ) |
@@ -780,20 +785,20 @@ TODO:
       push (
         (t_arg, (Contin_App, lams, fnc_store, mutual_store)),
         value_store, contin_stack,
-        g_key
+        hole_key
       ) |
 
     Value v => (
       Error ("application of non-function: " ^ (value_to_string v)) |
       value_store, contin_stack,
-      g_key
+      hole_key
     ) |
 
     _ =>
       push (
-        (t_fn, (Contin_Norm, [( hole g_key, App (hole g_key, t_arg, pos) )], value_store, [])),
+        (t_fn, (Contin_Norm, [( hole hole_key, App (hole hole_key, t_arg, pos) )], value_store, [])),
         value_store, contin_stack,
-        G_Key.inc g_key
+        Hole_Key.inc hole_key
       )
   )
 
@@ -869,17 +874,17 @@ TODO:
   fun reduce_single (
     t, norm_f, reduce_f,
     value_store, contin_stack,
-    g_key
+    hole_key
   ) = (case t of
     (Id (id, _)) =>
       (case (find (value_store, id)) of
         SOME (NONE, v) =>
-          (Value (reduce_f v), value_store, contin_stack, g_key) |
+          (Value (reduce_f v), value_store, contin_stack, hole_key) |
 
         _  => (
           Error ("reduce single variable " ^ id ^ " cannot be resolved")
           value_store, contin_stack,
-          g_key
+          hole_key
         ) |
 
       ) |
@@ -890,18 +895,18 @@ TODO:
           (
             Error msg, 
             value_store, contin_stack,
-            g_key
+            hole_key
           ) |
 
         result =>
-          (Value result, value_store, contin_stack, g_key)
+          (Value result, value_store, contin_stack, hole_key)
 
       ) |
     _ => 
       push (
-        (t, (Contin_Norm, [( hole g_key, norm_f (hole g_key) )], value_store, [])),
+        (t, (Contin_Norm, [( hole hole_key, norm_f (hole hole_key) )], value_store, [])),
         value_store, contin_stack,
-        G_Key.inc g_key
+        Hole_Key.inc hole_key
       )
   )
 
@@ -909,7 +914,7 @@ TODO:
   fun reduce_list (
     ts, norm_f, reduce_f,
     value_store, contin_stack,
-    g_key
+    hole_key
   ) = (let
 
     fun loop (prefix, postfix) = (case postfix of
@@ -918,11 +923,11 @@ TODO:
           (
             Error msg, 
             value_store, contin_stack,
-            g_key
+            hole_key
           )
 
         v =>
-          (Value v, value_store, contin_stack, g_key)
+          (Value v, value_store, contin_stack, hole_key)
       ) |
 
       x :: xs => (case x of
@@ -932,7 +937,7 @@ TODO:
             _ => (
               Error ("reduce list variable " ^ id ^ " cannot be resolved"),
               value_store, contin_stack,
-              g_key
+              hole_key
             )
 
           ) |
@@ -944,13 +949,13 @@ TODO:
               x,
               (
                 Contin_Norm,
-                [( hole g_key, norm_f ((map (fn v => Value v) prefix) @ (hole g_key :: xs)) )],
+                [( hole hole_key, norm_f ((map (fn v => Value v) prefix) @ (hole hole_key :: xs)) )],
                 value_store,
                 []
               )
             ),
             value_store, contin_stack,
-            G_Key.inc g_key
+            Hole_Key.inc hole_key
           ))
       )
     )
@@ -961,13 +966,13 @@ TODO:
 
   
 
-  fun term_step (t, value_store, contin_stack, g_key) = (case t of
+  fun term_step (t, value_store, contin_stack, hole_key) = (case t of
 
     Value v =>
       raise (Fail "internal error: term_step: value as input") |
 
     Assoc (term, pos) => (
-      term, value_store, contin_stack, g_key
+      term, value_store, contin_stack, hole_key
     ) |
 
     Log (t, pos) => reduce_single (
@@ -978,17 +983,17 @@ TODO:
         v
       ),
       value_store, contin_stack,
-      g_key
+      hole_key
     ) | 
 
     Id (id, pos) => (case (find (value_store, id)) of
       SOME (NONE, v) =>
-        (Value v, value_store, contin_stack, g_key) |
+        (Value v, value_store, contin_stack, hole_key) |
 
       _ => (
         Error ("variable " ^ id ^ " cannot be resolved"),
         value_store, contin_stack,
-        g_key
+        hole_key
       )
 
     ) |
@@ -1006,7 +1011,7 @@ TODO:
         _ => Error "cons with non-list"
       ),
       value_store, contin_stack,
-      g_key
+      hole_key
 
     ) |
 
@@ -1015,7 +1020,7 @@ TODO:
         (Value (Func (lams, value_store, [], pos)),
           value_store,
           contin_stack,
-          g_key
+          hole_key
         ) |
 
     (*
@@ -1023,7 +1028,7 @@ TODO:
         (Value (Func (lams, value_store, mutual_store, pos)),
           value_store,
           contin_stack,
-          g_key
+          hole_key
         ) |
     *)
 
@@ -1032,25 +1037,25 @@ TODO:
       val t_m = associate_infix value_store t
       val t' = to_app value_store t_m 
     in
-      (t', value_store, contin_stack, g_key)
+      (t', value_store, contin_stack, hole_key)
     end) |
 
     Compo (t1, t2, pos) => (
-      App (t1, t2, pos), value_store, contin_stack, g_key
+      App (t1, t2, pos), value_store, contin_stack, hole_key
     ) |
 
 
     App (t_fn, t_arg, pos) => apply (
       t_fn, t_arg, pos,
       value_store, contin_stack,
-      g_key
+      hole_key
     ) |
 
 
     With (t1, t2, _) => push (
-      (t1, (Contin_With, [(hole g_key, t2)], value_store, [])),
+      (t1, (Contin_With, [(hole hole_key, t2)], value_store, [])),
       value_store, contin_stack,
-      G_Key.inc g_key
+      Hole_Key.inc hole_key
     ) |
 
     Intro_Rec (fields, pos) => (let
@@ -1075,7 +1080,7 @@ TODO:
     in
       (
         Intro_Mutual_Rec (fields', pos), 
-        value_store, contin_stack, g_key
+        value_store, contin_stack, hole_key
       )
     end) |
     
@@ -1096,7 +1101,7 @@ TODO:
       reduce_list (
         ts, f Intro_Mutual_Rec, f Rec_Val, 
         value_store, contin_stack,
-        g_key
+        hole_key
       )
     end) |
 
@@ -1113,7 +1118,7 @@ TODO:
         _ => Error "selecting from non-record"
       ),
       value_store, contin_stack,
-      g_key
+      hole_key
 
     ) |
 
@@ -1122,7 +1127,7 @@ TODO:
       fn t => Intro_Event (evt, t, pos),
       fn v => Event (mk_transactions (evt, v)),
       value_store, contin_stack,
-      g_key
+      hole_key
     ) | 
 
     Add_Num (t, pos) => reduce_single (
@@ -1132,7 +1137,7 @@ TODO:
           Num (num_add (n1, n2), pos) |
         _ => Error "adding non-numbers"
       ),
-      value_store, contin_stack, g_key
+      value_store, contin_stack, hole_key
 
     ) |
 
@@ -1144,7 +1149,7 @@ TODO:
         ) |
         _ => Error "subtracting non-numbers"
       ),
-      value_store, contin_stack, g_key
+      value_store, contin_stack, hole_key
     ) |
 
     Mul_Num (t, pos) => reduce_single (
@@ -1155,7 +1160,7 @@ TODO:
         ) |
         _ => Error "multplying non-numbers"
       ),
-      value_store, contin_stack, g_key
+      value_store, contin_stack, hole_key
 
     ) |
 
@@ -1167,7 +1172,7 @@ TODO:
         ) |
         _ => Error "dividing non-numbers"
       ),
-      value_store, contin_stack, g_key
+      value_store, contin_stack, hole_key
 
     ) |
 
@@ -1177,30 +1182,17 @@ TODO:
   )
 
 
-(*
-
-  type channel = (sender list * receiver list)
-  type value_store = (string * value) list 
-  type history = (thread_key * past_event list)
-
-  type thread = term * value_store * contin list  
-  type config =
-  { thread_store : (Thread_Key.t * thread) list
-  , sync_store : (Thread_Key.t * (contin list))  
-  , thread_key : Thread_Key.t
-
-  , chan_store : (Chan_Key.t * channel) list,
-  , chan_key : Chan_Key.t
-
-  , history_store : (History_Key.t * history list) list,
-
-  , g_key : G_Key.t
-  }
- *)
-
-  fun concur_step (thread_store, g_key) = (case thread_store of
+  fun concur_step {
+    thread_store,
+    sync_store,
+    thread_key,
+    chan_store,
+    chan_key,
+    history_store,
+    hole_key
+  } = (case (thread_store) of
     [] => ( (*print "all done!\n";*) NONE) |
-    (t, value_store, contin_stack) :: thread_store' => (case (t, contin_stack) of
+    (thread_key, (t, value_store, contin_stack)) :: thread_store' => (case (t, contin_stack) of
 
       (Value (Effect effect), []) => (let
         val (new_thread_store, chan_store', sync_store') = (
@@ -1218,22 +1210,22 @@ TODO:
           transaction_store,
           transactin_key, (* tx_key -> (thread_key * past_event list) list *) 
 
-          g_key,
+          hole_key,
         )
       end) |
 
-      (Value v, []) => (thread_store', g_key) | 
+      (Value v, []) => (thread_store', hole_key) | 
 
       (Value v, contin :: contin_stack') => (let
         val new_thread = pop (v, contin, contin_stack')
       in
-        (thread_store' @ [new_thread], g_key)
+        (thread_store' @ [new_thread], hole_key)
       end) |
 
       _ => (let
-        val (new_thread, g_key') = term_step ((t, value_store, contin_stack), g_key)
+        val (new_thread, hole_key') = term_step ((t, value_store, contin_stack), hole_key)
       in
-        (thread_store' @ [new_thread], g_key')
+        (thread_store' @ [new_thread], hole_key')
       end) 
     )
   )
@@ -1279,7 +1271,7 @@ take one thread, invariant: thread is value <-> contin stack is empty
     val thread_id = Thread_Key.zero 
     val value_store = [] 
     val contin_stack = []
-    val g_key = G_Key.zero
+    val hole_key = Hole_Key.zero
     val thread = (t, value_store, contin_stack)
 
     fun loop cfg = (case (concur_step cfg) of
@@ -1291,7 +1283,7 @@ take one thread, invariant: thread is value <-> contin stack is empty
     val thread_store = [(thread_id, thread)]
   
   in
-    loop (thread_store, g_key)
+    loop (thread_store, hole_key)
   end)
 
 end
@@ -1377,7 +1369,7 @@ end
   
   fun proceed (
     (evt, wrap_stack), contin_stack, thread_id,
-    (chan_store, block_store, sync_store, g_key)
+    (chan_store, block_store, sync_store, hole_key)
   ) = (case evt of
 
     Send (i, msg) =>
@@ -1410,7 +1402,7 @@ end
       (
         md', 
         threads,
-        (chan_store', block_store, sync_store, g_key)
+        (chan_store', block_store, sync_store, hole_key)
       ) 
     end) |
   
@@ -1445,7 +1437,7 @@ end
       (
         md',
         threads,
-        (chan_store', block_store, sync_store, g_key)
+        (chan_store', block_store, sync_store, hole_key)
       )
     end)
   
@@ -1486,19 +1478,19 @@ end
   
   fun block (
     event_values, contin_stack, thread_id,
-    (chan_store, block_store, sync_store, g_key)
+    (chan_store, block_store, sync_store, hole_key)
   ) = (let
     val chan_store' = (List.foldl  
       (fn (evt, chan_store) =>
-        block_one (evt, contin_stack, chan_store, g_key, thread_id)
+        block_one (evt, contin_stack, chan_store, hole_key, thread_id)
       )
       chan_store
       event_values
     )
-    val block_store' = insert (block_store, g_key, ())
-    val g_key' = G_Key.inc g_key
+    val block_store' = insert (block_store, hole_key, ())
+    val hole_key' = Hole_Key.inc hole_key
   in
-    (Mode_Block event_values, [], (chan_store', block_store', sync_store, g_key'))
+    (Mode_Block event_values, [], (chan_store', block_store', sync_store, hole_key'))
   end)
 
   *)
@@ -1508,10 +1500,10 @@ end
 
   fun mk_transactions (evt, v) = (case (evt, v) of
   
-    (Send, List ([Chan_Loc i, msg], _)) =>
+    (Send, List ([Chan i, msg], _)) =>
       [Tx (Send (i, msg), [])] |
   
-    (Recv, Chan_Loc i) =>
+    (Recv, Chan i) =>
       [Tx (Recv i, [])] |
 
     (Choose, List (values, _)) =>
@@ -1555,10 +1547,10 @@ end
 (*
 ** TODO: allocate chan during sync **
     Alloc_Chan (_, i) => (let
-      val chan_store' = insert (chan_store, g_key, ([], []))
-      val g_key' = G_Key.inc g_key
+      val chan_store' = insert (chan_store, hole_key, ([], []))
+      val hole_key' = Hole_Key.inc hole_key
     in
-      (Value (Chan_Loc g_key), value_store, contin_stack, g_key) |
+      (Value (Chan hole_key), value_store, contin_stack, hole_key) |
     end) |
 
 *)
@@ -1566,12 +1558,12 @@ end
         SOME (NONE, v) => (
           Mode_Hidden,
           [(Sync (v, pos), value_store, contin_stack, thread_id)],
-          (chan_store, block_store, sync_store, g_key)
+          (chan_store, block_store, sync_store, hole_key)
         ) |
 
         _  => (
           Mode_Stick ("Sync argument variable " ^ id ^ " cannot be resolved"),
-          [], (chan_store, block_store, sync_store, g_key)
+          [], (chan_store, block_store, sync_store, hole_key)
         )
 
       ) |
@@ -1590,12 +1582,12 @@ end
             SOME transaction =>
               proceed (
                 transaction, contin_stack, thread_id,
-                (chan_store', block_store, sync_store, g_key)
+                (chan_store', block_store, sync_store, hole_key)
               ) |
             NONE =>
               block (
                 transactions, contin_stack, thread_id,
-                (chan_store', block_store, sync_store, g_key)
+                (chan_store', block_store, sync_store, hole_key)
               )
           )
         end)
@@ -1603,14 +1595,14 @@ end
       Value _ =>
         (
           Mode_Stick "sync with non-event",
-          [], (chan_store, block_store, sync_store, g_key)
+          [], (chan_store, block_store, sync_store, hole_key)
         ) |
 
       _ =>
         push (
-          (t, (Contin_Norm, [( hole g_key, Sync (hole g_key, pos) )], value_store, [])),
+          (t, (Contin_Norm, [( hole hole_key, Sync (hole hole_key, pos) )], value_store, [])),
           value_store, contin_stack,
-          chan_store, block_store, sync_store, G_Key.inc g_key
+          chan_store, block_store, sync_store, Hole_Key.inc hole_key
         )
 
     ) |
@@ -1621,20 +1613,20 @@ end
         SOME (_, v) => (
           Mode_Hidden,
           [(Exec (v, pos), value_store, contin_stack, thread_id)],
-          (chan_store, block_store, sync_store, g_key)
+          (chan_store, block_store, sync_store, hole_key)
         ) |
 
         _  => (
           Mode_Stick ("Exec argument variable " ^ id ^ " cannot be resolved"),
-          [], (chan_store, block_store, sync_store, g_key)
+          [], (chan_store, block_store, sync_store, hole_key)
         )
 
 
       ) |
 
       Func ([(Value (Blank, _), t_body)], fnc_store, mutual_store, _) => (let
-        val exec_id = g_key
-        val g_key' = G_Key.inc g_key
+        val exec_id = hole_key
+        val hole_key' = Hole_Key.inc hole_key
       in
         (
           Mode_Exec t_body,
@@ -1642,20 +1634,20 @@ end
             (List ([], pos), value_store, contin_stack, thread_id),
             (t_body, value_store, [], exec_id)
           ],
-          (chan_store, block_store, sync_store, g_key')
+          (chan_store, block_store, sync_store, hole_key')
         )
       end) |
       
       v => (if is_value v then
         (
           Mode_Stick "exec with non-function",
-          [], (chan_store, block_store, sync_store, g_key)
+          [], (chan_store, block_store, sync_store, hole_key)
         )
       else
         push (
-          (t, (Contin_Norm, [( hole g_key, Exec (hole g_key, pos) )], value_store, [])),
+          (t, (Contin_Norm, [( hole hole_key, Exec (hole hole_key, pos) )], value_store, [])),
           value_store, contin_stack,
-          chan_store, block_store, sync_store, G_Key.inc g_key
+          chan_store, block_store, sync_store, Hole_Key.inc hole_key
         )
       )
     )
