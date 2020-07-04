@@ -142,6 +142,11 @@ structure Tree = struct
   ** Question: is there no way to retry transaction if it fails? ** 
   ** if you exhaust all paths and it cannot commit, then does it retry? ** 
 
+  ** Answer: If it cannot commit with any of the available communication partners, then it never will commit; it will block forever. 
+  ** What guarantees that all potential communication partners are available at search thread step?
+  ** If not guaranteed, should transaction of a aborted search thread be staged onto the chan_store?
+
+
   type sender = (Thread_Store.key * past_event list * contin list * value)
   (* thread_id, trace of synched events, transaction continuation, message *)
 
