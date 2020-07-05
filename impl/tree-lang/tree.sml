@@ -139,18 +139,6 @@ structure Tree = struct
 
 (*
 
-  ** Question: is there no way to retry transaction if it fails? ** 
-  ** if you exhaust all paths and it cannot commit, then does it retry? ** 
-
-  ** Answer: If it cannot commit with any of the available communication partners, then it never will commit; it will block forever. 
-  ** What guarantees that all potential communication partners are available at search thread step?
-  ** If not guaranteed, should transaction of a aborted search thread be staged onto the chan_store?
-  ** For examples, in the encoding of SAT with send and recv, if the first two threads only send TRUE, and the formula
-  ** needs at a FALSE to be true, then the check thread will always abort
-  ** if the checking thread is followed by two threads that send TRUE and send FALSE balanced,
-  ** then will the checking thread still be in the pool to recv from those?
-
-
   type sender = (Thread_Store.key * past_event list * contin list * value)
   (* thread_id, trace of synched events, transaction continuation, message *)
 
