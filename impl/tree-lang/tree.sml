@@ -139,10 +139,11 @@ structure Tree = struct
 
 (*
 
-  type sender = (Thread_Store.key * past_event list * contin list * value)
-  (* thread_id, trace of synched events, transaction continuation, message *)
+  type sender = (Thread_Store.key * Active_Event_Key.t * past_event list * contin list * value)
 
-  type receiver = (Thread_Store.key * past_event list * contin list)
+  (* thread_id, active_event_key, trace of synched events, transaction continuation, message *)
+
+  type receiver = (Thread_Store.key * Active_Event_Key.t * past_event list * contin list)
 
   type channel = sender list * receiver list
 
@@ -153,15 +154,24 @@ structure Tree = struct
 
   type config =
   {
-    thread_store : (Thread_Key.t * thread) list,
-    sync_store : (Thread_Key.t * (contin list)),
     thread_key : Thread_Key.t,
-    chan_store : (Chan_Key.t * channel) list,
+
+    thread_list : (Thread_Key.t * thread) list,
+
+    suspension_map : (Thread_Key.t, contin list) map,
+
+    active_key : Active_Event_Key.t,
+    active_event_set : Active_Event_Key.t set, 
+
     chan_key : Chan_Key.t,
+    chan_store : (Chan_Key.t * channel) list,
+
+    history_key : History_Key.t,
     history_store : (History_Key.t * history list) list,
+
     hole_key : Hole_Key.t
   }
- *)
+*)
 
 
   val surround_with = String.surround_with
