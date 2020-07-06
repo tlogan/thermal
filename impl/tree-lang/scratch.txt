@@ -1,3 +1,406 @@
+
+
+(*
+  fun poll (base, chan_store, block_store) = (case base of
+    Send (i, msg, _) =>
+      (let
+        val chan_op = find (chan_store, i)
+        fun poll_recv (send_q, recv_q) = (case recv_q of
+          [] => (false, chan_store) |
+          (block_id, contin_stack, _) :: recv_q' =>
+            (case (find (block_store, block_id)) of
+                SOME () => (true, chan_store) |
+                NONE => poll (
+                  base,
+                  insert (chan_store, i, (send_q, recv_q')),
+                  block_store
+                )
+            )
+        )
+      in
+        (case chan_op of
+          NONE =>
+            (false, chan_store) |
+          SOME chan =>
+            (poll_recv chan)
+        )
+      end) |
+  
+     Recv (i, _) =>
+      (let
+        val chan_op = find (chan_store, i)
+        fun poll_send (send_q, recv_q) = (case send_q of
+          [] => (false, chan_store) |
+          (block_id, contin_stack, msg, _) :: send_q' =>
+            (case (find (block_store, block_id)) of
+              SOME () => (true, chan_store) |
+              NONE => poll (
+                base,
+                insert (chan_store, i, (send_q', recv_q)),
+                block_store
+              )
+            )
+        )
+      in
+        (case chan_op of
+          NONE =>
+          (false, chan_store) |
+          SOME chan =>
+          (poll_send chan)
+        )
+      end)
+  
+  )
+
+
+  fun find_active_transaction (
+    transactions, chan_store, block_store
+  ) = (case transactions of
+
+    [] =>
+      (NONE, chan_store) |
+
+    transaction :: transactions' => (let
+      val (base, wrap_stack) = transaction
+      val (is_active, chan_store') = poll (base, chan_store, block_store)
+    in
+      if is_active then
+        (SOME transaction, chan_store')
+      else 
+        find_active_transaction (transactions', chan_store', block_store)
+    end)
+      
+  )
+
+  
+  fun proceed (
+    (evt, wrap_stack), contin_stack, thread_id,
+    (chan_store, block_store, sync_store, hole_key)
+  ) = (case evt of
+
+    Send (i, msg) =>
+    (let
+      val chan_op = find (chan_store, i)
+      val recv_op = (case chan_op of
+        SOME (_, (block_id, recv_stack, recv_thread_id) :: recvs) =>
+          SOME (recv_stack, recv_thread_id) | 
+        SOME (_, []) => NONE |
+        NONE => NONE
+      )
+      val (threads, md') = (case recv_op of
+        NONE => Stick "proceed Send" |
+        SOME (recv_stack, recv_thread_id) => (
+          [
+            (Blank 0, empty_table, wrap_stack @ contin_stack, thread_id),
+            (msg, empty_table, recv_stack, recv_thread_id)
+          ],
+          Mode_Sync (i, msg, thread_id, recv_thread_id)
+        )
+      ) 
+
+      val chan_store' = (case chan_op of
+        SOME (sends, []) => insert (chan_store, i, (sends, [])) |
+        SOME (sends, recv :: recvs) => insert (chan_store, i, (sends, recvs)) |
+        NONE => chan_store 
+      )
+
+    in
+      (
+        md', 
+        threads,
+        (chan_store', block_store, sync_store, hole_key)
+      ) 
+    end) |
+  
+    Recv i =>
+    (let
+      val chan_op = find (chan_store, i)
+      val send_op = (case chan_op of
+        SOME ((block_id, send_stack, msg, send_thread_id) :: sends, _) =>
+          SOME (send_stack, msg, send_thread_id) | 
+        SOME ([], _) => NONE |
+        NONE => NONE
+      )
+  
+      val (threads, md') = (case send_op of
+        NONE => ([], Mode_Stick "proceed Recv") |
+        SOME (send_stack, msg, send_thread_id) => (
+          [
+            (Value Blank_Val, empty_table, send_stack, send_thread_id),
+            (Value msg, empty_table, wrap_stack @ contin_stack, thread_id)
+          ],
+          Mode_Sync (i, msg, send_thread_id, thread_id)
+        )
+      )
+
+
+      val chan_store' = (case chan_op of
+        SOME ([], recvs) => insert (chan_store, i, ([], recvs)) |
+        SOME (send :: sends, recvs) => insert (chan_store, i, (sends, recvs)) |
+        NONE => chan_store 
+      )
+    in
+      (
+        md',
+        threads,
+        (chan_store', block_store, sync_store, hole_key)
+      )
+    end)
+  
+  )
+  
+  fun block_one ((evt, wrap_stack), contin_stack, chan_store, block_id, thread_id) = (case evt of
+    Send (i, msg) =>
+      (let
+        val contin_stack' = wrap_stack @ contin_stack
+        val chan_op = find (chan_store, i)
+        val chan' = (case chan_op of
+          NONE =>
+            ([(block_id, contin_stack', msg, thread_id)], []) |
+          SOME (send_q, recv_q) =>
+            (send_q @ [(block_id, contin_stack', msg, thread_id)], recv_q)
+        )
+        val chan_store' = insert (chan_store, i, chan')
+      in
+        chan_store'
+      end) |
+  
+    Recv i =>
+      (let
+        val contin_stack' = wrap_stack @ contin_stack
+        val chan_op = find (chan_store, i)
+        val chan' = (case chan_op of
+          NONE =>
+            ([], [(block_id, contin_stack', thread_id)]) | 
+          SOME (send_q, recv_q) =>
+            (send_q, recv_q @ [(block_id, contin_stack', thread_id)])
+        )
+        val chan_store' = insert (chan_store, i, chan')
+      in
+        chan_store'
+      end)
+  
+  )
+  
+  fun block (
+    event_values, contin_stack, thread_id,
+    (chan_store, block_store, sync_store, hole_key)
+  ) = (let
+    val chan_store' = (List.foldl  
+      (fn (evt, chan_store) =>
+        block_one (evt, contin_stack, chan_store, hole_key, thread_id)
+      )
+      chan_store
+      event_values
+    )
+    val block_store' = insert (block_store, hole_key, ())
+    val hole_key' = Hole_Key.inc hole_key
+  in
+    (Mode_Block event_values, [], (chan_store', block_store', sync_store, hole_key'))
+  end)
+
+  *)
+
+
+(*
+
+  fun mk_transactions (evt, v) = (case (evt, v) of
+  
+    (Send, List ([Chan i, msg], _)) =>
+      [Tx (Send (i, msg), [])] |
+  
+    (Recv, Chan i) =>
+      [Tx (Recv i, [])] |
+
+    (Choose, List (values, _)) =>
+      mk_transactions_from_list values |
+
+    _ => []
+
+    (* TODO: modify to handle choose and other event results *)
+    (*
+    (Latch, List ([Event transactions, Func (lams, fnc_store, mutual_store, _)], _)) =>
+      (List.foldl
+        (fn ((evt, wrap_stack), transactions_acc) => let
+          val cont = (Contin_Sync, lams, fnc_store, mutual_store)
+        in
+          transactions_acc @ [(evt, cont :: wrap_stack)]
+        end)
+        []
+        transactions 
+      ) |
+    *)
+
+  
+  )
+
+  and mk_transactions_from_list (evts) = (case evts of
+    [] => [] |
+    (Event event_values) :: evts' => 
+      event_values @ (mk_transactions_from_list evts') |
+    _ => raise (Fail "Internal: mk_transactions_from_list")
+  )
+
+*)
+
+
+
+
+(* **TODO**
+
+    Sync (t, pos) => (case t of
+
+(*
+** TODO: allocate chan during sync **
+    Alloc_Chan (_, i) => (let
+      val chan_store' = insert (chan_store, hole_key, ([], []))
+      val hole_key' = Hole_Key.inc hole_key
+    in
+      (Value (Chan hole_key), value_store, contin_stack, hole_key) |
+    end) |
+
+*)
+      (Id (id, _)) => (case (find (value_store, id)) of
+        SOME (NONE, v) => (
+          Mode_Hidden,
+          [(Sync (v, pos), value_store, contin_stack, thread_id)],
+          (chan_store, block_store, sync_store, hole_key)
+        ) |
+
+        _  => (
+          Mode_Stick ("Sync argument variable " ^ id ^ " cannot be resolved"),
+          [], (chan_store, block_store, sync_store, hole_key)
+        )
+
+      ) |
+
+      Event v =>
+        (let
+
+          val transactions = mk_transactions (v, []) 
+          
+          val (active_transaction_op, chan_store') = (
+            find_active_transaction (transactions, chan_store, block_store)
+          )
+
+        in
+          (case active_transaction_op of
+            SOME transaction =>
+              proceed (
+                transaction, contin_stack, thread_id,
+                (chan_store', block_store, sync_store, hole_key)
+              ) |
+            NONE =>
+              block (
+                transactions, contin_stack, thread_id,
+                (chan_store', block_store, sync_store, hole_key)
+              )
+          )
+        end)
+
+      Value _ =>
+        (
+          Mode_Stick "sync with non-event",
+          [], (chan_store, block_store, sync_store, hole_key)
+        ) |
+
+      _ =>
+        push (
+          (t, (Contin_Norm, [( hole hole_key, Sync (hole hole_key, pos) )], value_store, [])),
+          value_store, contin_stack,
+          chan_store, block_store, sync_store, Hole_Key.inc hole_key
+        )
+
+    ) |
+
+
+    Exec (t, pos) =>(case t of
+      (Id (id, _)) => (case (find (value_store, id)) of
+        SOME (_, v) => (
+          Mode_Hidden,
+          [(Exec (v, pos), value_store, contin_stack, thread_id)],
+          (chan_store, block_store, sync_store, hole_key)
+        ) |
+
+        _  => (
+          Mode_Stick ("Exec argument variable " ^ id ^ " cannot be resolved"),
+          [], (chan_store, block_store, sync_store, hole_key)
+        )
+
+
+      ) |
+
+      Func ([(Value (Blank, _), t_body)], fnc_store, mutual_store, _) => (let
+        val exec_id = hole_key
+        val hole_key' = Hole_Key.inc hole_key
+      in
+        (
+          Mode_Exec t_body,
+          [
+            (List ([], pos), value_store, contin_stack, thread_id),
+            (t_body, value_store, [], exec_id)
+          ],
+          (chan_store, block_store, sync_store, hole_key')
+        )
+      end) |
+      
+      v => (if is_value v then
+        (
+          Mode_Stick "exec with non-function",
+          [], (chan_store, block_store, sync_store, hole_key)
+        )
+      else
+        push (
+          (t, (Contin_Norm, [( hole hole_key, Exec (hole hole_key, pos) )], value_store, [])),
+          value_store, contin_stack,
+          chan_store, block_store, sync_store, Hole_Key.inc hole_key
+        )
+      )
+    )
+
+  
+  )
+*)
+
+(*
+  val empty_table = [] 
+
+  fun insert (table, key, item) = (
+    (key, item) :: table
+  )
+  
+  
+  fun insert_table (value_store_base, value_store_top) = (
+    value_store_top @ value_store_base
+  )
+  
+  fun find (table, key) =
+  (Option.map
+    (fn (k, v) => v)
+    (List.find (fn (k, v) => k = key) table)
+  )
+  
+  fun remove (table, key) =
+  (List.filter
+    (fn k => k <> key)
+    table
+  ) 
+*)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 (*
 
 

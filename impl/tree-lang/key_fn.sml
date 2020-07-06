@@ -2,15 +2,25 @@ functor Key_Fn (
   val tag : string
 
 ) : sig
-  type t 
+  include ORD_KEY
 
-  val zero : t  
-  val inc : t -> t   
+  val zero : ord_key  
+  val inc : ord_key -> ord_key   
   
-  val to_string : t -> string   
+  val to_string : ord_key -> string   
 
 end = struct
-  datatype t = Key of int
+
+  datatype ord_key = Key of int
+
+  val compare (Key a, Key b) =
+    (if a < b then
+      LESS
+    else if a = b then
+      EQUAL
+    else
+      GREATER
+    )
 
   val zero = Key 0
 
