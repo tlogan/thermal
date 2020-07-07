@@ -62,7 +62,7 @@ structure Tree = struct
     end
   end
 
-  structure Hole_Key = Key_Fn (val tag = "_g")
+  structure Hole = Key_Fn (val tag = "_g")
 
   structure String_Ref = RedBlackMapFn (struct
     type ord_key = string
@@ -155,9 +155,9 @@ structure Tree = struct
 
     Num of (string * int) |
 
-    Chan of Chan_Key.ord_key |
+    Chan of Chan_Ref.key |
 
-    Thread of Thread_Key.ord_key |
+    Thread of Thread_Ref.key |
 
     Error of string
 
@@ -172,20 +172,20 @@ structure Tree = struct
     Offer of value |
     Abort |
     Alloc_Chan | 
-    Send of Chan_Key.ord_key * value |
-    Recv of Chan_Key.ord_key |
+    Send of Chan_Ref.key * value |
+    Recv of Chan_Ref.key |
 
   and past_event =  
     Choose_Left |
     Choose_Right |
     Sync_Send of (
-      Thread_Key.ord_key *
+      Thread_Ref.key *
       past_event list *
       Sync_Send_Ref.key *
       Sync_Recv_Ref.key
     ) |
     Sync_Recv of (
-      Thread_Key.ord_key *
+      Thread_Ref.key *
       past_event list *
       Sync_Recv_Ref.key *
       Sync_Send_Ref.key
@@ -228,18 +228,24 @@ structure Tree = struct
 
     thread_list : thread list,
 
-    suspension_map : (contin list) Thread_Map.map,
+    thread_suspension_map : (contin list) Thread_Ref.map,
 
-    active_key : Active_Key.ord_key,
-    active_event_set : Active_Set.set, 
+    blocked_send_key : Blocked_Send_Ref.key,
+    blocked_send_set : Blocked_Send_Ref.set, 
 
-    chan_key : Chan_Key.ord_key,
-    chan_map : channel Chan_Map.map,
+    blocked_recv_key : Blocked_Recv_Ref.key,
+    blocked_recv_set : Blocked_Recv_Ref.set, 
 
-    completion_key : Completion_Key.ord_key,
-    completion_map : (history list) Completion_Map.map 
+    chan_key : Chan_Ref.key,
+    chan_map : channel Chan_Ref.map,
 
-    hole_key : Hole_Key.ord_key
+    sync_send_key : Sync_Send_Ref.key,
+    send_completion_map : (history list) Sync_Send_Ref.map,
+
+    sync_recv_key : Sync_Recv_Ref.key,
+    recv_completion_map : (history list) Sync_Recv_Ref.map,
+
+    hole_key : Hole.key
   }
 
   val surround_with = String.surround_with
