@@ -199,7 +199,6 @@ structure Tree = struct
 
   datatype term_contin_mode =
     Contin_With | Contin_Norm | Contin_App |
-    Contin_Bind
 
   type term_contin = (
     term_contin_mode * 
@@ -208,19 +207,33 @@ structure Tree = struct
     ((infix_option * (term * term) list) String_Ref.map)
   )
 
+  datatype effect_contin_mode =
+    Contin_Bind
+
+  type effect_contin = (
+    effect_contin_mode * 
+    ((term * term) list) *
+    ((infix_option * term) String_Ref.map) *
+    ((infix_option * (term * term) list) String_Ref.map)
+  )
+
+  datatype event_contin_mode =
+    Contin_Bind
+
+  type event_contin = (
+    event_contin_mode * 
+    ((term * term) list) *
+    ((infix_option * term) String_Ref.map) *
+    ((infix_option * (term * term) list) String_Ref.map)
+  )
+
 
   datatype thread =
-    Eval_Term of (
-      Thread_Ref.key *
-      term *
-      (infix_option * value) String_Ref.map *
-      term_contin list
-    ) | 
-
     Exec_Effect of (
       Thread_Ref.key *
       effect *
       (infix_option * value) String_Ref.map *
+      term_contin list * 
       effect_contin list
     ) | 
 
@@ -229,6 +242,7 @@ structure Tree = struct
       event *
       past_event list *
       (infix_option * value) String_Ref.map *
+      term_contin list * 
       event_contin list
     ) 
 
@@ -1345,11 +1359,14 @@ TODO:
 
 
   (* TODO: how to jump between exec effect and eval term? *)
+  (* solution: two kinds of threads: exec_effect and run_event thread
+  ** each thread has two contin_stacks, one for term eval, one for exec effect/run event
+  *)
 
   fun concur_step (thread_config, blocked_config, chan_config, sync_config, hole_key) =
   (case (#thread_list thread_config) of
     [] => ( (*print "all done!\n";*) NONE) |
-    Eval_Term (thread_key, t, string_fix_value_map, contin_stack) :: threads' =>
+    Exec_Effect (thread_key, t, string_fix_value_map, term_stack, effect_stack) :: threads' =>
     (case (t, contin_stack) of
 
       (Value (Effect effect), []) => (let
