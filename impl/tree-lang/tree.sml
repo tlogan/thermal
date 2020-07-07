@@ -75,8 +75,6 @@ structure Tree = struct
   type infix_option = (left_right * int) option
 
 
-  datatype contin_mode = Contin_With | Contin_Norm | Contin_App | Contin_Run
-
   datatype term = 
     Sym of (term * int) |
     Id of (string * int) |
@@ -163,10 +161,16 @@ structure Tree = struct
 
   and effect =
     Return of value |
-    Bind of effect * term |
+    Bind of (
+      effect *
+      ((term * term) list) *
+      ((infix_option * term) String_Ref.map) *
+      ((infix_option * (term * term) list) String_Ref.map)
+    )
+
+
     Exec of effect |
     Run of event |
-    Search of event * past_event list
 
   and event =
     Offer of value |
@@ -174,6 +178,8 @@ structure Tree = struct
     Alloc_Chan | 
     Send of Chan_Ref.key * value |
     Recv of Chan_Ref.key |
+    Latch of event * ((term * term) list) |
+    Choose of event * event |
 
   and past_event =  
     Choose_Left |
@@ -191,20 +197,46 @@ structure Tree = struct
       Sync_Send_Ref.key
     )
 
-  and contin = Contin of (
-    contin_mode * 
+  datatype term_contin_mode =
+    Contin_With | Contin_Norm | Contin_App |
+    Contin_Bind
+
+  type term_contin = (
+    term_contin_mode * 
     ((term * term) list) *
     ((infix_option * term) String_Ref.map) *
     ((infix_option * (term * term) list) String_Ref.map)
   )
 
 
+  datatype thread =
+    Eval_Term of (
+      Thread_Ref.key *
+      term *
+      (infix_option * value) String_Ref.map *
+      term_contin list
+    ) | 
+
+    Exec_Effect of (
+      Thread_Ref.key *
+      effect *
+      (infix_option * value) String_Ref.map *
+      effect_contin list
+    ) | 
+
+    Run_Event of (
+      Thread_Ref.key *
+      event *
+      past_event list *
+      (infix_option * value) String_Ref.map *
+      event_contin list
+    ) 
 
   type blocked_sender = (
     Blocked_Send.key *
     Thread_Ref.key *
     past_event list *
-    contin list *
+    term_contin list *
     value
   )
 
@@ -212,41 +244,50 @@ structure Tree = struct
     Blocked_Recv.key *
     Thread_Ref.key *
     past_event list *
-    contin list
+    term_contin list
   )
 
   type channel = blocked_sender list * blocked_receiver list
   
-  type thread = Thread_Ref.key * term * (infix_option * value) String_Ref.map * contin list  
-
   type history = (thread_key * past_event list)
 
-  type config =
+  type thread_config =
   {
-
     thread_key : Thread_Ref.key
-
     thread_list : thread list,
+    thread_suspension_map : (effect_contin list) Thread_Ref.map
+  }
 
-    thread_suspension_map : (contin list) Thread_Ref.map,
-
+  type blocked_config =
+  {
     blocked_send_key : Blocked_Send_Ref.key,
     blocked_send_set : Blocked_Send_Ref.set, 
-
     blocked_recv_key : Blocked_Recv_Ref.key,
-    blocked_recv_set : Blocked_Recv_Ref.set, 
+    blocked_recv_set : Blocked_Recv_Ref.set
+  }
 
+  type chan_config =
+  {
     chan_key : Chan_Ref.key,
-    chan_map : channel Chan_Ref.map,
+    chan_map : channel Chan_Ref.map
+  }
 
+  type sync_config =
+  {
     sync_send_key : Sync_Send_Ref.key,
     send_completion_map : (history list) Sync_Send_Ref.map,
-
     sync_recv_key : Sync_Recv_Ref.key,
-    recv_completion_map : (history list) Sync_Recv_Ref.map,
-
-    hole_key : Hole.key
+    recv_completion_map : (history list) Sync_Recv_Ref.map
   }
+
+  type config = (
+    thread_config *
+    blocked_config *
+    chan_config *
+    sync_config *
+    Hole.key
+  )
+
 
   val surround_with = String.surround_with
 
@@ -442,7 +483,8 @@ structure Tree = struct
 
 
 
-  fun match_symbolic_term_insert string_fix_value_map (pattern, symbolic_term) = (case (pattern, symbolic_term) of
+  fun match_symbolic_term_insert string_fix_value_map (pattern, symbolic_term) =
+  (case (pattern, symbolic_term) of
     (Intro_Blank _, _) => SOME string_fix_value_map |
 
     (Sym (Id (id, _), _), _) => (let
@@ -751,21 +793,8 @@ TODO:
 
   fun hole k = Id (Hole_Key.to_string k, ~1)
 
-  fun push (
-    (t_arg, cont),
-    string_fix_value_map, contin_stack,
-    hole_key
-  ) = (let
-    val contin_stack' = cont :: contin_stack
 
-  in
-    (
-      t_arg, string_fix_value_map, contin_stack',
-      hole_key
-    )
-  end)
-
-  fun pop (result, contin, contin_stack', hole_key) = (let
+  fun continue (result, contin) = (let
     val (cmode, lams, string_fix_value_map', mutual_map) = contin
   
     val string_fix_value_map'' = (case result of
@@ -819,7 +848,7 @@ TODO:
     )
 
   in
-    (next_term, string_fix_value_map'''', contin_stack', hole_key)
+    (next_term, string_fix_value_map'''')
   end)
 
 
@@ -845,11 +874,7 @@ TODO:
       ) |
 
     Value (Func (lams, fnc_store, mutual_map, _)) =>
-      push (
-        (t_arg, (Contin_App, lams, fnc_store, mutual_map)),
-        string_fix_value_map, contin_stack,
-        hole_key
-      ) |
+      (t_arg, string_fix_value_map, Some (Contin_App, lams, fnc_store, mutual_map), hole_key)
 
     Value v => (
       Error ("application of non-function: " ^ (value_to_string v)) |
@@ -858,10 +883,16 @@ TODO:
     ) |
 
     _ =>
-      push (
-        (t_fn, (Contin_Norm, [( hole hole_key, App (hole hole_key, t_arg, pos) )], string_fix_value_map, [])),
-        string_fix_value_map, contin_stack,
-        Hole_Key.inc hole_key
+      (
+        t_fn,
+        string_fix_value_map, 
+        SOME (
+          Contin_Norm,
+          [( hole hole_key, App (hole hole_key, t_arg, pos) )],
+          string_fix_value_map,
+          []
+        ),
+        Hole.inc hole_key
       )
   )
 
@@ -966,10 +997,11 @@ TODO:
 
       ) |
     _ => 
-      push (
-        (t, (Contin_Norm, [( hole hole_key, norm_f (hole hole_key) )], string_fix_value_map, [])),
-        string_fix_value_map, contin_stack,
-        Hole_Key.inc hole_key
+      (
+        t,
+        string_fix_value_map,
+        SOME (Contin_Norm, [( hole hole_key, norm_f (hole hole_key) )], string_fix_value_map, []),
+        Hole.inc hole_key
       )
   )
 
@@ -1007,19 +1039,17 @@ TODO:
 
         Value v => loop (prefix @ [v], xs) |
         _ =>
-          (push (
-            (
-              x,
-              (
-                Contin_Norm,
-                [( hole hole_key, norm_f ((map (fn v => Value v) prefix) @ (hole hole_key :: xs)) )],
-                string_fix_value_map,
-                []
-              )
-            ),
-            string_fix_value_map, contin_stack,
-            Hole_Key.inc hole_key
-          ))
+          (
+            x,
+            string_fix_value_map,
+            SOME (
+              Contin_Norm,
+              [( hole hole_key, norm_f ((map (fn v => Value v) prefix) @ (hole hole_key :: xs)) )],
+              string_fix_value_map,
+              []
+            ) ,
+            Hole.inc hole_key
+          )
       )
     )
 
@@ -1029,13 +1059,13 @@ TODO:
 
   
 
-  fun term_step (t, string_fix_value_map, contin_stack, hole_key) = (case t of
+  fun eval_term_step (t, string_fix_value_map, hole_key) = (case t of
 
     Value v =>
-      raise (Fail "internal error: term_step: value as input") |
+      raise (Fail "internal error: eval_term_step: value as input") |
 
     Assoc (term, pos) => (
-      term, string_fix_value_map, contin_stack, hole_key
+      term, string_fix_value_map, NONE, hole_key
     ) |
 
     Log (t, pos) => reduce_single (
@@ -1045,17 +1075,19 @@ TODO:
         print ((value_to_string v) ^ "\n");
         v
       ),
-      string_fix_value_map, contin_stack,
+      string_fix_value_map,
+      NONE,
       hole_key
     ) | 
 
     Id (id, pos) => (case (find (string_fix_value_map, id)) of
       SOME (NONE, v) =>
-        (Value v, string_fix_value_map, contin_stack, hole_key) |
+        (Value v, string_fix_value_map, NONE, hole_key) |
 
       _ => (
         Error ("variable " ^ id ^ " cannot be resolved"),
-        string_fix_value_map, contin_stack,
+        string_fix_value_map,
+        NONE,
         hole_key
       )
 
@@ -1073,24 +1105,27 @@ TODO:
         [v, List (ts, _)] => List (v :: ts, pos) |
         _ => Error "cons with non-list"
       ),
-      string_fix_value_map, contin_stack,
+      string_fix_value_map,
+      NONE,
       hole_key
 
     ) |
 
 
     Intro_Func (lams, pos) =>
-        (Value (Func (lams, string_fix_value_map, [], pos)),
-          string_fix_value_map,
-          contin_stack,
-          hole_key
-        ) |
+      (
+        Value (Func (lams, string_fix_value_map, [], pos)),
+        string_fix_value_map,
+        NONE,
+        hole_key
+      ) |
 
     (*
     Func_Mutual (lams, [], mutual_map, pos) =>
-        (Value (Func (lams, string_fix_value_map, mutual_map, pos)),
+        (
+          Value (Func (lams, string_fix_value_map, mutual_map, pos)),
           string_fix_value_map,
-          contin_stack,
+          NONE,
           hole_key
         ) |
     *)
@@ -1100,24 +1135,26 @@ TODO:
       val t_m = associate_infix string_fix_value_map t
       val t' = to_app string_fix_value_map t_m 
     in
-      (t', string_fix_value_map, contin_stack, hole_key)
+      (t', string_fix_value_map, NONE, hole_key)
     end) |
 
     Compo (t1, t2, pos) => (
-      App (t1, t2, pos), string_fix_value_map, contin_stack, hole_key
+      App (t1, t2, pos), string_fix_value_map, NONE, hole_key
     ) |
 
 
     App (t_fn, t_arg, pos) => apply (
       t_fn, t_arg, pos,
-      string_fix_value_map, contin_stack,
+      string_fix_value_map, NONE,
       hole_key
     ) |
 
 
-    With (t1, t2, _) => push (
-      (t1, (Contin_With, [(hole hole_key, t2)], string_fix_value_map, [])),
-      string_fix_value_map, contin_stack,
+    With (t1, t2, _) =>
+    (
+      t1,
+      string_fix_value_map,
+      SOME (Contin_With, [(hole hole_key, t2)], string_fix_value_map, []),
       Hole_Key.inc hole_key
     ) |
 
@@ -1143,7 +1180,7 @@ TODO:
     in
       (
         Intro_Mutual_Rec (fields', pos), 
-        string_fix_value_map, contin_stack, hole_key
+        string_fix_value_map, NONE, hole_key
       )
     end) |
     
@@ -1163,7 +1200,7 @@ TODO:
     in
       reduce_list (
         ts, f Intro_Mutual_Rec, f Rec_Val, 
-        string_fix_value_map, contin_stack,
+        string_fix_value_map, NONE,
         hole_key
       )
     end) |
@@ -1180,7 +1217,7 @@ TODO:
 
         _ => Error "selecting from non-record"
       ),
-      string_fix_value_map, contin_stack,
+      string_fix_value_map, NONE,
       hole_key
 
     ) |
@@ -1189,7 +1226,7 @@ TODO:
       t,
       fn t => Intro_Event (evt, t, pos),
       fn v => Event (mk_transactions (evt, v)),
-      string_fix_value_map, contin_stack,
+      string_fix_value_map, NONE,
       hole_key
     ) | 
 
@@ -1200,7 +1237,7 @@ TODO:
           Num (num_add (n1, n2), pos) |
         _ => Error "adding non-numbers"
       ),
-      string_fix_value_map, contin_stack, hole_key
+      string_fix_value_map, NONE, hole_key
 
     ) |
 
@@ -1212,7 +1249,7 @@ TODO:
         ) |
         _ => Error "subtracting non-numbers"
       ),
-      string_fix_value_map, contin_stack, hole_key
+      string_fix_value_map, NONE, hole_key
     ) |
 
     Mul_Num (t, pos) => reduce_single (
@@ -1223,7 +1260,7 @@ TODO:
         ) |
         _ => Error "multplying non-numbers"
       ),
-      string_fix_value_map, contin_stack, hole_key
+      string_fix_value_map, NONE, hole_key
 
     ) |
 
@@ -1235,7 +1272,7 @@ TODO:
         ) |
         _ => Error "dividing non-numbers"
       ),
-      string_fix_value_map, contin_stack, hole_key
+      string_fix_value_map, NONE, hole_key
 
     ) |
 
@@ -1245,49 +1282,131 @@ TODO:
   )
 
 
-  fun execute (effect, chan_map, thread_key_suspension_map) = (
-    (**** TODO ****)
-    (**** turn sync into search and suspension ****)
-    (**** call search for search effect *****)
-  )
+(*
+**  and effect =
+**    Return of value |
+**    Bind of effect * contin |
+**    Exec of effect |
+**    Run of event |
+**
+**  and event =
+**    Offer of value |
+**    Abort |
+**    Alloc_Chan | 
+**    Send of Chan_Ref.key * value |
+**    Recv of Chan_Ref.key |
+*)
 
 
-  fun concur_step state = (case (#thread_list state) of
+  (* exec needs its on continuation stack, thus its own thread *)
+
+
+
+
+
+(*
+**  type thread_config =
+**  {
+**    thread_key : Thread_Ref.key
+**    thread_list : thread list,
+**    thread_suspension_map : (effect_contin list) Thread_Ref.map
+**  }
+**
+**  type blocked_config =
+**  {
+**    blocked_send_key : Blocked_Send_Ref.key,
+**    blocked_send_set : Blocked_Send_Ref.set, 
+**    blocked_recv_key : Blocked_Recv_Ref.key,
+**    blocked_recv_set : Blocked_Recv_Ref.set
+**  }
+**
+**  type chan_config =
+**  {
+**    chan_key : Chan_Ref.key,
+**    chan_map : channel Chan_Ref.map
+**  }
+**
+**  type sync_config =
+**  {
+**    sync_send_key : Sync_Send_Ref.key,
+**    send_completion_map : (history list) Sync_Send_Ref.map,
+**    sync_recv_key : Sync_Recv_Ref.key,
+**    recv_completion_map : (history list) Sync_Recv_Ref.map
+**  }
+**
+**  type config = (
+**    thread_config *
+**    blocked_config *
+**    chan_config *
+**    sync_config *
+**    Hole.key
+**  )
+*)
+
+
+  (* TODO: how to jump between exec effect and eval term? *)
+
+  fun concur_step (thread_config, blocked_config, chan_config, sync_config, hole_key) =
+  (case (#thread_list thread_config) of
     [] => ( (*print "all done!\n";*) NONE) |
-    (thread_key, (t, string_fix_value_map, contin_stack)) :: threads' => (case (t, contin_stack) of
+    Eval_Term (thread_key, t, string_fix_value_map, contin_stack) :: threads' =>
+    (case (t, contin_stack) of
 
       (Value (Effect effect), []) => (let
-        val (new_threads, chan_map', thread_key_suspension_map') = (
-          execute (effect, chan_map, thread_key_suspension_map) 
-        )
+        val new_thread = Exec_Effect (thread_key, effect, string_fix_value_map, [])
+        val thread_config' = {
+          thread_key = thread_key, 
+          thread_list = threads' @ [new_thread],
+          thread_suspension_map = thread_suspension_map 
+        }
       in
-        (
-          threads' @ new_threads,
-          thread_key_suspension_map', 
-          thread_key,
+        (thread_config', blocked_config, chan_config, sync_config, hole_key)
+      end) |
+        
 
-          chan_map',
-          chan_key,
-
-          transaction_store,
-          transactin_key, (* tx_key -> (thread_key * past_event list) list *) 
-
-          hole_key,
-        )
+      (Value v, []) => (let
+        val thread_config' = {
+          thread_key = thread_key, 
+          thread_list = threads',
+          thread_suspension_map = thread_suspension_map 
+        }
+      in
+        (thread_config', blocked_config, chan_config, sync_config, hole_key)
       end) |
 
-      (Value v, []) => (threads', hole_key) | 
-
       (Value v, contin :: contin_stack') => (let
-        val new_thread = pop (v, contin, contin_stack')
+
+        val (t', string_fix_value_map') = continue (v, contin)
+
+        val new_thread = (thread_key, t', string_fix_value_map', contin_stack')
+
+        val thread_config' = {
+          thread_key = thread_key, 
+          thread_list = threads' @ [new_thread],
+          thread_suspension_map = thread_suspension_map 
+        }
       in
-        (threads' @ [new_thread], hole_key)
+        (thread_config', blocked_config, chan_config, sync_config, hole_key)
       end) |
 
       _ => (let
-        val (new_thread, hole_key') = term_step ((t, string_fix_value_map, contin_stack), hole_key)
+        val (t', string_fix_value_map', contin_op, hole_key') =
+          eval_term_step (t, string_fix_value_map, hole_key)
+
+        val contin_stack' = (case confin_op of
+          SOME contin => contin :: contin_stack |
+          NONE => contin_stack
+        )
+
+        val new_thread = (thread_key, t', string_fix_value_map', contin_stack')
+
+        val thread_config' = {
+          thread_key = thread_key, 
+          thread_list = threads' @ [new_thread],
+          thread_suspension_map = thread_suspension_map 
+        }
       in
-        (threads' @ [new_thread], hole_key')
+        (thread_config', blocked_config, chan_config, sync_config, hole_key')
       end) 
     )
   )
