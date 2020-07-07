@@ -17,7 +17,7 @@ open Tree
   EQUAL | 
   ALLOC_MEM | SIZE | SLICE | SET | GET |
   ALLOC_CHAN | SEND | RECV | 
-  LATCH | CHSE | SYNC | EXEC | 
+  LATCH | CHSE | RUN | EXEC | 
   LPAREN | RPAREN | LANG | RANG | LRPAREN | 
   INFIXL | INFIXR | DIGIT of int |
 
@@ -49,7 +49,7 @@ open Tree
 
 %right FATARROW CASE COLON DEF
 
-%left ALLOC_CHAN SEND RECV LATCH CHSE EXEC SYNC ADD SUB MUL DIV SELECT EQUAL
+%left ALLOC_CHAN SEND RECV LATCH CHSE EXEC RUN ADD SUB MUL DIV SELECT EQUAL
 %nonassoc INFIXL INFIXR DIGIT
 
 %left LPAREN LANG
@@ -127,7 +127,7 @@ term_nt:
 
   CHSE (Intro_Func ([(Id ("_param", ~1), Event_Intro (Choose_Intro, Id ("_param", ~1), CHSEleft))], CHSEleft)) |
 
-  SYNC (Intro_Func ([(Id ("_param", ~1), Effect_Intro (Sync_Intro, Id ("_param", ~1), SYNCleft))], SYNCleft)) |
+  RUN (Intro_Func ([(Id ("_param", ~1), Effect_Intro (Run_Intro, Id ("_param", ~1), RUNleft))], RUNleft)) |
 
   EXEC (Intro_Func ([(Id ("_param", ~1), Effect_Intro (Exec_Intro, Id ("_param", ~1), EXECleft))], EXECleft)) |
 

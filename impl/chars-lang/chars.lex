@@ -96,15 +96,19 @@ symbol=[\-\^\\=+!@$%&*<>/{}|?~:']|"["|"]";
 <INITIAL>"get" => (GET (!linenum, inccol 1));
 
 <INITIAL>"alloc_chan" => (ALLOC_CHAN (!linenum, inccol 1));
-
 <INITIAL>"send" => (SEND (!linenum, inccol 1));
 <INITIAL>"recv" => (RECV (!linenum, inccol 1));
 
 <INITIAL>"latch" => (LATCH (!linenum, inccol 1));
-<INITIAL>"chse" => (CHSE (!linenum, inccol 1));
-<INITIAL>"sync" => (SYNC (!linenum, inccol 1));
+<INITIAL>"choose" => (CHOOSE (!linenum, inccol 1));
+<INITIAL>"offer" => (OFFER (!linenum, inccol 1));
+<INITIAL>"abort" => (ABORT (!linenum, inccol 1));
 
+
+<INITIAL>"run" => (RUN (!linenum, inccol 1));
 <INITIAL>"exec" => (EXEC (!linenum, inccol 1));
+<INITIAL>"bind" => (BIND (!linenum, inccol 1));
+<INITIAL>"return" => (RETURN (!linenum, inccol 1));
 
 
 <INITIAL>"(" => (LPAREN (!linenum, inccol 1));
