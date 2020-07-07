@@ -387,7 +387,7 @@ structure Tree = struct
     (Sym (Id (id, _), _), _) => (let
       val thunk = Func ([(Intro_Blank ~1, symbolic_term)], string_value_map, [], ~1)
     in
-      SOME (insert (string_value_map, id, (NONE, thunk)))
+      SOME (String_Map.insert (string_value_map, id, (NONE, thunk)))
     end) |
 
     (Id (p_id, _), Id (st_id, _)) =>
@@ -563,7 +563,7 @@ TODO:
       SOME string_value_map |
 
     (Id (str, _), v) =>
-      SOME (insert (string_value_map, str, (NONE, v))) |
+      SOME (String_Map.insert (string_value_map, str, (NONE, v))) |
 
     (Intro_List (t, t', _), List (v :: vs, _)) =>
       (Option.mapPartial
@@ -670,7 +670,7 @@ TODO:
         [] => NONE |
         [(vname,(vfix_op, v))] => (Option.mapPartial
           (fn string_value_map' =>
-            SOME (insert (string_value_map', vname, (vfix_op, v)))
+            SOME (String_Map.insert (string_value_map', vname, (vfix_op, v)))
           )
           (match_value_insert (string_value_map, p, v))
         ) |
@@ -709,7 +709,9 @@ TODO:
   
     val string_value_map'' = (case result of
       Rec (fields, _) => (if cmode = Contin_With then
-        insert_table (string_value_map', fields)
+        String_Map.mapi (fn (k, v) =>
+          String_Map.insert (string_value_map', k, v)
+        ) fields
       else
         string_value_map'
       ) |
@@ -724,7 +726,10 @@ TODO:
       mutual_store
     )
 
-    val string_value_map''' = insert_table (string_value_map'', fnc_store)
+    val string_value_map''' = (String_Map.mapi
+      (fn (k, v) => String_Map.insert (string_value_map'', k, v))
+      fnc_store
+    )
 
     fun match_first lams = (case lams of
       [] => NONE |
