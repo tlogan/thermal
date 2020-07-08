@@ -161,14 +161,7 @@ structure Tree = struct
 
   and effect =
     Return of value |
-    Bind of (
-      effect *
-      ((term * term) list) *
-      ((infix_option * term) String_Ref.map) *
-      ((infix_option * (term * term) list) String_Ref.map)
-    )
-
-
+    Bind of effect * value |
     Exec of effect |
     Run of event |
 
@@ -178,7 +171,7 @@ structure Tree = struct
     Alloc_Chan | 
     Send of Chan_Ref.key * value |
     Recv of Chan_Ref.key |
-    Latch of event * ((term * term) list) |
+    Latch of event * value |
     Choose of event * event |
 
   and past_event =  
@@ -199,29 +192,10 @@ structure Tree = struct
 
   datatype term_contin_mode =
     Contin_With | Contin_Norm | Contin_App |
-
-  type term_contin = (
-    term_contin_mode * 
-    ((term * term) list) *
-    ((infix_option * term) String_Ref.map) *
-    ((infix_option * (term * term) list) String_Ref.map)
-  )
-
-  datatype effect_contin_mode =
     Contin_Bind
 
-  type effect_contin = (
+  type contin = (
     effect_contin_mode * 
-    ((term * term) list) *
-    ((infix_option * term) String_Ref.map) *
-    ((infix_option * (term * term) list) String_Ref.map)
-  )
-
-  datatype event_contin_mode =
-    Contin_Bind
-
-  type event_contin = (
-    event_contin_mode * 
     ((term * term) list) *
     ((infix_option * term) String_Ref.map) *
     ((infix_option * (term * term) list) String_Ref.map)
@@ -233,8 +207,8 @@ structure Tree = struct
       Thread_Ref.key *
       effect *
       (infix_option * value) String_Ref.map *
-      term_contin list * 
-      effect_contin list
+      contin list * (* term continuation *)
+      contin list (* effect continuation *)
     ) | 
 
     Run_Event of (
@@ -242,8 +216,8 @@ structure Tree = struct
       event *
       past_event list *
       (infix_option * value) String_Ref.map *
-      term_contin list * 
-      event_contin list
+      contin list * (* term continuation *)
+      contin list (* event continuation *)
     ) 
 
   type blocked_sender = (
@@ -267,31 +241,31 @@ structure Tree = struct
 
   type thread_config =
   {
-    thread_key : Thread_Ref.key
     thread_list : thread list,
-    thread_suspension_map : (effect_contin list) Thread_Ref.map
+    thread_suspension_map : (contin list) Thread_Ref.map,
+    new_thread_key : Thread_Ref.key
   }
 
   type blocked_config =
   {
-    blocked_send_key : Blocked_Send_Ref.key,
     blocked_send_set : Blocked_Send_Ref.set, 
-    blocked_recv_key : Blocked_Recv_Ref.key,
-    blocked_recv_set : Blocked_Recv_Ref.set
+    new_blocked_send_key : Blocked_Send_Ref.key,
+    blocked_recv_set : Blocked_Recv_Ref.set,
+    new_blocked_recv_key : Blocked_Recv_Ref.key
   }
 
   type chan_config =
   {
-    chan_key : Chan_Ref.key,
-    chan_map : channel Chan_Ref.map
+    chan_map : channel Chan_Ref.map,
+    chan_key : Chan_Ref.key
   }
 
   type sync_config =
   {
-    sync_send_key : Sync_Send_Ref.key,
     send_completion_map : (history list) Sync_Send_Ref.map,
-    sync_recv_key : Sync_Recv_Ref.key,
-    recv_completion_map : (history list) Sync_Recv_Ref.map
+    new_sync_send_key : Sync_Send_Ref.key,
+    recv_completion_map : (history list) Sync_Recv_Ref.map,
+    new_sync_recv_key : Sync_Recv_Ref.key
   }
 
   type config = (
@@ -301,7 +275,6 @@ structure Tree = struct
     sync_config *
     Hole.key
   )
-
 
   val surround_with = String.surround_with
 
@@ -773,7 +746,8 @@ TODO:
     *)
   )
 
-  and from_fields_match_value_insert string_fix_value_map (p_fields, v_fields) = (case p_fields of
+  and from_fields_match_value_insert string_fix_value_map (p_fields, v_fields) =
+  (case p_fields of
     [] => SOME string_fix_value_map |
     (pname, (pfix_op, p)) :: pfs => (let
       val (key_matches, vfs) = (List.partition
@@ -1290,90 +1264,94 @@ TODO:
 
     ) |
 
-    _ => raise (Fail "TODO")
-
-    )
   )
 
 
-(*
-**  and effect =
-**    Return of value |
-**    Bind of effect * contin |
-**    Exec of effect |
-**    Run of event |
-**
-**  and event =
-**    Offer of value |
-**    Abort |
-**    Alloc_Chan | 
-**    Send of Chan_Ref.key * value |
-**    Recv of Chan_Ref.key |
-*)
 
+  fun exec_effect_step (thread_id, effect, string_fix_value_map, effect_stack, new_thread_key) =
+  (case effect of
+    Return v => (case effect_stack of
+      [] => [(Value v, string_fix_value_map, [])] |  
+      contin :: contin_stack => (let
+        val (t', string_fix_value_map') = continue (v, contin)
 
-  (* exec needs its on continuation stack, thus its own thread *)
+        val new_threads = [Exec_Effect (thread_id, t, string_fix_value_map', [], [])]
+      in
+        (new_threads, new_thread_key)
+      end)
+    ) |
 
+    Bind (effect', v) => (case v of
+      Func (lams, fnc_store, mutual_map, _) =>
+      (
+        [Exec_Effect (
+          thread_id,
+          Value (Effect effect'),
+          string_fix_value_map,
+          [],
+          (Contin_Bind, lams, fnc_store, mutual_map), hole_key) :: effect_stack
+        )],
+        new_thread_key
+      ) |
 
+      _ =>
+      [Exec_Effect (
+        thread_id,
+        Value (Error "bind with non-function"),
+        string_fix_value_map,
+        [],
+        effect_stack
+      )]
+    ) |
 
+    Exec effect' => (let
+      val parent_thread = 
+      Exec_Effect (
+        thread_id,
+        Value (Effect (Return Blank)),
+        string_fix_value_map,
+        [],
+        effect_stack
+      )
 
+      val new_thread = 
+      Exec_Effect (
+        new_thread_key,
+        Value (Effect effect'),
+        string_fix_value_map,
+        [],
+        [] 
+      )
+    in
+      ([parent_thread, new_thread_id], Thread_Ref.inc new_thread_key)
+    end) |
 
-(*
-**  type thread_config =
-**  {
-**    thread_key : Thread_Ref.key
-**    thread_list : thread list,
-**    thread_suspension_map : (effect_contin list) Thread_Ref.map
-**  }
-**
-**  type blocked_config =
-**  {
-**    blocked_send_key : Blocked_Send_Ref.key,
-**    blocked_send_set : Blocked_Send_Ref.set, 
-**    blocked_recv_key : Blocked_Recv_Ref.key,
-**    blocked_recv_set : Blocked_Recv_Ref.set
-**  }
-**
-**  type chan_config =
-**  {
-**    chan_key : Chan_Ref.key,
-**    chan_map : channel Chan_Ref.map
-**  }
-**
-**  type sync_config =
-**  {
-**    sync_send_key : Sync_Send_Ref.key,
-**    send_completion_map : (history list) Sync_Send_Ref.map,
-**    sync_recv_key : Sync_Recv_Ref.key,
-**    recv_completion_map : (history list) Sync_Recv_Ref.map
-**  }
-**
-**  type config = (
-**    thread_config *
-**    blocked_config *
-**    chan_config *
-**    sync_config *
-**    Hole.key
-**  )
-*)
+    Run evt => (let
+      val new_threads =
+      [Run_Event (
+        thread_id,
+        evt,
+        [],
+        [],
+        []
+      )]
+    in
+      (new_threads, new_thread_key)
+    end)
+  )
 
-
-  (* TODO: how to jump between exec effect and eval term? *)
-  (* solution: two kinds of threads: exec_effect and run_event thread
-  ** each thread has two contin_stacks, one for term eval, one for exec effect/run event
-  *)
-
+  (* TODO: move thread type (effect vs event) into monad thread field*)
   fun concur_step (thread_config, blocked_config, chan_config, sync_config, hole_key) =
   (case (#thread_list thread_config) of
     [] => ( (*print "all done!\n";*) NONE) |
     Exec_Effect (thread_key, t, string_fix_value_map, term_stack, effect_stack) :: threads' =>
-    (case (t, contin_stack) of
+    (case (t, term_stack) of
 
       (Value (Effect effect), []) => (let
-        val new_thread = Exec_Effect (thread_key, effect, string_fix_value_map, [])
+        val (new_threads, new_thread_key') = exec_effect_step (effect, effect_stack)
         val thread_config' = {
-          thread_key = thread_key, 
-          thread_list = threads' @ [new_thread],
+          new_thread_key = new_thread_key', 
+          thread_list = threads' @ new_threads,
           thread_suspension_map = thread_suspension_map 
         }
       in
@@ -1391,14 +1369,21 @@ TODO:
         (thread_config', blocked_config, chan_config, sync_config, hole_key)
       end) |
 
-      (Value v, contin :: contin_stack') => (let
+      (Value v, contin :: term_stack') => (let
 
         val (t', string_fix_value_map') = continue (v, contin)
 
-        val new_thread = (thread_key, t', string_fix_value_map', contin_stack')
+        val new_thread =
+        Exec_Effect (
+          thread_key,
+          t',
+          string_fix_value_map',
+          term_stack',
+          effect_stack
+        )
 
         val thread_config' = {
-          thread_key = thread_key, 
+          new_thread_key = thread_key, 
           thread_list = threads' @ [new_thread],
           thread_suspension_map = thread_suspension_map 
         }
@@ -1410,12 +1395,12 @@ TODO:
         val (t', string_fix_value_map', contin_op, hole_key') =
           eval_term_step (t, string_fix_value_map, hole_key)
 
-        val contin_stack' = (case confin_op of
-          SOME contin => contin :: contin_stack |
-          NONE => contin_stack
+        val term_stack' = (case confin_op of
+          SOME contin => contin :: term_stack |
+          NONE => term_stack
         )
 
-        val new_thread = (thread_key, t', string_fix_value_map', contin_stack')
+        val new_thread = (thread_key, t', string_fix_value_map', term_stack')
 
         val thread_config' = {
           thread_key = thread_key, 
