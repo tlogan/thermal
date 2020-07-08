@@ -201,24 +201,18 @@ structure Tree = struct
     ((infix_option * (term * term) list) String_Ref.map)
   )
 
+  datatype thread_mode =
+    Exec_Effect of contin list | 
+    Run_Event of past_event list * contin list
 
-  datatype thread =
-    Exec_Effect of (
-      Thread_Ref.key *
-      effect *
-      (infix_option * value) String_Ref.map *
-      contin list * (* term continuation *)
-      contin list (* effect continuation *)
-    ) | 
+  type thread = (
+    Thread_Ref.key *
+    term *
+    (infix_option * value) String_Ref.map *
+    contin list * (* term continuation *)
+    thread_mode
+  )
 
-    Run_Event of (
-      Thread_Ref.key *
-      event *
-      past_event list *
-      (infix_option * value) String_Ref.map *
-      contin list * (* term continuation *)
-      contin list (* event continuation *)
-    ) 
 
   type blocked_sender = (
     Blocked_Send.key *
@@ -1275,7 +1269,7 @@ TODO:
       contin :: contin_stack => (let
         val (t', string_fix_value_map') = continue (v, contin)
 
-        val new_threads = [Exec_Effect (thread_id, t, string_fix_value_map', [], [])]
+        val new_threads = [(thread_id, t, string_fix_value_map', [], Exec_Effect [])]
       in
         (new_threads, new_thread_key)
       end)
@@ -1284,43 +1278,43 @@ TODO:
     Bind (effect', v) => (case v of
       Func (lams, fnc_store, mutual_map, _) =>
       (
-        [Exec_Effect (
+        [(
           thread_id,
           Value (Effect effect'),
           string_fix_value_map,
           [],
-          (Contin_Bind, lams, fnc_store, mutual_map), hole_key) :: effect_stack
+          Exec_Effect (Contin_Bind, lams, fnc_store, mutual_map), hole_key) :: effect_stack
         )],
         new_thread_key
       ) |
 
       _ =>
-      [Exec_Effect (
+      [(
         thread_id,
         Value (Error "bind with non-function"),
         string_fix_value_map,
         [],
-        effect_stack
+        Exec_Effect effect_stack
       )]
     ) |
 
     Exec effect' => (let
       val parent_thread = 
-      Exec_Effect (
+      (
         thread_id,
         Value (Effect (Return Blank)),
         string_fix_value_map,
         [],
-        effect_stack
+        Exec_Effect effect_stack
       )
 
       val new_thread = 
-      Exec_Effect (
+      (
         new_thread_key,
         Value (Effect effect'),
         string_fix_value_map,
         [],
-        [] 
+        Exec_Effect [] 
       )
     in
       ([parent_thread, new_thread_id], Thread_Ref.inc new_thread_key)
@@ -1328,26 +1322,24 @@ TODO:
 
     Run evt => (let
       val new_threads =
-      [Run_Event (
+      [(
         thread_id,
         evt,
         [],
-        [],
-        []
+        Run_Event ([], [])
       )]
     in
       (new_threads, new_thread_key)
     end)
   )
 
-  (* TODO: move thread type (effect vs event) into monad thread field*)
   fun concur_step (thread_config, blocked_config, chan_config, sync_config, hole_key) =
   (case (#thread_list thread_config) of
     [] => ( (*print "all done!\n";*) NONE) |
-    Exec_Effect (thread_key, t, string_fix_value_map, term_stack, effect_stack) :: threads' =>
-    (case (t, term_stack) of
+    (thread_key, t, string_fix_value_map, term_stack, thread_mode) :: threads' =>
+    (case (t, term_stack, thread_mode) of
 
-      (Value (Effect effect), []) => (let
+      (Value (Effect effect), [], Exec_Effect effect_stack) => (let
         val (new_threads, new_thread_key') = exec_effect_step (effect, effect_stack)
         val thread_config' = {
           new_thread_key = new_thread_key', 
@@ -1357,9 +1349,23 @@ TODO:
       in
         (thread_config', blocked_config, chan_config, sync_config, hole_key)
       end) |
-        
 
-      (Value v, []) => (let
+      (*
+      ** TODO **
+      ** run event
+      (Value (Event event), [], Run_Event (trail, event_stack)) => (let
+        val (new_threads, new_thread_key') = run_event_step (event, event_stack)
+        val thread_config' = {
+          new_thread_key = new_thread_key', 
+          thread_list = threads' @ new_threads,
+          thread_suspension_map = thread_suspension_map 
+        }
+      in
+        (thread_config', blocked_config, chan_config, sync_config, hole_key)
+      end) |
+      *)
+
+      (Value v, [], _) => (let
         val thread_config' = {
           thread_key = thread_key, 
           thread_list = threads',
@@ -1369,17 +1375,17 @@ TODO:
         (thread_config', blocked_config, chan_config, sync_config, hole_key)
       end) |
 
-      (Value v, contin :: term_stack') => (let
+      (Value v, contin :: term_stack', _) => (let
 
         val (t', string_fix_value_map') = continue (v, contin)
 
         val new_thread =
-        Exec_Effect (
+        (
           thread_key,
           t',
           string_fix_value_map',
           term_stack',
-          effect_stack
+          thread_mode 
         )
 
         val thread_config' = {
@@ -1400,7 +1406,7 @@ TODO:
           NONE => term_stack
         )
 
-        val new_thread = (thread_key, t', string_fix_value_map', term_stack')
+        val new_thread = (thread_key, t', string_fix_value_map', term_stack', thread_mode)
 
         val thread_config' = {
           thread_key = thread_key, 
