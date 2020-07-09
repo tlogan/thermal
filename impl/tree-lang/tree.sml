@@ -1361,6 +1361,21 @@ TODO:
     end)
   )
 
+  (* result:
+  ** (
+  **   new_threads, thread_suspension_map',
+  **   blocked_config, chan_config, sync_config
+  ** )
+  *)
+
+  fun run_event_step (
+    event, event_stack, thread_suspension_map,
+    blocked_config, chan_config, sync_config'
+  ) =
+  (case event of
+
+  )
+
   fun concur_step (thread_config, blocked_config, chan_config, sync_config, hole_key) =
   (case (#thread_list thread_config) of
     [] => ( (*print "all done!\n";*) NONE) |
@@ -1381,14 +1396,23 @@ TODO:
 
       (* run event case *)
       (Value (Event event), [], Run_Event (trail, event_stack)) => (let
-        val (new_threads, new_thread_key') = run_event_step (event, event_stack)
+
+        val (
+          new_threads, thread_suspension_map',
+          blocked_config, chan_config, sync_config
+        ) =
+        run_event_step (
+          event, event_stack, thread_suspension_map,
+          blocked_config, chan_config, sync_config
+        )
+
         val thread_config' = {
           new_thread_key = new_thread_key', 
           thread_list = threads' @ new_threads,
           thread_suspension_map = thread_suspension_map 
         }
       in
-        (thread_config', blocked_config, chan_config, sync_config, hole_key)
+        (thread_config', blocked_config', chan_config', sync_config', hole_key)
       end) |
 
       (* eval term case *)
