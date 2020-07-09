@@ -1364,16 +1364,134 @@ TODO:
   (* result:
   ** (
   **   new_threads, thread_suspension_map',
-  **   blocked_config, chan_config, sync_config
+  **   blocked_config', chan_config', sync_config'
   ** )
   *)
 
   fun run_event_step (
-    event, event_stack, thread_suspension_map,
-    blocked_config, chan_config, sync_config'
+    thread_key, event, trail, event_stack, thread_suspension_map,
+    blocked_config, chan_config, sync_config
   ) =
   (case event of
+    Offer v =>  (case event_stack of
+      [] => (* TODO: Try to commit or just leave around *) |
+      contin :: contin_stack' => (let
+        val (t', string_fix_value_map') = continue (v, contin)
+        val new_threads = [(
+          thread_key,
+          t',
+          string_fix_value_map,
+          [],
+          Run_Effect (trail, effect_stack) 
+        )]
+      in
+        (
+          new_threads,
+          thread_suspension_map,
+          blocked_config,
+          chan_config,
+          sync_config
+        )
+      end)
+    ) |
 
+    Abort =>
+    (
+      [],
+      thread_suspension_map,
+      blocked_config,
+      chan_config,
+      sync_config
+    ) |
+
+    Alloc_Chan => (let
+      val new_chan = ([], [])    
+      val {new_chan_key, chan_map} = chan_config
+      val chan_map' = Chan_Ref.insert (chan_map, new_chan_key, new_chan)
+      val new_chan_key' = Chan_Ref.inc new_chan_key
+
+      val chan_config' = {
+        chan_map = chan_map',
+        new_chan_key = new_chan_key'
+      }
+
+      val new_threads = [(
+        thread_key,
+        Value (Event (Offer (Chan new_chan_key))),
+        string_fix_value_map,
+        [],
+        Run_Effect (trail, effect_stack) 
+      )]
+
+    in
+      (
+        new_threads,
+        thread_suspension_map,
+        blocked_config,
+        chan_config',
+        sync_config
+      )
+    end) |
+      
+    Latch (event', v) => (let
+      val (t', effect_stack') = (case v of
+        Func (lams, fnc_store, mutual_map, _) =>
+        (
+          Val (Event event'),
+          (Contin_Latch, lams, fnc_store, mutual_map) :: contin_stack
+        ) | 
+
+        _  =>
+        (
+          Val (Error "latch with non-function")
+        )
+      )
+
+      val new_threads = [(
+        thread_key,
+        t',
+        string_fix_value_map,
+        [],
+        Run_Effect (trail, effect_stack') 
+      )]
+    in
+      (
+        new_threads,
+        thread_suspension_map,
+        blocked_config,
+        chan_config,
+        sync_config
+      )
+    end) |
+
+    Choose (evt_l, evt_r) => (let
+      val new_threads = [
+        (
+          thread_key, Value (Effect evt_l),
+          string_fix_value_map, [],
+          Run_Effect (Choose_Left :: trail, effect_stack)
+        ),
+        (
+          thread_key, Value (Effect evt_r),
+          string_fix_value_map, [],
+          Run_Effect (Choose_Right :: trail, effect_stack)
+        )
+      ]
+    in
+      (
+        new_threads,
+        thread_suspension_map,
+        blocked_config,
+        chan_config,
+        sync_config
+      )
+    end) |
+
+    (*
+    ** TODO **
+    Send of Chan_Ref.key * value |
+    Recv of Chan_Ref.key |
+    *)
   )
 
   fun concur_step (thread_config, blocked_config, chan_config, sync_config, hole_key) =
