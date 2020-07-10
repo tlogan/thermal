@@ -11,26 +11,15 @@ structure Tree = struct
     end
   end
 
-  structure Blocked_Send_Ref = struct
+  structure Running_Ref = struct
     local
-      structure Key = Key_Fn (val tag = "blocked_send")
+      structure Key = Key_Fn (val tag = "running")
     in
       open Key
       type key = ord_key 
       open RedBlackSetFn (Key)
     end
   end
-
-  structure Blocked_Recv_Ref = struct
-    local
-      structure Key = Key_Fn (val tag = "blocked_recv")
-    in
-      open Key
-      type key = ord_key 
-      open RedBlackSetFn (Key)
-    end
-  end
-
 
   structure Chan_Ref = struct
     local
@@ -214,22 +203,22 @@ structure Tree = struct
   )
 
 
-  type blocked_sender = (
-    Blocked_Send.key *
+  type running_sender = (
+    Running_Ref.key *
     Thread_Ref.key *
     past_event list *
     contin list *
     value
   )
 
-  type blocked_receiver = (
-    Blocked_Recv.key *
+  type running_receiver = (
+    Running_Ref.key *
     Thread_Ref.key *
     past_event list *
     contin list
   )
 
-  type channel = blocked_sender list * blocked_receiver list
+  type channel = running_sender list * running_receiver list
   
   type history = (thread_key * past_event list)
 
@@ -240,12 +229,10 @@ structure Tree = struct
     new_thread_key : Thread_Ref.key
   }
 
-  type blocked_config =
+  type running_config =
   {
-    blocked_send_set : Blocked_Send_Ref.set, 
-    new_blocked_send_key : Blocked_Send_Ref.key,
-    blocked_recv_set : Blocked_Recv_Ref.set,
-    new_blocked_recv_key : Blocked_Recv_Ref.key
+    running_set : Running_Ref.set, 
+    new_running_key : Running_Ref.key,
   }
 
   type chan_config =
@@ -264,7 +251,7 @@ structure Tree = struct
 
   type config = (
     thread_config *
-    blocked_config *
+    running_config *
     chan_config *
     sync_config *
     Hole.key
@@ -1364,13 +1351,13 @@ TODO:
   (* result:
   ** (
   **   new_threads, thread_suspension_map',
-  **   blocked_config', chan_config', sync_config'
+  **   running_config', chan_config', sync_config'
   ** )
   *)
 
   fun run_event_step (
     thread_key, event, trail, event_stack, thread_suspension_map,
-    blocked_config, chan_config, sync_config
+    running_config, chan_config, sync_config
   ) =
   (case event of
     Offer v =>  (case event_stack of
@@ -1388,7 +1375,7 @@ TODO:
         (
           new_threads,
           thread_suspension_map,
-          blocked_config,
+          running_config,
           chan_config,
           sync_config
         )
@@ -1399,7 +1386,7 @@ TODO:
     (
       [],
       thread_suspension_map,
-      blocked_config,
+      running_config,
       chan_config,
       sync_config
     ) |
@@ -1427,7 +1414,7 @@ TODO:
       (
         new_threads,
         thread_suspension_map,
-        blocked_config,
+        running_config,
         chan_config',
         sync_config
       )
@@ -1458,7 +1445,7 @@ TODO:
       (
         new_threads,
         thread_suspension_map,
-        blocked_config,
+        running_config,
         chan_config,
         sync_config
       )
@@ -1481,7 +1468,7 @@ TODO:
       (
         new_threads,
         thread_suspension_map,
-        blocked_config,
+        running_config,
         chan_config,
         sync_config
       )
@@ -1491,18 +1478,19 @@ TODO:
     Send (chan_key, msg) => (let
       val chan_map = #chan_map chan_config
       (* Expectation: chan_key certainly exists in chan_map; raise exception otherwise *)
-      val (_, blocked_receivers) = Chan_Ref.lookup (chan_map, chan_key)
-      val blocked_recv_set = #blocked_recv_set blocked_config
-      fun clean_receivers (blocked_receivers, blocked_recv_set) =
-      (case blocked_receivers of
+      val (_, running_receivers) = Chan_Ref.lookup (chan_map, chan_key)
+      val running_set = #running_set running_config
+      fun cleaned_receivers (running_receivers) =
+      (case running_receivers of
         [] => [] |
-        (blocked_key, thread_key, trail, contin_stack) :: rs =>
-        (if Blocked_Recv_Rev.member (blocked_recv_set) then
-          (* TODO *)
+        (running_key, thread_key, trail, contin_stack) :: rs =>
+        (if Running_Ref.member (running_set, running_key) then
+          running_receivers
         else
+          rs
         )
       )
-      val cleaned_receivers = clean_receivers (blocked_receivers, blocked_recv_set)
+      val cleaned_receivers = clean_receivers running_receivers
       (* TODO *)
     in
       (* TODO *)
@@ -1513,7 +1501,7 @@ TODO:
     *)
   )
 
-  fun concur_step (thread_config, blocked_config, chan_config, sync_config, hole_key) =
+  fun concur_step (thread_config, running_config, chan_config, sync_config, hole_key) =
   (case (#thread_list thread_config) of
     [] => ( (*print "all done!\n";*) NONE) |
     (thread_key, t, string_fix_value_map, term_stack, thread_mode) :: threads' =>
@@ -1528,7 +1516,7 @@ TODO:
           thread_suspension_map = thread_suspension_map 
         }
       in
-        (thread_config', blocked_config, chan_config, sync_config, hole_key)
+        (thread_config', running_config, chan_config, sync_config, hole_key)
       end) |
 
       (* run event case *)
@@ -1536,11 +1524,11 @@ TODO:
 
         val (
           new_threads, thread_suspension_map',
-          blocked_config, chan_config, sync_config
+          running_config, chan_config, sync_config
         ) =
         run_event_step (
           event, event_stack, thread_suspension_map,
-          blocked_config, chan_config, sync_config
+          running_config, chan_config, sync_config
         )
 
         val thread_config' = {
@@ -1549,7 +1537,7 @@ TODO:
           thread_suspension_map = thread_suspension_map 
         }
       in
-        (thread_config', blocked_config', chan_config', sync_config', hole_key)
+        (thread_config', running_config', chan_config', sync_config', hole_key)
       end) |
 
       (* eval term case *)
@@ -1572,7 +1560,7 @@ TODO:
           thread_suspension_map = thread_suspension_map 
         }
       in
-        (thread_config', blocked_config, chan_config, sync_config, hole_key')
+        (thread_config', running_config, chan_config, sync_config, hole_key')
       end)
 
     )
