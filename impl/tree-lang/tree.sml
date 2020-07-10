@@ -3,7 +3,9 @@ structure Tree = struct
 
   structure Thread_Key = Key_Fn (val tag = "thread")
   structure Thread_Map = RedBlackMapFn (Thread_Key)
-  structure Thread_Set = RedBlackSetFn (Thread_Key)
+
+  structure Running_Key = Key_Fn (val tag = "thread")
+  structure Running_Set = RedBlackSetFn (Running_Key)
 
   structure Chan_Key = Key_Fn (val tag = "chan")
   structure Chan_Map = RedBlackMapFn (Chan_Key)
@@ -166,20 +168,22 @@ structure Tree = struct
   )
 
 
-  type running_sender = (
+  type waiting_send = (
+    Running_Key.ord_key *
     Thread_Key.ord_key *
     past_event list *
     contin list *
     value
   )
 
-  type running_receiver = (
+  type waiting_recv = (
+    Running_Key.ord_key *
     Thread_Key.ord_key *
     past_event list *
     contin list
   )
 
-  type channel = running_sender list * running_receiver list
+  type channel = waiting_send list * waiting_recv list
   
   type history = (thread_key * past_event list)
 
@@ -187,8 +191,13 @@ structure Tree = struct
   {
     thread_list : thread list,
     thread_suspension_map : (contin list) Thread_Map.map,
-    running_set : Thread_Set.set, 
     new_thread_key : Thread_Key.ord_key
+  }
+  
+  type running_config =
+  {
+    running_set : Running_Set.set, 
+    new_running_key : Running_Key.ord_key 
   }
 
   type chan_config =
@@ -1303,6 +1312,114 @@ TODO:
     end)
   )
 
+  fun clean_chan running_set chan (new_sends, new_recvs) = (let
+    val (waiting_sends, waiting_recvs) = chan
+    val waiting_sends' = (List.foldl
+      (fn ((run_key, _, _, _) as send, waiting_sends') =>
+        if Running_Set.member (running_set, run_key) then
+          send :: waiting_sends'
+        else
+          waiting_sends
+      )
+      new_sends
+      waiting_sends
+    )
+
+    val waiting_recvs' = (List.foldl
+      (fn ((run_key, _, _, _) as recv, waiting_recvs') =>
+        if Running_Set.member (running_set, run_key) then
+          recv :: waiting_recvs'
+        else
+          waiting_recvs
+      )
+      new_recvs
+      waiting_recvs
+    )
+  in
+    (waiting_sends', waiting_recvs')
+  end)
+
+  fun sync_send_recv sync_config (waiting_send, waiting_recv)  = (let
+
+    val (
+      send_running_key,
+      send_thread_key,
+      send_trail,
+      send_contin,
+      send_msg 
+    ) = waiting_send 
+
+    val (
+      recv_running_key,
+      recv_thread_key,
+      recv_trail,
+      recv_contin
+    ) = waiting_recv 
+
+    val send_completion_map = #send_completion_map sync_config
+    val send_sync_key = #send_sync_key sync_config
+    val send_completion_map' = Send_Sync_Map.insert (
+      send_completion_map, send_sync_key, []
+    ) 
+    val send_sync_key' = Send_Sync_Key.inc send_sync_key
+
+    val recv_completion_map = #recv_completion_map sync_config
+    val recv_sync_key = #recv_sync_key sync_config
+    val recv_completion_map' = Recv_Sync_Map.insert (
+      recv_completion_map, recv_sync_key, []
+    ) 
+    val recv_sync_key' = Recv_Sync_Key.inc recv_sync_key
+
+    val sync_config' = {
+      send_completion_map = send_completion_map',
+      send_sync_key = send_sync_key',
+
+      recv_completion_map = recv_completion_map',
+      recv_sync_key = recv_sync_key'
+    }
+
+
+    val send_head = Sync_Recv (
+      recv_thread_key,
+      recv_trail,
+      recv_completion_key,
+      send_completion_key
+    ) 
+    
+    val recv_head = Sync_Send (
+      send_thread_key,
+      send_trail,
+      send_completion_key,
+      recv_completion_key
+    ) 
+
+
+    val send_thread = (
+      send_thread_key,
+      Value (Event (Offer Blank)),
+      send_infix_value_map,
+      [],
+      Run_Effect (
+        send_running_key, send_head :: send_trail, send_contin
+      )
+    )
+
+    val recv_thread = (
+      recv_thread_key,
+      Value (Event (Offer msg)),
+      recv_infix_value_map,
+      [],
+      Run_Effect (
+        recv_running_key, recv_head :: recv_trail, recv_contin
+      )
+    )
+
+    val new_threads = [send_thread, recv_thread]
+
+  in
+    (new_threads, sync_config')
+  end)
+
   (* result:
   ** (
   **   new_threads, thread_suspension_map',
@@ -1312,8 +1429,8 @@ TODO:
 
   fun run_event_step (
     thread_key, event, trail, event_stack,
-    thread_suspension_map, running_set,
-    chan_config, sync_config
+    thread_suspension_map,
+    running_config, chan_config, sync_config
   ) =
   (case event of
     Offer v =>  (case event_stack of
@@ -1430,25 +1547,34 @@ TODO:
       )
     end) |
 
-
     Send (chan_key, msg) => (let
       val chan_map = #chan_map chan_config
       (* Expectation: chan_key certainly exists in chan_map; raise exception otherwise *)
-      val (_, running_receivers) = Chan_Map.lookup (chan_map, chan_key)
-      fun cleaned_receivers (running_receivers) =
-      (case running_receivers of
-        [] => [] |
-        (running_key, thread_key, trail, contin_stack) :: rs =>
-        (if Thread_Set.member (running_set, running_key) then
-          running_receivers
-        else
-          rs
-        )
+      val chan = Chan_Map.lookup (chan_map, chan_key)
+
+      val running_set = #running_set running_config
+      val new_running_key = #new_running_key running_config
+
+      val waiting_send = (new_running_key, thread_key, trail, contin_stack, msg)
+      val chan' = clean_chan running_set chan ([waiting_send], [])
+      val (_, waiting_recvs) = chan'
+      val (new_threads, sync_config') = (List.foldl  
+        (fn (waiting_recv, (new_threads, sync_config) => (let
+          val (synched_threads, sync_config') = sync_send_recv (waiting_send, waiting_recv)
+        in
+           synched_threads @ new_threads
+        end )
+        ([], sync_config)
+        waiting_recvs
       )
-      val cleaned_receivers = clean_receivers running_receivers
-      (* TODO *)
     in
-      (* TODO *)
+      (
+        new_threads,
+        thread_suspension_map,
+        running_config,
+        chan_config,
+        sync_config'
+      )
     end)
     (*
     ** TODO **
