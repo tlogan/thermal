@@ -190,7 +190,7 @@ structure Tree = struct
       Sync_Send_Ref.key
     )
 
-  datatype term_contin_mode =
+  datatype contin_mode =
     Contin_With | Contin_Norm | Contin_App |
     Contin_Bind
 
@@ -218,7 +218,7 @@ structure Tree = struct
     Blocked_Send.key *
     Thread_Ref.key *
     past_event list *
-    term_contin list *
+    contin list *
     value
   )
 
@@ -226,7 +226,7 @@ structure Tree = struct
     Blocked_Recv.key *
     Thread_Ref.key *
     past_event list *
-    term_contin list
+    contin list
   )
 
   type channel = blocked_sender list * blocked_receiver list
@@ -1487,9 +1487,28 @@ TODO:
       )
     end) |
 
+
+    Send (chan_key, msg) => (let
+      val chan_map = #chan_map chan_config
+      (* Expectation: chan_key certainly exists in chan_map; raise exception otherwise *)
+      val (_, blocked_receivers) = Chan_Ref.lookup (chan_map, chan_key)
+      val blocked_recv_set = #blocked_recv_set blocked_config
+      fun clean_receivers (blocked_receivers, blocked_recv_set) =
+      (case blocked_receivers of
+        [] => [] |
+        (blocked_key, thread_key, trail, contin_stack) :: rs =>
+        (if Blocked_Recv_Rev.member (blocked_recv_set) then
+          (* TODO *)
+        else
+        )
+      )
+      val cleaned_receivers = clean_receivers (blocked_receivers, blocked_recv_set)
+      (* TODO *)
+    in
+      (* TODO *)
+    end)
     (*
     ** TODO **
-    Send of Chan_Ref.key * value |
     Recv of Chan_Ref.key |
     *)
   )
