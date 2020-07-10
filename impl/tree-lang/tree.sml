@@ -1,59 +1,22 @@
 structure Tree = struct
 
 
-  structure Thread_Ref = struct
-    local
-      structure Key = Key_Fn (val tag = "thread")
-    in
-      open Key
-      type key = ord_key 
-      open RedBlackMapFn (Key)
-    end
-  end
+  structure Thread_Key = Key_Fn (val tag = "thread")
+  structure Thread_Map = RedBlackMapFn (Thread_Key)
+  structure Thread_Set = RedBlackSetFn (Thread_Key)
 
-  structure Running_Ref = struct
-    local
-      structure Key = Key_Fn (val tag = "running")
-    in
-      open Key
-      type key = ord_key 
-      open RedBlackSetFn (Key)
-    end
-  end
+  structure Chan_Key = Key_Fn (val tag = "chan")
+  structure Chan_Map = RedBlackMapFn (Chan_Key)
 
-  structure Chan_Ref = struct
-    local
-      structure Key = Key_Fn (val tag = "chan")
-    in
-      open Key
-      type key = ord_key 
-      open RedBlackMapFn (Key)
-    end
-  end
+  structure Sync_Send_Key = Key_Fn (val tag = "sync_send")
+  structure Sync_Send_Map = RedBlackMapFn (Sync_Send_Key)
 
-  structure Sync_Send_Ref = struct
-    local
-      structure Key = Key_Fn (val tag = "sync_send")
-    in
-      open Key
-      type key = ord_key 
-      open RedBlackMapFn (Key)
-    end
-  end
-
-  structure Sync_Recv_Ref = struct
-    local
-      structure Key = Key_Fn (val tag = "sync_recv")
-    in
-      open Key
-      type key = ord_key 
-      open RedBlackMapFn (Key)
-    end
-  end
+  structure Sync_Recv_Key = Key_Fn (val tag = "sync_recv")
+  structure Sync_Recv_Map = RedBlackMapFn (Sync_Recv_Key)
 
   structure Hole = Key_Fn (val tag = "_g")
 
-  structure String_Ref = RedBlackMapFn (struct
+  structure String_Map = RedBlackMapFn (struct
     type ord_key = string
     val compare = String.compare
   end)
@@ -83,12 +46,12 @@ structure Tree = struct
     With of (term * term * int) |
 
     Intro_Rec of (
-      ((infix_option * term) String_Ref.map) *
+      ((infix_option * term) String_Map.map) *
       int
     ) |
 
     Intro_Mutual_Rec of (
-      ((infix_option * term) String_Ref.map) *
+      ((infix_option * term) String_Map.map) *
       int
     ) |
 
@@ -123,13 +86,13 @@ structure Tree = struct
 
     Func of (
       ((term * term) list) *
-      ((infix_option * value) String_Ref.map) *
-      ((infix_option * ((term * term) list)) String_Ref.map) *
+      ((infix_option * value) String_Map.map) *
+      ((infix_option * ((term * term) list)) String_Map.map) *
       int
     ) (* Func (lams, string_fix_value_map, mutual_map, pos) *) |
 
     Rec of (
-      ((infix_option * value) String_Ref.map) *
+      ((infix_option * value) String_Map.map) *
       int
     ) |
 
@@ -142,9 +105,9 @@ structure Tree = struct
 
     Num of (string * int) |
 
-    Chan of Chan_Ref.key |
+    Chan of Chan_Key.ord_key |
 
-    Thread of Thread_Ref.key |
+    Thread of Thread_Key.ord_key |
 
     Error of string
 
@@ -158,25 +121,25 @@ structure Tree = struct
     Offer of value |
     Abort |
     Alloc_Chan | 
-    Send of Chan_Ref.key * value |
-    Recv of Chan_Ref.key |
-    Latch of event * value |
-    Choose of event * event |
+    Send of value |
+    Recv of value |
+    Latch of value |
+    Choose of value |
 
   and past_event =  
     Choose_Left |
     Choose_Right |
     Sync_Send of (
-      Thread_Ref.key *
+      Thread_Key.ord_key *
       past_event list *
-      Sync_Send_Ref.key *
-      Sync_Recv_Ref.key
+      Sync_Send_Key.ord_key *
+      Sync_Recv_Key.ord_key
     ) |
     Sync_Recv of (
-      Thread_Ref.key *
+      Thread_Key.ord_key *
       past_event list *
-      Sync_Recv_Ref.key *
-      Sync_Send_Ref.key
+      Sync_Recv_Key.ord_key *
+      Sync_Send_Key.ord_key
     )
 
   datatype contin_mode =
@@ -186,8 +149,8 @@ structure Tree = struct
   type contin = (
     effect_contin_mode * 
     ((term * term) list) *
-    ((infix_option * term) String_Ref.map) *
-    ((infix_option * (term * term) list) String_Ref.map)
+    ((infix_option * term) String_Map.map) *
+    ((infix_option * (term * term) list) String_Map.map)
   )
 
   datatype thread_mode =
@@ -195,25 +158,23 @@ structure Tree = struct
     Run_Event of past_event list * contin list
 
   type thread = (
-    Thread_Ref.key *
+    Thread_Key.ord_key *
     term *
-    (infix_option * value) String_Ref.map *
+    (infix_option * value) String_Map.map *
     contin list * (* term continuation *)
     thread_mode
   )
 
 
   type running_sender = (
-    Running_Ref.key *
-    Thread_Ref.key *
+    Thread_Key.ord_key *
     past_event list *
     contin list *
     value
   )
 
   type running_receiver = (
-    Running_Ref.key *
-    Thread_Ref.key *
+    Thread_Key.ord_key *
     past_event list *
     contin list
   )
@@ -225,33 +186,27 @@ structure Tree = struct
   type thread_config =
   {
     thread_list : thread list,
-    thread_suspension_map : (contin list) Thread_Ref.map,
-    new_thread_key : Thread_Ref.key
-  }
-
-  type running_config =
-  {
-    running_set : Running_Ref.set, 
-    new_running_key : Running_Ref.key,
+    thread_suspension_map : (contin list) Thread_Map.map,
+    running_set : Thread_Set.set, 
+    new_thread_key : Thread_Key.ord_key
   }
 
   type chan_config =
   {
-    chan_map : channel Chan_Ref.map,
-    chan_key : Chan_Ref.key
+    chan_map : channel Chan_Map.map,
+    chan_key : Chan_Key.ord_key
   }
 
   type sync_config =
   {
-    send_completion_map : (history list) Sync_Send_Ref.map,
-    new_sync_send_key : Sync_Send_Ref.key,
-    recv_completion_map : (history list) Sync_Recv_Ref.map,
-    new_sync_recv_key : Sync_Recv_Ref.key
+    send_completion_map : (history list) Sync_Send_Map.map,
+    new_sync_send_key : Sync_Send_Key.ord_key,
+    recv_completion_map : (history list) Sync_Recv_Map.map,
+    new_sync_recv_key : Sync_Recv_Key.ord_key
   }
 
   type config = (
     thread_config *
-    running_config *
     chan_config *
     sync_config *
     Hole.key
@@ -458,7 +413,7 @@ structure Tree = struct
     (Sym (Id (id, _), _), _) => (let
       val thunk = Func ([(Intro_Blank ~1, symbolic_term)], string_fix_value_map, [], ~1)
     in
-      SOME (String_Ref.insert (string_fix_value_map, id, (NONE, thunk)))
+      SOME (String_Map.insert (string_fix_value_map, id, (NONE, thunk)))
     end) |
 
     (Id (p_id, _), Id (st_id, _)) =>
@@ -634,7 +589,7 @@ TODO:
       SOME string_fix_value_map |
 
     (Id (str, _), v) =>
-      SOME (String_Ref.insert (string_fix_value_map, str, (NONE, v))) |
+      SOME (String_Map.insert (string_fix_value_map, str, (NONE, v))) |
 
     (Intro_List (t, t', _), List (v :: vs, _)) =>
       (Option.mapPartial
@@ -742,7 +697,7 @@ TODO:
         [] => NONE |
         [(vname,(vfix_op, v))] => (Option.mapPartial
           (fn string_fix_value_map' =>
-            SOME (String_Ref.insert (string_fix_value_map', vname, (vfix_op, v)))
+            SOME (String_Map.insert (string_fix_value_map', vname, (vfix_op, v)))
           )
           (match_value_insert (string_fix_value_map, p, v))
         ) |
@@ -768,8 +723,8 @@ TODO:
   
     val string_fix_value_map'' = (case result of
       Rec (fields, _) => (if cmode = Contin_With then
-        String_Ref.mapi (fn (k, v) =>
-          String_Ref.insert (string_fix_value_map', k, v)
+        String_Map.mapi (fn (k, v) =>
+          String_Map.insert (string_fix_value_map', k, v)
         ) fields
       else
         string_fix_value_map'
@@ -785,8 +740,8 @@ TODO:
       mutual_map
     )
 
-    val string_fix_value_map''' = (String_Ref.mapi
-      (fn (k, v) => String_Ref.insert (string_fix_value_map'', k, v))
+    val string_fix_value_map''' = (String_Map.mapi
+      (fn (k, v) => String_Map.insert (string_fix_value_map'', k, v))
       fnc_store
     )
 
@@ -1332,7 +1287,7 @@ TODO:
         Exec_Effect [] 
       )
     in
-      ([parent_thread, new_thread_id], Thread_Ref.inc new_thread_key)
+      ([parent_thread, new_thread_id], Thread_Key.inc new_thread_key)
     end) |
 
     Run evt => (let
@@ -1356,8 +1311,9 @@ TODO:
   *)
 
   fun run_event_step (
-    thread_key, event, trail, event_stack, thread_suspension_map,
-    running_config, chan_config, sync_config
+    thread_key, event, trail, event_stack,
+    thread_suspension_map, running_set,
+    chan_config, sync_config
   ) =
   (case event of
     Offer v =>  (case event_stack of
@@ -1394,8 +1350,8 @@ TODO:
     Alloc_Chan => (let
       val new_chan = ([], [])    
       val {new_chan_key, chan_map} = chan_config
-      val chan_map' = Chan_Ref.insert (chan_map, new_chan_key, new_chan)
-      val new_chan_key' = Chan_Ref.inc new_chan_key
+      val chan_map' = Chan_Map.insert (chan_map, new_chan_key, new_chan)
+      val new_chan_key' = Chan_Key.inc new_chan_key
 
       val chan_config' = {
         chan_map = chan_map',
@@ -1478,13 +1434,12 @@ TODO:
     Send (chan_key, msg) => (let
       val chan_map = #chan_map chan_config
       (* Expectation: chan_key certainly exists in chan_map; raise exception otherwise *)
-      val (_, running_receivers) = Chan_Ref.lookup (chan_map, chan_key)
-      val running_set = #running_set running_config
+      val (_, running_receivers) = Chan_Map.lookup (chan_map, chan_key)
       fun cleaned_receivers (running_receivers) =
       (case running_receivers of
         [] => [] |
         (running_key, thread_key, trail, contin_stack) :: rs =>
-        (if Running_Ref.member (running_set, running_key) then
+        (if Thread_Set.member (running_set, running_key) then
           running_receivers
         else
           rs
@@ -1497,7 +1452,7 @@ TODO:
     end)
     (*
     ** TODO **
-    Recv of Chan_Ref.key |
+    Recv of Chan_Key.ord_key |
     *)
   )
 
