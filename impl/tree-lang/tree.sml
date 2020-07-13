@@ -115,7 +115,7 @@ structure Tree = struct
 
   and effect =
     Return of value |
-    Bind of effect * value |
+    Bind of effect * contin |
     Exec of effect |
     Run of event |
 
@@ -123,10 +123,10 @@ structure Tree = struct
     Offer of value |
     Abort |
     Alloc_Chan | 
-    Send of value |
-    Recv of value |
-    Latch of value |
-    Choose of value |
+    Send of Chan_Key.ord_key * value  |
+    Recv of Chan_Key.ord_key |
+    Latch of event * contin |
+    Choose of event * event |
 
   and past_event =  
     Choose_Left |
@@ -144,16 +144,17 @@ structure Tree = struct
       Sync_Send_Key.ord_key
     )
 
-  datatype contin_mode =
-    Contin_With | Contin_Norm | Contin_App |
-    Contin_Bind
-
-  type contin = (
+  and contin = Contin (
     effect_contin_mode * 
     ((term * term) list) *
     ((infix_option * term) String_Map.map) *
     ((infix_option * (term * term) list) String_Map.map)
   )
+
+  and contin_mode =
+    Contin_With | Contin_Norm | Contin_App |
+    Contin_Bind
+
 
   datatype thread_mode =
     Exec_Effect of contin list | 
@@ -1493,19 +1494,9 @@ TODO:
       )
     end) |
       
-    Latch (event', v) => (let
-      val (t', effect_stack') = (case v of
-        Func (lams, fnc_store, mutual_map, _) =>
-        (
-          Val (Event event'),
-          (Contin_Latch, lams, fnc_store, mutual_map) :: contin_stack
-        ) | 
-
-        _  =>
-        (
-          Val (Error "latch with non-function")
-        )
-      )
+    Latch (event', contin) =>
+    (let
+      val effect_stack' = contin :: contin_stack
 
       val new_threads = [(
         thread_key,
