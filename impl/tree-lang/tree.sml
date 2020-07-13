@@ -16,7 +16,7 @@ structure Tree = struct
   structure Sync_Recv_Key = Key_Fn (val tag = "sync_recv")
   structure Sync_Recv_Map = RedBlackMapFn (Sync_Recv_Key)
 
-  structure Hole = Key_Fn (val tag = "_g")
+  structure Hole_Key = Key_Fn (val tag = "_g")
 
   structure String_Map = RedBlackMapFn (struct
     type ord_key = string
@@ -191,12 +191,12 @@ structure Tree = struct
   {
 
     new_thread_key : Thread_Key.ord_key,
-    thread_suspension_map : (contin list) Thread_Map.map,
+    suspension_map : (contin list) Thread_Map.map,
 
     new_running_key : Running_Key.ord_key 
     running_set : Running_Set.set, 
 
-    chan_key : Chan_Key.ord_key,
+    new_chan_key : Chan_Key.ord_key,
     chan_map : channel Chan_Map.map,
 
     new_sync_send_key : Sync_Send_Key.ord_key,
@@ -205,7 +205,7 @@ structure Tree = struct
     new_sync_recv_key : Sync_Recv_Key.ord_key,
     recv_completion_map : (history list) Sync_Recv_Map.map,
 
-    new_hole_key : Hole.key
+    new_hole_key : Hole_Key.ord_key
   }
 
   val surround_with = String.surround_with
@@ -1410,7 +1410,7 @@ TODO:
 
   fun run_event_step (
     thread_key, event, trail, contin_stack,
-    thread_suspension_map,
+    suspension_map,
     running_config, chan_config, sync_config
   ) = (case event of
     Offer v =>  (case contin_stack of
@@ -1427,7 +1427,7 @@ TODO:
       in
         (
           new_threads,
-          thread_suspension_map,
+          suspension_map,
           running_config,
           chan_config,
           sync_config
@@ -1438,7 +1438,7 @@ TODO:
     Abort =>
     (
       [],
-      thread_suspension_map,
+      suspension_map,
       running_config,
       chan_config,
       sync_config
@@ -1466,7 +1466,7 @@ TODO:
     in
       (
         new_threads,
-        thread_suspension_map,
+        suspension_map,
         running_config,
         chan_config',
         sync_config
@@ -1487,7 +1487,7 @@ TODO:
     in
       (
         new_threads,
-        thread_suspension_map,
+        suspension_map,
         running_config,
         chan_config,
         sync_config
@@ -1510,7 +1510,7 @@ TODO:
     in
       (
         new_threads,
-        thread_suspension_map,
+        suspension_map,
         running_config,
         chan_config,
         sync_config
@@ -1540,7 +1540,7 @@ TODO:
     in
       (
         new_threads,
-        thread_suspension_map,
+        suspension_map,
         running_config,
         chan_config,
         sync_config'
@@ -1568,7 +1568,7 @@ TODO:
         val thread_config' = {
           new_thread_key = new_thread_key', 
           thread_list = threads' @ new_threads,
-          thread_suspension_map = thread_suspension_map 
+          suspension_map = suspension_map 
         }
       in
         (thread_config', running_config, chan_config, sync_config, hole_key)
@@ -1578,18 +1578,18 @@ TODO:
       (Value (Event event), [], Run_Event (trail, event_stack)) => (let
 
         val (
-          new_threads, thread_suspension_map',
+          new_threads, suspension_map',
           running_config, chan_config, sync_config
         ) =
         run_event_step (
-          event, event_stack, thread_suspension_map,
+          event, event_stack, suspension_map,
           running_config, chan_config, sync_config
         )
 
         val thread_config' = {
           new_thread_key = new_thread_key', 
           thread_list = threads' @ new_threads,
-          thread_suspension_map = thread_suspension_map 
+          suspension_map = suspension_map 
         }
       in
         (thread_config', running_config', chan_config', sync_config', hole_key)
@@ -1612,7 +1612,7 @@ TODO:
         val thread_config' = {
           thread_key = thread_key, 
           thread_list = threads' @ new_threads,
-          thread_suspension_map = thread_suspension_map 
+          suspension_map = suspension_map 
         }
       in
         (thread_config', running_config, chan_config, sync_config, hole_key')
@@ -1637,42 +1637,34 @@ TODO:
 
 
     val global_context = {
-      new_thread_key : Thread_Key.inc (#thread_key thread_context),
+      new_thread_key = Thread_Key.inc (#thread_key thread_context),
+      suspension_map = Thread_Map.empty,
 
-(*
-** TODO **
-      thread_suspension_map : (contin list) Thread_Map.map,
+      new_running_key = Running_Key.zero, 
+      running_set = Running_Set.empty, 
 
-      new_running_key : Running_Key.ord_key 
-      running_set : Running_Set.set, 
+      new_chan_key = Chan_Key.zero,
+      chan_map = Chan_Map.empty,
 
-      chan_key : Chan_Key.ord_key,
-      chan_map : channel Chan_Map.map,
+      new_sync_send_key = Sync_Send_Key.zero,
+      send_completion_map = Sync_Send_Map.empty,
 
-      new_sync_send_key : Sync_Send_Key.ord_key,
-      send_completion_map : (history list) Sync_Send_Map.map,
+      new_sync_recv_key = Sync_Recv_Key.zero,
+      recv_completion_map = Sync_Recv_Map.empty,
 
-      new_sync_recv_key : Sync_Recv_Key.ord_key,
-      recv_completion_map : (history list) Sync_Recv_Map.map,
-
-      new_hole_key : Hole.key
-
-      val hole_key = Hole_Key.zero
-*)
+      new_hole_key : Hole_Key.zero
     }
 
 
-
-    fun loop cfg = (case (concur_step cfg) of
+    fun loop global_context threads =
+    (case (concur_step global_context threads) of
       NONE => () |
-      SOME (cfg') =>
-        loop cfg' 
+      SOME (threads, global_context') =>
+        loop global_context' threads 
     )
 
-    val thread_store = [(thread_id, thread)]
-  
   in
-    loop (thread_store, hole_key)
+    loop global_context threads
   end)
 
 
