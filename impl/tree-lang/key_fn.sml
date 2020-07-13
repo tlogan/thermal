@@ -1,7 +1,5 @@
-functor Key_Fn (
-  val tag : string
-
-) : sig
+functor Key_Fn (val tag : string) :
+sig
   include ORD_KEY
 
   val zero : ord_key  
@@ -10,7 +8,8 @@ functor Key_Fn (
   
   val to_string : ord_key -> string   
 
-end = struct
+end =
+struct
 
   datatype ord_key = Key of int
 

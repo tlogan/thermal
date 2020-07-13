@@ -31,8 +31,7 @@ structure Tree = struct
 
   datatype term = 
     Sym of (term * int) |
-    Id of (string * int) |
-    Assoc of (term * int) |
+    Id of (string * int) | Assoc of (term * int) |
     Log of (term * int) |
 
     Intro_List of (term * term * int) |
@@ -984,7 +983,6 @@ TODO:
     hole_key
   ) =
   (let
-
     fun loop (prefix, postfix) =
     (case postfix of
       [] =>
@@ -1006,45 +1004,43 @@ TODO:
 
       ) |
 
+      Id (id, _) :: xs =>
+      (case (String_Map.find (symbol_map, id)) of
+        SOME (NONE, v) => loop (prefix @ [v], xs) |
+        _ => (
+          Value (Error ("reduce list variable " ^ id ^ " cannot be resolved"), ~1),
+          symbol_map, contin_stack,
+          hole_key
+        )
+
+      ) |
+
+      Value (v, _) :: xs => loop (prefix @ [v], xs) |
+
       x :: xs =>
-      (case x of
-        (Id (id, _)) =>
-        (case (String_Map.find (symbol_map, id)) of
-          SOME (NONE, v) => loop (prefix @ [v], xs) |
-          _ => (
-            Error ("reduce list variable " ^ id ^ " cannot be resolved"),
-            symbol_map, contin_stack,
-            hole_key
-          )
+      (let
+        val contin =
+        (
+          Contin_Norm,
+          [(
+            hole hole_key,
+            norm_f (
+              (map (fn v => Value (v, ~1)) prefix) @
+              (hole hole_key :: xs)
+            )
+          )],
+          symbol_map,
+          []
+        )
+      in
+        (
+          x,
+          symbol_map,
+          contin :: contin_stack,
+          Hole_Key.inc hole_key
+        )
+      end)
 
-        ) |
-
-        Value (v, _) => loop (prefix @ [v], xs) |
-
-        _ =>
-        (let
-          val contin =
-          (
-            Contin_Norm,
-            [(
-              hole hole_key,
-              norm_f (
-                (map (fn v => Value (v, ~1)) prefix) @
-                (hole hole_key :: xs)
-              )
-            )],
-            symbol_map,
-            []
-          )
-        in
-          (
-            x,
-            symbol_map,
-            contin :: contin_stack,
-            Hole_Key.inc hole_key
-          )
-        end)
-      )
     )
 
   in
@@ -1063,12 +1059,17 @@ TODO:
       end)
     ) |
 
-    Assoc (term, pos) => SOME (
-      term, symbol_map, contin_stack, hole_key
+
+    _ => (* TODO *) raise (Fail "eval_term_step")
+    (*
+
+    Assoc (t', pos) =>
+    SOME (
+      t', symbol_map, contin_stack, hole_key
     ) |
 
-    Log (t, pos) => SOME (reduce_single (
-      t,
+    Log (t', pos) => SOME (reduce_single (
+      t',
       fn t => Log (t, pos),
       fn v => (
         print ((value_to_string v) ^ "\n");
@@ -1079,16 +1080,19 @@ TODO:
       hole_key
     )) | 
 
-    Id (id, pos) => (case (String_Map.find (symbol_map, id)) of
+    Id (id, pos) =>
+    (case (String_Map.find (symbol_map, id)) of
       SOME (NONE, v) =>
       (
-        Value (v, ~1), symbol_map,
-        contin_stack, hole_key
+        Value (v, ~1),
+        symbol_map,
+        contin_stack,
+        hole_key
       ) |
 
       _ =>
       (
-        Error ("variable " ^ id ^ " cannot be resolved"),
+        Value (Error ("variable " ^ id ^ " cannot be resolved"), ~1),
         symbol_map,
         contin_stack,
         hole_key
@@ -1104,8 +1108,8 @@ TODO:
         _ => raise (Fail "Internal: Intro_List")
       ),
       (fn
-        [v, Blank_Val] => List ([v], pos) |
-        [v, List (ts, _)] => List (v :: ts, pos) |
+        [v, Blank] => List ([v], pos) |
+        [v, List vs] => List (v :: vs, pos) |
         _ => Error "cons with non-list"
       ),
       symbol_map,
@@ -1276,6 +1280,7 @@ TODO:
       contin_stack,
       hole_key
     ))
+    *)
 
   )
 
@@ -1608,7 +1613,7 @@ TODO:
 *)
 
   fun concur_step global_context threads =
-  (case threeads of
+  (case threads of
     [] => NONE |
     _ => (* TODO *) NONE
     (*
@@ -1680,8 +1685,8 @@ TODO:
   fun eval t = (let
 
     val thread_context = {
-      thread_key = Thread_Key.zero 
-      symbol_map = String_Map.empty 
+      thread_key = Thread_Key.zero,
+      symbol_map = String_Map.empty, 
       contin_stack = []
     }
 
@@ -1718,7 +1723,7 @@ TODO:
     )
 
   in
-    loop global_context threads
+    loop global_context [thread]
   end)
 
 
