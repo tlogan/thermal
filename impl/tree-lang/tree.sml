@@ -48,7 +48,7 @@ structure Tree = struct
     With of (term * term * int) |
 
     Intro_Rec of (
-      ((infix_option * term) String_Map.map) *
+      (infix_option * term) String_Map.map *
       int
     ) |
 
@@ -84,28 +84,24 @@ structure Tree = struct
 
   and value =
     Blank |
-    List of (value list * int) |
+    List of value list |
 
     Func of (
       ((term * term) list) *
       ((infix_option * value) String_Map.map) *
-      ((infix_option * ((term * term) list)) String_Map.map) *
-      int
-    ) (* Func (lams, string_fix_value_map, mutual_map, pos) *) |
+      ((infix_option * ((term * term) list)) String_Map.map) 
+    ) (* Func (lams, symbol_map, mutual_map) *) |
 
-    Rec of (
-      ((infix_option * value) String_Map.map) *
-      int
-    ) |
+    Rec of (infix_option * value) String_Map.map |
 
 
     Event of event |
 
     Effect of effect |
   
-    String of (string * int) |
+    String of string |
 
-    Num of (string * int) |
+    Num of string |
 
     Chan of Chan_Key.ord_key |
 
@@ -252,18 +248,16 @@ structure Tree = struct
     With (t1, t2, pos) => "with " ^ (to_string t1) ^ "\n" ^ (to_string t2) |
 
     Intro_Rec (fs, pos) => String.surround "" (
-      String.concatWith ",\n" (List.map from_field_to_string fs)
+      String.concatWith ",\n" (String_Map.listItems (String_Map.mapi from_field_to_string fs))
     ) |
 
     Intro_Mutual_Rec (fs, pos) => String.surround "mutual" (
-      String.concatWith ",\n" (List.map from_field_to_string fs)
+      String.concatWith ",\n" (String_Map.listItems (String_Map.mapi from_field_to_string fs))
     ) |
 
     Select (t, pos) => "select " ^ (to_string t) |
 
-    Intro_Event (evt, t, pos) => "evt " ^ (event_to_string evt) ^ (to_string t) |
-
-    Value v => value_to_string v |
+    Value (v, pos) => value_to_string v |
 
     _ => "(NOT YET IMPLEMENTED)"
 
@@ -293,31 +287,31 @@ structure Tree = struct
 
   )
 
-  and value_to_string v = (case v of
+  and value_to_string v =
+  (case v of
 
-    List (vs, pos) => surround "" ( 
-      String.concatWith "\n" (List.map (fn v => "# " ^ (value_to_string v)) vs)
+    List (vs: value list) => surround "" ( 
+      String.concatWith "\n" (List.map (fn v => ("# " ^ (value_to_string v))) vs)
     ) |
 
-    Func (lams, fnc_store, mutual_map, pos) => String.surround "val" (
+    Func (lams, fnc_store, mutual_map) => String.surround "val" (
       String.concatWith "\n" (List.map (fn t => (from_lam_to_string t)) lams)
     ) |
 
-    Rec (fs, pos) => String.surround "val" (
-      String.concatWith ",\n" (List.map from_field_value_to_string fs)
+    Rec fs => String.surround "val" (
+      String.concatWith ",\n"
+      (String_Map.listItems
+        (String_Map.mapi from_field_value_to_string fs)
+      )
     ) |
 
-    Event transactions => String.surround "evt" (
-      String.concatWith "\n" (List.map transaction_to_string transactions)
-    ) |
+    _ => raise (Fail "NOT YET IMPLEMENTED")
 
-    _ => "(NOT YET IMPLEMENTED)"
   )
 
   and from_field_value_to_string (name, (fix_op, v)) = String.surround "" (
     "def "  ^ name ^ (from_infix_option_to_string fix_op) ^ " : " ^ (value_to_string v)
   )
-
 
   and from_lam_to_string (t1, t2) = String.surround "" (
     "case "  ^ (to_string t1) ^ " => " ^ (to_string t2)
@@ -327,24 +321,19 @@ structure Tree = struct
     "def "  ^ name ^ (from_infix_option_to_string fix_op) ^ " : " ^ (to_string t)
   )
 
-  and transaction_to_string (Tx (evt, wrap_stack)) =
-    String.surround "transaction" (
-      (event_value_to_string evt) ^ "\n" ^ (stack_to_string wrap_stack)
-    )
-
   and event_value_to_string evt = (case evt of  
 
     Alloc_Chan => "alloc_chan" |
 
-    Send (i, msg) => String.surround "send_value " (
-      (Int.toString i) ^ (value_to_string msg)
+    Send (k, msg) => String.surround "send_value " (
+      (Chan_Key.to_string k) ^ (value_to_string msg)
     ) |
 
-    Recv i => String.surround "recv_value " (
-      (Int.toString i)
+    Recv k => String.surround "recv_value " (
+      (Chan_Key.to_string k)
     ) |
 
-    _ => "(NOT IMPLE: event_value_to_string)"
+    _ => raise (Fail "(NOT IMPLE: event_value_to_string)")
 
   )
 
@@ -401,98 +390,107 @@ structure Tree = struct
   end)
 
 
+  fun values_equal (v_a, v_b) =
+  (
+    raise (Fail "values_equal not yet implemented");
+    true
+  )
 
-  fun match_symbolic_term_insert string_fix_value_map (pattern, symbolic_term) =
+  fun match_symbolic_term_insert symbol_map (pattern, symbolic_term) =
   (case (pattern, symbolic_term) of
-    (Intro_Blank _, _) => SOME string_fix_value_map |
+    (Value (Blank, _), _) => SOME symbol_map |
 
     (Sym (Id (id, _), _), _) => (let
-      val thunk = Func ([(Intro_Blank ~1, symbolic_term)], string_fix_value_map, [], ~1)
+      val mutual_map = String_Map.empty
+      val thunk = Func (
+        [(Value (Blank, ~1), symbolic_term)],
+        symbol_map, mutual_map
+      )
     in
-      SOME (String_Map.insert (string_fix_value_map, id, (NONE, thunk)))
+      SOME (String_Map.insert (symbol_map, id, (NONE, thunk)))
     end) |
 
     (Id (p_id, _), Id (st_id, _)) =>
     (if p_id = st_id then
-      SOME string_fix_value_map
+      SOME symbol_map
     else
       NONE
     ) |
 
     (Assoc (p, _), Assoc (st, _)) =>
-      match_symbolic_term_insert string_fix_value_map (p, st) |
+      match_symbolic_term_insert symbol_map (p, st) |
 
     (Log (p, _), Log (st, _)) =>
-      match_symbolic_term_insert string_fix_value_map (p, st) |
+      match_symbolic_term_insert symbol_map (p, st) |
 
-    (Intro_List (p1, p2, _), List_Intro (st1, st2, _)) => (
+    (Intro_List (p1, p2, _), Intro_List (st1, st2, _)) => (
       (Option.mapPartial
-        (fn string_fix_value_map' =>
-          match_symbolic_term_insert string_fix_value_map' (p2, st2)
+        (fn symbol_map' =>
+          match_symbolic_term_insert symbol_map' (p2, st2)
         )
-        (match_symbolic_term_insert string_fix_value_map (p1, st1))
+        (match_symbolic_term_insert symbol_map (p1, st1))
       )
     ) |
 
-    (Intro_Func (p_lams, _), Func_Intro (st_lams, _)) =>
-      from_lams_match_symbolic_term_insert string_fix_value_map (p_lams, st_lams) |
+    (Intro_Func (p_lams, _), Intro_Func (st_lams, _)) =>
+      from_lams_match_symbolic_term_insert symbol_map (p_lams, st_lams) |
 
     (App (p1, p2, _), App (st1, st2, _)) =>
     (Option.mapPartial
-      (fn string_fix_value_map' =>
-        match_symbolic_term_insert string_fix_value_map' (p2, st2)
+      (fn symbol_map' =>
+        match_symbolic_term_insert symbol_map' (p2, st2)
       )
-      (match_symbolic_term_insert string_fix_value_map (p1, st1))
+      (match_symbolic_term_insert symbol_map (p1, st1))
     ) |
 
     (Compo (p1, p2, _), Compo (st1, st2, _)) => (
       (Option.mapPartial
-        (fn string_fix_value_map' =>
-          match_symbolic_term_insert string_fix_value_map' (p2, st2)
+        (fn symbol_map' =>
+          match_symbolic_term_insert symbol_map' (p2, st2)
         )
-        (match_symbolic_term_insert string_fix_value_map (p1, st1))
+        (match_symbolic_term_insert symbol_map (p1, st1))
       )
     ) |
 
     (With (p1, p2, _), With (st1, st2, _)) =>
     (Option.mapPartial
-      (fn string_fix_value_map' =>
-        match_symbolic_term_insert string_fix_value_map' (p2, st2)
+      (fn symbol_map' =>
+        match_symbolic_term_insert symbol_map' (p2, st2)
       )
-      (match_symbolic_term_insert string_fix_value_map (p1, st1))
+      (match_symbolic_term_insert symbol_map (p1, st1))
     ) |
 
 
-    (Intro_Mutual_Rec (p_fields, _), Rec_Intro_Mutual (st_fields, _)) =>
-      from_fields_match_symbolic_term_insert string_fix_value_map (p_fields, st_fields) |
+    (Intro_Mutual_Rec (p_fields, _), Intro_Mutual_Rec (st_fields, _)) =>
+    (
+      from_fields_match_symbolic_term_insert symbol_map (p_fields, st_fields)
+    ) |
 
 
     (Select (p, _), Select (st, _)) =>
-      match_symbolic_term_insert string_fix_value_map (p, st) |
-
-    (Intro_Event (p_evt, p, _), Event_Intro (st_evt, st, _)) =>
-      if p_evt = st_evt then match_symbolic_term_insert string_fix_value_map (p, st)
-      else NONE |
+    (
+      match_symbolic_term_insert symbol_map (p, st)
+    ) |
 
 (*
 TODO:
     (Event p_transactions, Event st_transactions) =>
-      match_symbolic_transactions_insert string_fix_value_map (p_transactions, st_transactions) |
+      match_symbolic_transactions_insert symbol_map (p_transactions, st_transactions) |
 *)
 
 (*
 **    (List (ps, _), Value (List (sts, _))) =>
 **    (if (List.length ps = List.length sts) then
 **      (List.foldl
-**        (fn ((p, st), string_fix_value_map_op) => 
+**        (fn ((p, st), symbol_map_op) => 
 **          (Option.mapPartial
-**            (fn string_fix_value_map' =>
-**              match_symbolic_term_insert string_fix_value_map' (p, st)
+**            (fn symbol_map' =>
+**              match_symbolic_term_insert symbol_map' (p, st)
 **            )
-**            string_fix_value_map_op
+**            symbol_map_op
 **          )
 **        )
-**        (SOME string_fix_value_map)
+**        (SOME symbol_map)
 **        (ListPair.zip (ps, sts))
 **      )
 **    else
@@ -502,157 +500,161 @@ TODO:
 
 
     (Value p_v, Value st_v) =>
-    (if p_v = st_v then
-      SOME string_fix_value_map
+    (if values_equal (p_v, st_v) then
+      SOME symbol_map
     else
       NONE
     ) |
 
-    (Intro_Effect (p_effect, p, _), Effect_Intro (st_effect, st, _)) =>
-      if p_effect = st_effect then match_symbolic_term_insert string_fix_value_map (p, st)
-      else NONE |
+    (Add_Num (p, _), Add_Num (st, _)) => (
+      match_symbolic_term_insert symbol_map (p, st)
+    ) |
 
-    (Add_Num (p, _), Add_Num (st, _)) =>
-      match_symbolic_term_insert string_fix_value_map (p, st) |
+    (Sub_Num (p, _), Sub_Num (st, _)) => (
+      match_symbolic_term_insert symbol_map (p, st)
+    ) |
 
-    (Sub_Num (p, _), Sub_Num (st, _)) =>
-      match_symbolic_term_insert string_fix_value_map (p, st) |
+    (Mul_Num (p, _), Mul_Num (st, _)) => (
+      match_symbolic_term_insert symbol_map (p, st)
+    ) |
 
-    (Mul_Num (p, _), Mul_Num (st, _)) =>
-      match_symbolic_term_insert string_fix_value_map (p, st) |
+    (Div_Num (p, _), Div_Num (st, _)) => (
+      match_symbolic_term_insert symbol_map (p, st)
+    ) |
 
-    (Div_Num (p, _), Div_Num (st, _)) =>
-      match_symbolic_term_insert string_fix_value_map (p, st) |
-
-    _ => (
-      NONE
-    )
-
+    _ => raise (Fail "match_symbolic_term_insert case not yet implemented")
 
   )
 
-  and from_lams_match_symbolic_term_insert string_fix_value_map (p_lams, st_lams) = 
+  and from_lams_match_symbolic_term_insert symbol_map (p_lams, st_lams) = 
   (if (List.length p_lams = List.length st_lams) then
     (List.foldl
-      (fn (((p1, p2), (st1, st2)), string_fix_value_map_op) =>
+      (fn (((p1, p2), (st1, st2)), symbol_map_op) =>
         (Option.mapPartial
-          (fn string_fix_value_map' =>
+          (fn symbol_map' =>
             (Option.mapPartial
-              (fn string_fix_value_map' =>
-                match_symbolic_term_insert string_fix_value_map' (p2, st2)
+              (fn symbol_map' =>
+                match_symbolic_term_insert symbol_map' (p2, st2)
               )
-              (match_symbolic_term_insert string_fix_value_map (p1, st1))
+              (match_symbolic_term_insert symbol_map (p1, st1))
             )
           )
-          string_fix_value_map_op
+          symbol_map_op
         )
       )
-      (SOME string_fix_value_map)
+      (SOME symbol_map)
       (ListPair.zip (p_lams, st_lams))
     )
   else
     NONE
   )
 
-  and from_fields_match_symbolic_term_insert string_fix_value_map (p_fields, st_fields) =
-  (if (List.length p_fields = List.length st_fields) then
+  and from_fields_match_symbolic_term_insert symbol_map (p_fields, st_fields) =
+  (if (String_Map.numItems p_fields = String_Map.numItems st_fields) then
     (List.foldl
-      (fn (((p_key, (p_fop, p)), (st_key, (st_fop, st))), string_fix_value_map_op) =>
+      (fn (((p_key, (p_fop, p)), (st_key, (st_fop, st))), symbol_map_op) =>
         (if p_key = st_key andalso p_fop = st_fop then
           (Option.mapPartial
-            (fn string_fix_value_map' =>
-              match_symbolic_term_insert string_fix_value_map (p, st)
+            (fn symbol_map' =>
+              match_symbolic_term_insert symbol_map (p, st)
             )
-            string_fix_value_map_op
+            symbol_map_op
           )
         else 
           NONE
         )
       )
-      (SOME string_fix_value_map)
-      (ListPair.zip (p_fields, st_fields))
+      (SOME symbol_map)
+      (ListPair.zip (String_Map.listItemsi p_fields, String_Map.listItemsi st_fields))
     )
   else
     NONE
   )
 
-  fun match_value_insert (string_fix_value_map, pat, value) = (case (pat, value) of
+  fun match_value_insert (symbol_map, pat, value) = (case (pat, value) of
 
-    (Assoc (pat', _), _) =>
-      match_value_insert (string_fix_value_map, pat', value) |
-
-    (Intro_Blank _, _) =>
-      SOME string_fix_value_map |
-
-    (Id (str, _), v) =>
-      SOME (String_Map.insert (string_fix_value_map, str, (NONE, v))) |
-
-    (Intro_List (t, t', _), List (v :: vs, _)) =>
-      (Option.mapPartial
-        (fn string_fix_value_map' =>
-          match_value_insert (string_fix_value_map', t, v)
-        )
-        (match_value_insert (string_fix_value_map, t', List (vs, ~1)))
-      ) |
-
-    (Intro_Rec (p_fields, _), Rec (v_fields, _)) => (
-      from_fields_match_value_insert string_fix_value_map (p_fields, v_fields)
+    (Assoc (pat', _), _) => (
+      match_value_insert (symbol_map, pat', value)
     ) |
 
-    (Intro_Func ([(Blank_Intro _, p_body)], _), Func ([(Blank_Intro _, st_body)], _, _, _)) => (
+    (Value (Blank, _), _) => SOME symbol_map |
+
+    (Id (str, _), v) => (
+      SOME (String_Map.insert (symbol_map, str, (NONE, v)))
+    )|
+
+    (Intro_List (t, t', _), List (v :: vs)) =>
+    (Option.mapPartial
+      (fn symbol_map' =>
+        match_value_insert (symbol_map', t, v)
+      )
+      (match_value_insert (symbol_map, t', List vs))
+    ) |
+
+    (Intro_Rec (p_fields, _), Rec v_fields) => (
+      from_fields_match_value_insert symbol_map (
+        String_Map.listItemsi p_fields,
+        String_Map.listItemsi v_fields
+      )
+    ) |
+
+    (
+      Intro_Func ([(Value (Blank, _), p_body)], _),
+      Func ([(Value (Blank, _), st_body)], _, _)
+    ) => (
       (* function value's local stores are ignored; only syntax is matched; *)
       (* it's up to the user to determine if syntax can actually be evaluated in alternate context *)
       (* variables in pattern are specified by pattern_var syntax (sym f); *)
       (* it may then be used in new context and evaluated with f () *) 
-      match_symbolic_term_insert string_fix_value_map (p_body, st_body)
+      match_symbolic_term_insert symbol_map (p_body, st_body)
     ) |
 
 
-    (Value (Num (n, _)), Num (nv, _)) => (
-      if n = nv then
-        SOME string_fix_value_map
-      else
-        NONE
+    (Value (Num n, _), Num nv) =>
+    (if n = nv then
+      SOME symbol_map
+    else
+      NONE
     ) |
 
     _ => NONE
 
     (* **TODO**
 
-    (List ([], _), List ([], _)) => SOME string_fix_value_map | 
+    (List ([], _), List ([], _)) => SOME symbol_map | 
 
     (List (t :: ts, _), List (v :: vs, _)) =>
       (Option.mapPartial
-        (fn string_fix_value_map' =>
-          match_value_insert (string_fix_value_map', t, v)
+        (fn symbol_map' =>
+          match_value_insert (symbol_map', t, v)
         )
-        (match_value_insert (string_fix_value_map, List (ts, ~1), List (vs, ~1)))
+        (match_value_insert (symbol_map, List (ts, ~1), List (vs, ~1)))
       ) |
 
 
     (Intro_Event_Send (t, _), Event_Send_Intro (v, _)) =>
-      match_value_insert (string_fix_value_map, t, v) |
+      match_value_insert (symbol_map, t, v) |
 
     (Intro_Event_Recv (t, _), Event_Recv_Intro (v, _)) =>
-      match_value_insert (string_fix_value_map, t, v) |
+      match_value_insert (symbol_map, t, v) |
 
     (Func p_fnc, Func v_fnc) => (
       if fnc_equal (p_fnc, v_fnc) then
-        SOME string_fix_value_map
+        SOME symbol_map
       else
         NONE
     ) |
 
     (String (str, _), String (strv, _)) => (
       if str = strv then
-        SOME string_fix_value_map
+        SOME symbol_map
       else
         NONE
     ) |
 
     (Intro_Rec (p_fields, _), Rec_Intro (v_fields, _)) => (case (p_fields, v_fields) of
       ([], []) =>
-        SOME string_fix_value_map |
+        SOME symbol_map |
 
       ((pk, t) :: ps, _ :: _) => (let
         val (match, remainder) = (List.partition  
@@ -662,8 +664,8 @@ TODO:
       in
         (case match of
           [(k, v)] => (Option.mapPartial
-            (fn string_fix_value_map' => match_value_insert (string_fix_value_map', t, v))
-            (match_value_insert (string_fix_value_map, Intro_Rec (ps, ~1), Rec_Intro (remainder, ~1)))
+            (fn symbol_map' => match_value_insert (symbol_map', t, v))
+            (match_value_insert (symbol_map, Intro_Rec (ps, ~1), Rec_Intro (remainder, ~1)))
           ) |
 
           _ => NONE
@@ -678,34 +680,41 @@ TODO:
     *)
   )
 
-  and from_fields_match_value_insert string_fix_value_map (p_fields, v_fields) =
+  and from_fields_match_value_insert symbol_map (p_fields, v_fields) =
   (case p_fields of
-    [] => SOME string_fix_value_map |
-    (pname, (pfix_op, p)) :: pfs => (let
-      val (key_matches, vfs) = (List.partition
+    [] => SOME symbol_map |
+    (pname, (pfix_op, p)) :: pfs =>
+    (let
+
+      val (key_matches, vfs) =
+      (List.partition
         (fn (vname, (vfix_op, _)) =>
           pname = vname andalso
           (pfix_op = vfix_op orelse pfix_op = NONE)
         )
         v_fields
       )
-      fun match_term key_matches = (case key_matches of
+
+      fun match_term key_matches =
+      (case key_matches of
         [] => NONE |
         [(vname,(vfix_op, v))] => (Option.mapPartial
-          (fn string_fix_value_map' =>
-            SOME (String_Map.insert (string_fix_value_map', vname, (vfix_op, v)))
+          (fn symbol_map' =>
+            SOME (String_Map.insert (symbol_map', vname, (vfix_op, v)))
           )
-          (match_value_insert (string_fix_value_map, p, v))
+          (match_value_insert (symbol_map, p, v))
         ) |
         _ :: key_matches' => match_term key_matches'
       )
-      val string_fix_value_map_op = match_term key_matches
+
+      val symbol_map_op = match_term key_matches
+
     in
       (Option.mapPartial
-        (fn string_fix_value_map' =>
-          from_fields_match_value_insert string_fix_value_map' (pfs, vfs)
+        (fn symbol_map' =>
+          from_fields_match_value_insert symbol_map' (pfs, vfs)
         )
-        string_fix_value_map_op
+        symbol_map_op
       )
     end)
   )
@@ -715,126 +724,140 @@ TODO:
 
 
   fun continue (result, contin) = (let
-    val (cmode, lams, string_fix_value_map', mutual_map) = contin
+    val (cmode, lams, symbol_map', mutual_map) = contin
   
-    val string_fix_value_map'' = (case result of
-      Rec (fields, _) => (if cmode = Contin_With then
-        String_Map.mapi (fn (k, v) =>
-          String_Map.insert (string_fix_value_map', k, v)
-        ) fields
+    val symbol_map'' =
+    (case result of
+      Rec fields =>
+      (if cmode = Contin_With then
+        String_Map.mergeWith
+        (fn (_, b) => b)
+        (symbol_map', fields)
       else
-        string_fix_value_map'
+        symbol_map'
       ) |
-      _ => string_fix_value_map'
+
+      _ => symbol_map'
     )
 
     (* embed mutual_map within self's functions *)
-    val fnc_store = (map 
-      (fn (k, (fix_op, lams)) =>
-        (k, (fix_op, Func (lams, string_fix_value_map'', mutual_map, ~1)))
+    val fnc_store = (String_Map.map
+      (fn (fix_op, lams) =>
+        (fix_op, Func (lams, symbol_map'', mutual_map))
       )
       mutual_map
     )
 
-    val string_fix_value_map''' = (String_Map.mapi
-      (fn (k, v) => String_Map.insert (string_fix_value_map'', k, v))
-      fnc_store
+    val symbol_map''' = (
+      String_Map.unionWith
+      (fn (_, b) => b)
+      (symbol_map'', fnc_store)
     )
 
     fun match_first lams = (case lams of
       [] => NONE |
       (p, t) :: lams' =>
-        (case (match_value_insert (string_fix_value_map''', p, result)) of
-          NONE => match_first lams' |
-          SOME string_fix_value_map'''' => (
-            SOME (t, string_fix_value_map'''')
-          )
+      (case (match_value_insert (symbol_map''', p, result)) of
+        NONE => match_first lams' |
+        SOME symbol_map'''' => (
+          SOME (t, symbol_map'''')
         )
-    )
-
-    val next_term = (case (match_first lams) of
-
-      NONE => Error (
-        "result - " ^
-        (value_to_string result) ^
-        " - does not match continuation hole pattern"
-      ) |
-
-      SOME (t_body, string_fix_value_map'''') => (
-        t_body, 
-        string_fix_value_map'''', contin_stack'
-        hole_key
       )
     )
 
+
   in
-    (next_term, string_fix_value_map'''')
+    (case (match_first lams) of
+      NONE =>
+      (
+        Error (
+          "result - " ^
+          (value_to_string result) ^
+          " - does not match continuation hole pattern"
+        ),
+        symbol_map'''
+      ) |
+
+      SOME (t_body, symbol_map'''') =>
+      (t_body, symbol_map'''')
+
+    )
   end)
 
 
   fun apply (
     t_fn, t_arg, pos,
-    string_fix_value_map, contin_stack,
+    symbol_map,
+    contin_stack,
     hole_key
   ) = (case t_fn of
-    (Id (id, _)) =>
-    (case (find (string_fix_value_map, id)) of
-      SOME (_, v_fn) => (
-        App (Value v_fn, t_arg, pos), 
-        string_fix_value_map, contin_stack
+    Id (id, _) =>
+    (case (String_Map.find (symbol_map, id)) of
+      SOME (_, v_fn) =>
+      (
+        App (Value (v_fn, ~1), t_arg, pos), 
+        symbol_map,
+        contin_stack,
         hole_key
       ) |
 
-      _ => (
-        Error ("apply arg variable " ^ id ^ " cannot be resolved"),
-        string_fix_value_map, contin_stack,
+      _ =>
+      (
+        Value (Error ("apply arg variable " ^ id ^ " cannot be resolved"), ~1),
+        symbol_map,
+        contin_stack,
         hole_key
       )
 
     ) |
 
-    Value (Func (lams, fnc_store, mutual_map, _)) =>
+    Value (Func (lams, fnc_store, mutual_map), _) =>
     (
       t_arg,
-      string_fix_value_map,
+      symbol_map,
       (Contin_App, lams, fnc_store, mutual_map) :: contin_stack,
       hole_key
     ) |
 
-    Value v => (
-      Error ("application of non-function: " ^ (value_to_string v)),
-      string_fix_value_map, contin_stack,
+    Value (v, pos) =>
+    (
+      Value (Error ("application of non-function: " ^ (value_to_string v)), pos),
+      symbol_map,
+      contin_stack,
       hole_key
     ) |
 
     _ =>
+    (
+      t_fn,
+      symbol_map,
       (
-        t_fn,
-        string_fix_value_map, 
-        SOME (
-          Contin_Norm,
-          [( hole hole_key, App (hole hole_key, t_arg, pos) )],
-          string_fix_value_map,
-          []
-        ),
-        Hole.inc hole_key
-      )
+        Contin_Norm,
+        [(
+          hole hole_key,
+          App (hole hole_key, t_arg, pos)
+        )],
+        symbol_map,
+        String_Map.empty 
+      ) :: contin_stack,
+      Hole_Key.inc hole_key
+    )
   )
 
 
-  fun associate_infix string_fix_value_map t = (case t of
+  fun associate_infix symbol_map t = (case t of
     Compo (Compo (t1, Id (id, pos), p1), t2, p2) => (let
-      val t1' = associate_infix string_fix_value_map t1
+      val t1' = associate_infix symbol_map t1
     in
-      (case (find (string_fix_value_map, id)) of
+      (case (String_Map.find (symbol_map, id)) of
         SOME (SOME (direc, prec), rator) => (case t1' of 
           Compo (Compo (t1a, Id (id1, pos1), p1a), t1b, p1b) =>
-          (case (find (string_fix_value_map, id1)) of
+          (case (String_Map.find (symbol_map, id1)) of
             SOME (SOME (direc', prec'), rator') =>
             (if (prec' = prec andalso direc = Right) orelse (prec > prec') then
               Compo (
                 Compo (t1a, Id (id1, pos1), p1a),
-                associate_infix string_fix_value_map (Compo (Compo (t1b, Id (id, pos), p1b), t2, p2)),
+                associate_infix symbol_map (Compo (Compo (t1b, Id (id, pos), p1b), t2, p2)),
                 p1
               )
             else 
@@ -860,15 +883,15 @@ TODO:
     _ => t
   )
 
-  fun to_app string_fix_value_map t = (case t of
+  fun to_app symbol_map t = (case t of
     Compo (Compo (t1, Id (id, pos), p1), t2, p2) => (
-      (case (find (string_fix_value_map, id)) of
+      (case (String_Map.find (symbol_map, id)) of
         SOME (SOME (direc, prec), rator) => (
           App (
             Id (id, pos),
             Intro_List (
-              to_app string_fix_value_map t1,
-              Intro_List (to_app string_fix_value_map t2, Blank_Intro 0, pos),
+              to_app symbol_map t1,
+              Intro_List (to_app symbol_map t2, Value (Blank, ~1), pos),
               pos
             ),
             pos
@@ -877,8 +900,8 @@ TODO:
 
         _ => (
           App (
-            App (to_app string_fix_value_map t1, Id (id, pos), p1),
-            to_app string_fix_value_map t2,
+            App (to_app symbol_map t1, Id (id, pos), p1),
+            to_app symbol_map t2,
             p2
           )
         )
@@ -888,46 +911,49 @@ TODO:
   )
 
 
-
-
   fun reduce_single (
     t, norm_f, reduce_f,
-    string_fix_value_map,
+    symbol_map,
     contin_stack,
     hole_key
   ) = (case t of
 
     (Id (id, _)) =>
-    (case (find (string_fix_value_map, id)) of
+    (case (String_Map.find (symbol_map, id)) of
       SOME (NONE, v) =>
       (
-        Value (reduce_f v), string_fix_value_map,
-        contin_stack, hole_key
+        Value (reduce_f v, ~1),
+        symbol_map,
+        contin_stack,
+        hole_key
       ) |
 
-      _  => (
-        Error ("reduce single variable " ^ id ^ " cannot be resolved"),
-        string_fix_value_map,
+      _  =>
+      (
+        Value (Error ("reduce single variable " ^ id ^ " cannot be resolved"), ~1),
+        symbol_map,
         contin_stack,
         hole_key
       )
 
     ) |
 
-    Value v =>
+    Value (v, pos) =>
     (case (reduce_f v) of
       Error msg =>
       (
-        Error msg, 
-        string_fix_value_map,
+        Value (Error msg, pos), 
+        symbol_map,
         contin_stack,
         hole_key
       ) |
 
       result =>
       (
-        Value result, string_fix_value_map,
-        contin_stack, hole_key
+        Value (result, pos),
+        symbol_map,
+        contin_stack,
+        hole_key
       )
 
     ) |
@@ -937,15 +963,15 @@ TODO:
       val contin = (
         Contin_Norm,
         [( hole hole_key, norm_f (hole hole_key) )],
-        string_fix_value_map,
+        symbol_map,
         []
       )
     in
       (
         t,
-        string_fix_value_map,
+        symbol_map,
         contin :: contin_stack,
-        Hole.inc hole_key
+        Hole_Key.inc hole_key
       )
     end)
 
@@ -954,7 +980,7 @@ TODO:
   fun reduce_list
   (
     ts, norm_f, reduce_f,
-    string_fix_value_map, contin_stack,
+    symbol_map, contin_stack,
     hole_key
   ) =
   (let
@@ -965,15 +991,17 @@ TODO:
       (case (reduce_f prefix) of 
         Error msg =>
         (
-          Error msg, 
-          string_fix_value_map, contin_stack,
+          Value (Error msg, ~1), 
+          symbol_map, contin_stack,
           hole_key
         ) |
 
         v =>
         (
-          Value v, string_fix_value_map,
-          contin_stack, hole_key
+          Value (v, ~1),
+          symbol_map,
+          contin_stack,
+          hole_key
         )
 
       ) |
@@ -981,33 +1009,39 @@ TODO:
       x :: xs =>
       (case x of
         (Id (id, _)) =>
-        (case (find (string_fix_value_map, id)) of
+        (case (String_Map.find (symbol_map, id)) of
           SOME (NONE, v) => loop (prefix @ [v], xs) |
           _ => (
             Error ("reduce list variable " ^ id ^ " cannot be resolved"),
-            string_fix_value_map, contin_stack,
+            symbol_map, contin_stack,
             hole_key
           )
 
         ) |
 
-        Value v => loop (prefix @ [v], xs) |
+        Value (v, _) => loop (prefix @ [v], xs) |
 
         _ =>
         (let
           val contin =
           (
             Contin_Norm,
-            [( hole hole_key, norm_f ((map (fn v => Value v) prefix) @ (hole hole_key :: xs)) )],
-            string_fix_value_map,
+            [(
+              hole hole_key,
+              norm_f (
+                (map (fn v => Value (v, ~1)) prefix) @
+                (hole hole_key :: xs)
+              )
+            )],
+            symbol_map,
             []
           )
         in
           (
             x,
-            string_fix_value_map,
+            symbol_map,
             contin :: contin_stack,
-            Hole.inc hole_key
+            Hole_Key.inc hole_key
           )
         end)
       )
@@ -1018,19 +1052,19 @@ TODO:
   end)
   
 
-  fun eval_term_step (t, string_fix_value_map, contin_stack, hole_key) = (case t of
+  fun eval_term_step (t, symbol_map, contin_stack, hole_key) = (case t of
 
-    Value v => (case contin_stack of 
+    Value (v, _) => (case contin_stack of 
       [] => NONE |
       contin :: contin_stack' => (let
-        val (t', string_fix_value_map') = continue (v, contin)
+        val (t', symbol_map') = continue (v, contin)
       in
-        SOME (t', string_fix_value_map', contin_stack', hole_key)
+        SOME (t', symbol_map', contin_stack', hole_key)
       end)
     ) |
 
     Assoc (term, pos) => SOME (
-      term, string_fix_value_map, contin_stack, hole_key
+      term, symbol_map, contin_stack, hole_key
     ) |
 
     Log (t, pos) => SOME (reduce_single (
@@ -1040,18 +1074,22 @@ TODO:
         print ((value_to_string v) ^ "\n");
         v
       ),
-      string_fix_value_map,
+      symbol_map,
       contin_stack,
       hole_key
     )) | 
 
-    Id (id, pos) => (case (find (string_fix_value_map, id)) of
+    Id (id, pos) => (case (String_Map.find (symbol_map, id)) of
       SOME (NONE, v) =>
-        (Value v, string_fix_value_map, contin_stack, hole_key) |
+      (
+        Value (v, ~1), symbol_map,
+        contin_stack, hole_key
+      ) |
 
-      _ => (
+      _ =>
+      (
         Error ("variable " ^ id ^ " cannot be resolved"),
-        string_fix_value_map,
+        symbol_map,
         contin_stack,
         hole_key
       )
@@ -1070,7 +1108,7 @@ TODO:
         [v, List (ts, _)] => List (v :: ts, pos) |
         _ => Error "cons with non-list"
       ),
-      string_fix_value_map,
+      symbol_map,
       contin_stack,
       hole_key
 
@@ -1079,8 +1117,8 @@ TODO:
 
     Intro_Func (lams, pos) =>
       (
-        Value (Func (lams, string_fix_value_map, [], pos)),
-        string_fix_value_map,
+        Value (Func (lams, symbol_map, []), ~1),
+        symbol_map,
         contin_stack,
         hole_key
       ) |
@@ -1088,8 +1126,8 @@ TODO:
     (*
     Func_Mutual (lams, [], mutual_map, pos) =>
         (
-          Value (Func (lams, string_fix_value_map, mutual_map, pos)),
-          string_fix_value_map,
+          Value (Func (lams, symbol_map, mutual_map), ~1),
+          symbol_map,
           contin_stack,
           hole_key
         ) |
@@ -1097,20 +1135,20 @@ TODO:
 
 
     Compo (Compo (t1, Id (id, pos), p1), t2, p2) => (let
-      val t_m = associate_infix string_fix_value_map t
-      val t' = to_app string_fix_value_map t_m 
+      val t_m = associate_infix symbol_map t
+      val t' = to_app symbol_map t_m 
     in
-      (t', string_fix_value_map, contin_stack, hole_key)
+      (t', symbol_map, contin_stack, hole_key)
     end) |
 
     Compo (t1, t2, pos) => (
-      App (t1, t2, pos), string_fix_value_map, contin_stack, hole_key
+      App (t1, t2, pos), symbol_map, contin_stack, hole_key
     ) |
 
 
     App (t_fn, t_arg, pos) => apply (
       t_fn, t_arg, pos,
-      string_fix_value_map, contin_stack,
+      symbol_map, contin_stack,
       hole_key
     ) |
 
@@ -1118,8 +1156,8 @@ TODO:
     With (t1, t2, _) =>
     (
       t1,
-      string_fix_value_map,
-      SOME (Contin_With, [(hole hole_key, t2)], string_fix_value_map, []),
+      symbol_map,
+      SOME (Contin_With, [(hole hole_key, t2)], symbol_map, []),
       Hole_Key.inc hole_key
     ) |
 
@@ -1137,7 +1175,7 @@ TODO:
       val fields' = (map
         (fn
           (k, (fix_op, Intro_Func (lams, pos))) =>
-            (k, (fix_op, Value (Func (lams, string_fix_value_map, mutual_map, pos)))) |
+            (k, (fix_op, Value (Func (lams, symbol_map, mutual_map))), ~1) |
           field => field 
         )
        fields 
@@ -1145,7 +1183,7 @@ TODO:
     in
       (
         Intro_Mutual_Rec (fields', pos), 
-        string_fix_value_map, contin_stack, hole_key
+        symbol_map, contin_stack, hole_key
       )
     end) |
     
@@ -1165,7 +1203,7 @@ TODO:
     in
       SOME (reduce_list (
         ts, f Intro_Mutual_Rec, f Rec_Val, 
-        string_fix_value_map, contin_stack,
+        symbol_map, contin_stack,
         hole_key
       ))
     end) |
@@ -1174,37 +1212,28 @@ TODO:
       t,
       fn t => Select (t, pos),
       (fn
-        List ([Rec (fields, _), String (key, _)], _) =>
-        (case find (fields, key) of
+        List ([Rec (fields, _), String (key, _)]) =>
+        (case String_Map.find (fields, key) of
           SOME (_, v) => v |
           NONE => Error "selection not found"
         ) |
 
         _ => Error "selecting from non-record"
       ),
-      string_fix_value_map,
+      symbol_map,
       contin_stack,
       hole_key
 
     )) |
 
-    Intro_Event (evt, t, pos) => SOME (reduce_single (
-      t,
-      fn t => Intro_Event (evt, t, pos),
-      fn v => Event (mk_transactions (evt, v)),
-      string_fix_value_map,
-      contin_stack,
-      hole_key
-    )) | 
-
     Add_Num (t, pos) => SOME (reduce_single (
       t, fn t => Add_Num (t, pos),
       (fn
-        List ([Num (n1, _), Num (n2, _)], _) =>
-          Num (num_add (n1, n2), pos) |
+        List ([Num (n1, _), Num (n2, _)]) =>
+          Num (num_add (n1, n2)) |
         _ => Error "adding non-numbers"
       ),
-      string_fix_value_map,
+      symbol_map,
       contin_stack,
       hole_key
     )) |
@@ -1212,12 +1241,12 @@ TODO:
     Sub_Num (t, pos) => SOME (reduce_single (
       t, fn t => Sub_Num (t, pos),
       (fn
-        List ([Num (n1, _), Num (n2, _)], _) => (
-          Num (num_sub (n1, n2), pos)
+        List ([Num (n1, _), Num (n2, _)]) => (
+          Num (num_sub (n1, n2))
         ) |
         _ => Error "subtracting non-numbers"
       ),
-      string_fix_value_map,
+      symbol_map,
       contin_stack,
       hole_key
     )) |
@@ -1226,11 +1255,11 @@ TODO:
       t, fn t => Mul_Num (t, pos),
       (fn
         List ([Num (n1, _), Num (n2, _)], _) => (
-          Num (num_mul (n1, n2), pos)
+          Num (num_mul (n1, n2))
         ) |
         _ => Error "multplying non-numbers"
       ),
-      string_fix_value_map,
+      symbol_map,
       contin_stack,
       hole_key
     )) |
@@ -1239,11 +1268,11 @@ TODO:
       t, fn t => Div_Num (t, pos),
       (fn
         List ([Num (n1, _), Num (n2, _)], _) => (
-          Num (num_div (n1, n2), pos)
+          Num (num_div (n1, n2))
         ) |
         _ => Error "dividing non-numbers"
       ),
-      string_fix_value_map,
+      symbol_map,
       contin_stack,
       hole_key
     ))
@@ -1253,14 +1282,14 @@ TODO:
 
 (*
 
-  fun exec_effect_step (thread_id, effect, string_fix_value_map, effect_stack, new_thread_key) =
+  fun exec_effect_step (thread_id, effect, symbol_map, effect_stack, new_thread_key) =
   (case effect of
     Return v => (case effect_stack of
-      [] => [(Value v, string_fix_value_map, [])] |  
+      [] => [(Value (v, ~1), symbol_map, [])] |  
       contin :: contin_stack => (let
-        val (t', string_fix_value_map') = continue (v, contin)
+        val (t', symbol_map') = continue (v, contin)
 
-        val new_threads = [(thread_id, t, string_fix_value_map', [], Exec_Effect [])]
+        val new_threads = [(thread_id, t, symbol_map', [], Exec_Effect [])]
       in
         (new_threads, new_thread_key)
       end)
@@ -1271,8 +1300,8 @@ TODO:
       (
         [(
           thread_id,
-          Value (Effect effect'),
-          string_fix_value_map,
+          Value (Effect effect', ~1),
+          symbol_map,
           [],
           Exec_Effect (Contin_Bind, lams, fnc_store, mutual_map) :: effect_stack
         )],
@@ -1282,8 +1311,8 @@ TODO:
       _ =>
       [(
         thread_id,
-        Value (Error "bind with non-function"),
-        string_fix_value_map,
+        Value (Error "bind with non-function", ~1),
+        symbol_map,
         [],
         Exec_Effect effect_stack
       )]
@@ -1293,8 +1322,8 @@ TODO:
       val parent_thread = 
       (
         thread_id,
-        Value (Effect (Return Blank)),
-        string_fix_value_map,
+        Value (Effect (Return Blank), ~1),
+        symbol_map,
         [],
         Exec_Effect effect_stack
       )
@@ -1302,8 +1331,8 @@ TODO:
       val new_thread = 
       (
         new_thread_key,
-        Value (Effect effect'),
-        string_fix_value_map,
+        Value (Effect effect', ~1),
+        symbol_map,
         [],
         Exec_Effect [] 
       )
@@ -1408,7 +1437,7 @@ TODO:
 
     val send_thread = (
       send_thread_key,
-      Value (Event (Offer Blank)),
+      Value (Event (Offer Blank), ~1),
       String_Map.empty,
       [],
       Run_Effect (
@@ -1418,7 +1447,7 @@ TODO:
 
     val recv_thread = (
       recv_thread_key,
-      Value (Event (Offer msg)),
+      Value (Event (Offer msg), ~1),
       String_Map.empty,
       [],
       Run_Effect (
@@ -1440,11 +1469,11 @@ TODO:
     Offer v =>  (case contin_stack of
       [] => (* TODO: Try to commit or just leave around *) |
       contin :: contin_stack' => (let
-        val (t', string_fix_value_map) = continue (v, contin)
+        val (t', symbol_map) = continue (v, contin)
         val new_threads = [(
           thread_key,
           t',
-          string_fix_value_map,
+          symbol_map,
           [],
           Run_Effect (trail, effect_stack) 
         )]
@@ -1481,7 +1510,7 @@ TODO:
 
       val new_threads = [(
         thread_key,
-        Value (Event (Offer (Chan new_chan_key))),
+        Value (Event (Offer (Chan new_chan_key)), ~1),
         String_Map.empty,
         [],
         Run_Effect (trail, effect_stack) 
@@ -1503,7 +1532,7 @@ TODO:
 
       val new_threads = [(
         thread_key,
-        Value (Event event'),
+        Value (Event event', ~1),
         String_Map.empty,
         [],
         Run_Effect (trail, contin_stack') 
@@ -1521,12 +1550,12 @@ TODO:
     Choose (evt_l, evt_r) => (let
       val new_threads = [
         (
-          thread_key, Value (Effect evt_l),
+          thread_key, Value (Effect evt_l, ~1),
           String_Map.empty, [],
           Run_Effect (Choose_Left :: trail, effect_stack)
         ),
         (
-          thread_key, Value (Effect evt_r),
+          thread_key, Value (Effect evt_r, ~1),
           String_Map.empty, [],
           Run_Effect (Choose_Right :: trail, effect_stack)
         )
@@ -1583,11 +1612,12 @@ TODO:
     [] => NONE |
     _ => (* TODO *) NONE
     (*
-    (thread_key, t, string_fix_value_map, term_stack, thread_mode) :: threads' =>
+    (thread_key, t, symbol_map, term_stack, thread_mode) :: threads' =>
     (case (t, term_stack, thread_mode) of
 
       (* exec effect case *)
-      (Value (Effect effect), [], Exec_Effect effect_stack) => (let
+      (Value (Effect effect, _), [], Exec_Effect effect_stack) =>
+      (let
         val (new_threads, new_thread_key') = exec_effect_step (effect, effect_stack)
         val thread_config' = {
           new_thread_key = new_thread_key', 
@@ -1599,7 +1629,7 @@ TODO:
       end) |
 
       (* run event case *)
-      (Value (Event event), [], Run_Event (trail, event_stack)) => (let
+      (Value (Event event, _), [], Run_Event (trail, event_stack)) => (let
 
         val (
           new_threads, suspension_map',
@@ -1621,13 +1651,13 @@ TODO:
 
       (* eval term case *)
       _ => (let
-        val result = eval_term_step (t, string_fix_value_map, term_stack, hole_key)
+        val result = eval_term_step (t, symbol_map, term_stack, hole_key)
 
         val (new_threads, hole_key') =
         (case result of
-          SOME (t', string_fix_value_map', term_stack', hole_key') => 
+          SOME (t', symbol_map', term_stack', hole_key') => 
           (
-            [(thread_key, t', string_fix_value_map', term_stack', thread_mode)],
+            [(thread_key, t', symbol_map', term_stack', thread_mode)],
             hole_key'
           ) | 
           NONE => ([], hole_key)

@@ -15,13 +15,13 @@ end = struct
   datatype ord_key = Key of int
 
   fun compare (Key a, Key b) =
-    (if a < b then
-      LESS
-    else if a = b then
-      EQUAL
-    else
-      GREATER
-    )
+  (if a < b then
+    LESS
+  else if a = b then
+    EQUAL
+  else
+    GREATER
+  )
 
   val zero = Key 0
 
