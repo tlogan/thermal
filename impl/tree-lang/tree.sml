@@ -128,7 +128,18 @@ structure Tree = struct
     Latch of event * contin |
     Choose of event * event |
 
-  and past_event =  
+  and contin = Contin (
+    effect_contin_mode * 
+    ((term * term) list) *
+    ((infix_option * term) String_Map.map) *
+    ((infix_option * (term * term) list) String_Map.map)
+  )
+
+  and contin_mode =
+    Contin_With | Contin_Norm | Contin_App |
+    Contin_Bind
+
+  datatype past_event =  
     Choose_Left |
     Choose_Right |
     Sync_Send of (
@@ -143,18 +154,6 @@ structure Tree = struct
       Sync_Recv_Key.ord_key *
       Sync_Send_Key.ord_key
     )
-
-  and contin = Contin (
-    effect_contin_mode * 
-    ((term * term) list) *
-    ((infix_option * term) String_Map.map) *
-    ((infix_option * (term * term) list) String_Map.map)
-  )
-
-  and contin_mode =
-    Contin_With | Contin_Norm | Contin_App |
-    Contin_Bind
-
 
   datatype thread_mode =
     Exec_Effect of contin list | 
@@ -1241,6 +1240,7 @@ TODO:
   )
 
 
+(*
 
   fun exec_effect_step (thread_id, effect, string_fix_value_map, effect_stack, new_thread_key) =
   (case effect of
@@ -1263,7 +1263,7 @@ TODO:
           Value (Effect effect'),
           string_fix_value_map,
           [],
-          Exec_Effect (Contin_Bind, lams, fnc_store, mutual_map), hole_key) :: effect_stack
+          Exec_Effect (Contin_Bind, lams, fnc_store, mutual_map) :: effect_stack
         )],
         new_thread_key
       ) |
@@ -1398,7 +1398,7 @@ TODO:
     val send_thread = (
       send_thread_key,
       Value (Event (Offer Blank)),
-      send_infix_value_map,
+      String_Map.empty,
       [],
       Run_Effect (
         send_running_key, send_head :: send_trail, send_contin
@@ -1408,7 +1408,7 @@ TODO:
     val recv_thread = (
       recv_thread_key,
       Value (Event (Offer msg)),
-      recv_infix_value_map,
+      String_Map.empty,
       [],
       Run_Effect (
         recv_running_key, recv_head :: recv_trail, recv_contin
@@ -1421,23 +1421,15 @@ TODO:
     (new_threads, sync_config')
   end)
 
-  (* result:
-  ** (
-  **   new_threads, thread_suspension_map',
-  **   running_config', chan_config', sync_config'
-  ** )
-  *)
-
   fun run_event_step (
-    thread_key, event, trail, event_stack,
+    thread_key, event, trail, contin_stack,
     thread_suspension_map,
     running_config, chan_config, sync_config
-  ) =
-  (case event of
-    Offer v =>  (case event_stack of
+  ) = (case event of
+    Offer v =>  (case contin_stack of
       [] => (* TODO: Try to commit or just leave around *) |
       contin :: contin_stack' => (let
-        val (t', string_fix_value_map') = continue (v, contin)
+        val (t', string_fix_value_map) = continue (v, contin)
         val new_threads = [(
           thread_key,
           t',
@@ -1479,7 +1471,7 @@ TODO:
       val new_threads = [(
         thread_key,
         Value (Event (Offer (Chan new_chan_key))),
-        string_fix_value_map,
+        String_Map.empty,
         [],
         Run_Effect (trail, effect_stack) 
       )]
@@ -1496,14 +1488,14 @@ TODO:
       
     Latch (event', contin) =>
     (let
-      val effect_stack' = contin :: contin_stack
+      val contin_stack' = contin :: contin_stack
 
       val new_threads = [(
         thread_key,
-        t',
-        string_fix_value_map,
+        Value (Event event'),
+        String_Map.empty,
         [],
-        Run_Effect (trail, effect_stack') 
+        Run_Effect (trail, contin_stack') 
       )]
     in
       (
@@ -1519,12 +1511,12 @@ TODO:
       val new_threads = [
         (
           thread_key, Value (Effect evt_l),
-          string_fix_value_map, [],
+          String_Map.empty, [],
           Run_Effect (Choose_Left :: trail, effect_stack)
         ),
         (
           thread_key, Value (Effect evt_r),
-          string_fix_value_map, [],
+          String_Map.empty, [],
           Run_Effect (Choose_Right :: trail, effect_stack)
         )
       ]
@@ -1550,11 +1542,11 @@ TODO:
       val chan' = clean_chan running_set chan ([waiting_send], [])
       val (_, waiting_recvs) = chan'
       val (new_threads, sync_config') = (List.foldl  
-        (fn (waiting_recv, (new_threads, sync_config) => (let
-          val (synched_threads, sync_config') = sync_send_recv (waiting_send, waiting_recv)
+        (fn (waiting_recv, (new_threads, sync_config)) => let
+          val (synched_threads, sync_config') = sync_send_recv sync_config (waiting_send, waiting_recv)
         in
            synched_threads @ new_threads
-        end )
+        end)
         ([], sync_config)
         waiting_recvs
       )
@@ -1573,9 +1565,13 @@ TODO:
     *)
   )
 
+*)
+
   fun concur_step (thread_config, running_config, chan_config, sync_config, hole_key) =
   (case (#thread_list thread_config) of
     [] => ( (*print "all done!\n";*) NONE) |
+    (*
+    _ => (* TODO *) NONE
     (thread_key, t, string_fix_value_map, term_stack, thread_mode) :: threads' =>
     (case (t, term_stack, thread_mode) of
 
@@ -1636,6 +1632,7 @@ TODO:
       end)
 
     )
+    *)
   )
 
 
