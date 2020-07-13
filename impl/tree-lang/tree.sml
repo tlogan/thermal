@@ -187,39 +187,26 @@ structure Tree = struct
   
   type history = (thread_key * past_event list)
 
-  type thread_config =
+  type global_context =
   {
-    thread_list : thread list,
+
+    new_thread_key : Thread_Key.ord_key,
     thread_suspension_map : (contin list) Thread_Map.map,
-    new_thread_key : Thread_Key.ord_key
-  }
-  
-  type running_config =
-  {
-    running_set : Running_Set.set, 
+
     new_running_key : Running_Key.ord_key 
-  }
+    running_set : Running_Set.set, 
 
-  type chan_config =
-  {
+    chan_key : Chan_Key.ord_key,
     chan_map : channel Chan_Map.map,
-    chan_key : Chan_Key.ord_key
-  }
 
-  type sync_config =
-  {
-    send_completion_map : (history list) Sync_Send_Map.map,
     new_sync_send_key : Sync_Send_Key.ord_key,
-    recv_completion_map : (history list) Sync_Recv_Map.map,
-    new_sync_recv_key : Sync_Recv_Key.ord_key
-  }
+    send_completion_map : (history list) Sync_Send_Map.map,
 
-  type config = (
-    thread_config *
-    chan_config *
-    sync_config *
-    Hole.key
-  )
+    new_sync_recv_key : Sync_Recv_Key.ord_key,
+    recv_completion_map : (history list) Sync_Recv_Map.map,
+
+    new_hole_key : Hole.key
+  }
 
   val surround_with = String.surround_with
 
@@ -1638,11 +1625,43 @@ TODO:
 
   fun eval t = (let
 
-    val thread_id = Thread_Key.zero 
-    val string_fix_value_map = [] 
-    val contin_stack = []
-    val hole_key = Hole_Key.zero
-    val thread = (t, string_fix_value_map, contin_stack)
+    val thread_context = {
+      thread_key = Thread_Key.zero 
+      symbol_map = String_Map.empty 
+      contin_stack = []
+    }
+
+
+
+    val thread = (thread_context, t)
+
+
+    val global_context = {
+      new_thread_key : Thread_Key.inc (#thread_key thread_context),
+
+(*
+** TODO **
+      thread_suspension_map : (contin list) Thread_Map.map,
+
+      new_running_key : Running_Key.ord_key 
+      running_set : Running_Set.set, 
+
+      chan_key : Chan_Key.ord_key,
+      chan_map : channel Chan_Map.map,
+
+      new_sync_send_key : Sync_Send_Key.ord_key,
+      send_completion_map : (history list) Sync_Send_Map.map,
+
+      new_sync_recv_key : Sync_Recv_Key.ord_key,
+      recv_completion_map : (history list) Sync_Recv_Map.map,
+
+      new_hole_key : Hole.key
+
+      val hole_key = Hole_Key.zero
+*)
+    }
+
+
 
     fun loop cfg = (case (concur_step cfg) of
       NONE => () |
