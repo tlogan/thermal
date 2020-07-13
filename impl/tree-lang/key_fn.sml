@@ -5,6 +5,7 @@ functor Key_Fn (
   include ORD_KEY
 
   val zero : ord_key  
+
   val inc : ord_key -> ord_key   
   
   val to_string : ord_key -> string   
@@ -13,7 +14,7 @@ end = struct
 
   datatype ord_key = Key of int
 
-  val compare (Key a, Key b) =
+  fun compare (Key a, Key b) =
     (if a < b then
       LESS
     else if a = b then

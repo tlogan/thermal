@@ -68,10 +68,10 @@ structure Tree = struct
     Intro_Abort of (term * int) |
 
     (* effect *)
-    Intro_Return (term * int) |
-    Intro_Run (term * int) |
-    Intro_Bind (term * int) |
-    Intro_Exec (term * int) |
+    Intro_Return of (term * int) |
+    Intro_Run of (term * int) |
+    Intro_Bind of (term * int) |
+    Intro_Exec of (term * int) |
 
     (* number *)
     Add_Num of (term * int) |
@@ -117,7 +117,7 @@ structure Tree = struct
     Return of value |
     Bind of effect * contin |
     Exec of effect |
-    Run of event |
+    Run of event 
 
   and event =
     Offer of value |
@@ -126,10 +126,10 @@ structure Tree = struct
     Send of Chan_Key.ord_key * value  |
     Recv of Chan_Key.ord_key |
     Latch of event * contin |
-    Choose of event * event |
+    Choose of event * event
 
-  and contin = Contin (
-    effect_contin_mode * 
+  and contin = Contin of (
+    contin_mode * 
     ((term * term) list) *
     ((infix_option * term) String_Map.map) *
     ((infix_option * (term * term) list) String_Map.map)
@@ -185,7 +185,7 @@ structure Tree = struct
 
   type channel = waiting_send list * waiting_recv list
   
-  type history = (thread_key * past_event list)
+  type history = (Thread_Key.ord_key * past_event list)
 
   type global_context =
   {
@@ -193,7 +193,7 @@ structure Tree = struct
     new_thread_key : Thread_Key.ord_key,
     suspension_map : (contin list) Thread_Map.map,
 
-    new_running_key : Running_Key.ord_key 
+    new_running_key : Running_Key.ord_key,
     running_set : Running_Set.set, 
 
     new_chan_key : Chan_Key.ord_key,
@@ -220,11 +220,11 @@ structure Tree = struct
 
   fun event_to_string evt = (case evt of
     Alloc_Chan => "alloc_chan" |
-    Send => "send" |
-    Recv => "recv" |
-    Latch => "latch" |
-    Choose => "choose" |
-    Offer => "offer" | 
+    Send _ => "send" |
+    Recv _ => "recv" |
+    Latch _ => "latch" |
+    Choose _ => "choose" |
+    Offer _ => "offer" | 
     Abort => "abort"
   )
 
@@ -778,26 +778,31 @@ TODO:
     hole_key
   ) = (case t_fn of
     (Id (id, _)) =>
-      (case (find (string_fix_value_map, id)) of
-        SOME (_, v_fn) => (
-          App (Value v_fn, t_arg, pos), 
-          string_fix_value_map, contin_stack
-          hole_key
-        ) |
-
-        _  => SOME (_, v_fn) => (
-          Error ("apply arg variable " ^ id ^ " cannot be resolved"),
-          string_fix_value_map, contin_stack,
-          hole_key
-        ) |
-
+    (case (find (string_fix_value_map, id)) of
+      SOME (_, v_fn) => (
+        App (Value v_fn, t_arg, pos), 
+        string_fix_value_map, contin_stack
+        hole_key
       ) |
 
+      _ => (
+        Error ("apply arg variable " ^ id ^ " cannot be resolved"),
+        string_fix_value_map, contin_stack,
+        hole_key
+      )
+
+    ) |
+
     Value (Func (lams, fnc_store, mutual_map, _)) =>
-      (t_arg, string_fix_value_map, Some (Contin_App, lams, fnc_store, mutual_map), hole_key)
+    (
+      t_arg,
+      string_fix_value_map,
+      (Contin_App, lams, fnc_store, mutual_map) :: contin_stack,
+      hole_key
+    ) |
 
     Value v => (
-      Error ("application of non-function: " ^ (value_to_string v)) |
+      Error ("application of non-function: " ^ (value_to_string v)),
       string_fix_value_map, contin_stack,
       hole_key
     ) |
@@ -891,35 +896,44 @@ TODO:
     contin_stack,
     hole_key
   ) = (case t of
+
     (Id (id, _)) =>
-      (case (find (string_fix_value_map, id)) of
-        SOME (NONE, v) =>
-          (Value (reduce_f v), string_fix_value_map, contin_stack, hole_key) |
-
-        _  => (
-          Error ("reduce single variable " ^ id ^ " cannot be resolved")
-          string_fix_value_map,
-          contin_stack,
-          hole_key
-        ) |
-
+    (case (find (string_fix_value_map, id)) of
+      SOME (NONE, v) =>
+      (
+        Value (reduce_f v), string_fix_value_map,
+        contin_stack, hole_key
       ) |
+
+      _  => (
+        Error ("reduce single variable " ^ id ^ " cannot be resolved"),
+        string_fix_value_map,
+        contin_stack,
+        hole_key
+      )
+
+    ) |
 
     Value v =>
-      (case (reduce_f v) of
-        Error msg =>
-          (
-            Error msg, 
-            string_fix_value_map,
-            contin_stack,
-            hole_key
-          ) |
-
-        result =>
-          (Value result, string_fix_value_map, contin_stack, hole_key)
-
+    (case (reduce_f v) of
+      Error msg =>
+      (
+        Error msg, 
+        string_fix_value_map,
+        contin_stack,
+        hole_key
       ) |
-    _ => (let
+
+      result =>
+      (
+        Value result, string_fix_value_map,
+        contin_stack, hole_key
+      )
+
+    ) |
+
+    _ =>
+    (let
       val contin = (
         Contin_Norm,
         [( hole hole_key, norm_f (hole hole_key) )],
@@ -934,42 +948,53 @@ TODO:
         Hole.inc hole_key
       )
     end)
+
   )
 
-
-  fun reduce_list (
+  fun reduce_list
+  (
     ts, norm_f, reduce_f,
     string_fix_value_map, contin_stack,
     hole_key
-  ) = (let
+  ) =
+  (let
 
-    fun loop (prefix, postfix) = (case postfix of
-      [] => (case (reduce_f prefix) of 
+    fun loop (prefix, postfix) =
+    (case postfix of
+      [] =>
+      (case (reduce_f prefix) of 
         Error msg =>
-          (
-            Error msg, 
+        (
+          Error msg, 
+          string_fix_value_map, contin_stack,
+          hole_key
+        ) |
+
+        v =>
+        (
+          Value v, string_fix_value_map,
+          contin_stack, hole_key
+        )
+
+      ) |
+
+      x :: xs =>
+      (case x of
+        (Id (id, _)) =>
+        (case (find (string_fix_value_map, id)) of
+          SOME (NONE, v) => loop (prefix @ [v], xs) |
+          _ => (
+            Error ("reduce list variable " ^ id ^ " cannot be resolved"),
             string_fix_value_map, contin_stack,
             hole_key
           )
 
-        v =>
-          (Value v, string_fix_value_map, contin_stack, hole_key)
-      ) |
-
-      x :: xs => (case x of
-        (Id (id, _)) =>
-          (case (find (string_fix_value_map, id)) of
-            SOME (NONE, v) => loop (prefix @ [v], xs) |
-            _ => (
-              Error ("reduce list variable " ^ id ^ " cannot be resolved"),
-              string_fix_value_map, contin_stack,
-              hole_key
-            )
-
-          ) |
+        ) |
 
         Value v => loop (prefix @ [v], xs) |
-        _ => (let
+
+        _ =>
+        (let
           val contin =
           (
             Contin_Norm,
@@ -991,7 +1016,6 @@ TODO:
   in
     loop ([], ts)
   end)
-
   
 
   fun eval_term_step (t, string_fix_value_map, contin_stack, hole_key) = (case t of
@@ -1222,7 +1246,7 @@ TODO:
       string_fix_value_map,
       contin_stack,
       hole_key
-    )) |
+    ))
 
   )
 
@@ -1554,11 +1578,11 @@ TODO:
 
 *)
 
-  fun concur_step (thread_config, running_config, chan_config, sync_config, hole_key) =
-  (case (#thread_list thread_config) of
-    [] => ( (*print "all done!\n";*) NONE) |
-    (*
+  fun concur_step global_context threads =
+  (case threeads of
+    [] => NONE |
     _ => (* TODO *) NONE
+    (*
     (thread_key, t, string_fix_value_map, term_stack, thread_mode) :: threads' =>
     (case (t, term_stack, thread_mode) of
 
@@ -1652,7 +1676,7 @@ TODO:
       new_sync_recv_key = Sync_Recv_Key.zero,
       recv_completion_map = Sync_Recv_Map.empty,
 
-      new_hole_key : Hole_Key.zero
+      new_hole_key = Hole_Key.zero
     }
 
 
