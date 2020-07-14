@@ -1618,26 +1618,47 @@ TODO:
 
 *)
 
+   fun set_new_thread_key (context : global_context, new_thread_key) =
+   {
+     new_thread_key = new_thread_key,
+     suspension_map = #suspension_map context,
+
+     new_running_key = #new_running_key context, 
+     running_set = #running_set context, 
+
+     new_chan_key = #new_chan_key context,
+     chan_map = #chan_map context,
+
+     new_sync_send_key = #new_sync_send_key context,
+     send_completion_map = #send_completion_map context,
+
+     new_sync_recv_key = #new_sync_recv_key context,
+     recv_completion_map = #recv_completion_map context,
+
+     new_hole_key = #new_hole_key context
+   }
+
+
   fun concur_step global_context threads =
   (case threads of
     [] => NONE |
-    _ => (* TODO *) NONE
-    (*
-    (thread_key, t, symbol_map, term_stack, thread_mode) :: threads' =>
-    (case (t, term_stack, thread_mode) of
-
+    (t, thread_context as {thread_key, symbol_map, contin_stack, thread_mode}) :: threads' =>
+    (case (t, contin_stack, thread_mode) of
       (* exec effect case *)
       (Value (Effect effect, _), [], Exec_Effect effect_stack) =>
       (let
         val (new_threads, new_thread_key') = exec_effect_step (effect, effect_stack)
-        val thread_config' = {
-          new_thread_key = new_thread_key', 
-          thread_list = threads' @ new_threads,
-          suspension_map = suspension_map 
-        }
+
+        val threads' = threads' @ new_threads
+
+        val global_context' = set_new_thread_key (global_context, new_thread_key') 
+
       in
-        (thread_config', running_config, chan_config, sync_config, hole_key)
+        (threads', global_context')
       end) |
+
+      _ => (* TODO *) NONE
+      (*
 
       (* run event case *)
       (Value (Event event, _), [], Run_Event (trail, event_stack)) => (let
@@ -1662,13 +1683,13 @@ TODO:
 
       (* eval term case *)
       _ => (let
-        val result = eval_term_step (t, symbol_map, term_stack, hole_key)
+        val result = eval_term_step (t, symbol_map, contin_stack, hole_key)
 
         val (new_threads, hole_key') =
         (case result of
-          SOME (t', symbol_map', term_stack', hole_key') => 
+          SOME (t', symbol_map', contin_stack', hole_key') => 
           (
-            [(thread_key, t', symbol_map', term_stack', thread_mode)],
+            [(thread_key, t', symbol_map', contin_stack', thread_mode)],
             hole_key'
           ) | 
           NONE => ([], hole_key)
@@ -1682,9 +1703,9 @@ TODO:
       in
         (thread_config', running_config, chan_config, sync_config, hole_key')
       end)
+      *)
 
     )
-    *)
   )
 
 
@@ -1693,13 +1714,11 @@ TODO:
     val thread_context = {
       thread_key = Thread_Key.zero,
       symbol_map = String_Map.empty, 
-      contin_stack = []
+      contin_stack = [],
+      thread_mode = Exec_Effect [] 
     }
 
-
-
-    val thread = (thread_context, t)
-
+    val thread = (t, thread_context)
 
     val global_context = {
       new_thread_key = Thread_Key.inc (#thread_key thread_context),
@@ -1719,7 +1738,6 @@ TODO:
 
       new_hole_key = Hole_Key.zero
     }
-
 
     fun loop global_context threads =
     (case (concur_step global_context threads) of
