@@ -1293,7 +1293,7 @@ TODO:
 
 (*
 
-  fun exec_effect_step (thread_id, effect, symbol_map, effect_stack, new_thread_key) =
+  fun exec_effect_step global_context effect_stack (effect, effect_stack) =
   (case effect of
     Return v => (case effect_stack of
       [] => [(Value (v, ~1), symbol_map, [])] |  
