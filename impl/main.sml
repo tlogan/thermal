@@ -30,7 +30,8 @@ fun readFile filename = (TextIO.openIn filename) handle (IO.Io {name, function, 
   (print ("File \"" ^ name ^ "\" cannot be processed\n"); raise (Fail "")
 )
 
-fun mkOutputFilename filename suffix = (let 
+fun mkOutputFilename filename suffix =
+(let 
   val inStream = readFile filename
   val revtokens = List.rev (String.tokens (fn c => c = #"/") filename)
   val file_token = hd revtokens
@@ -40,20 +41,23 @@ in
   String.concatWith "/" (rev rev_derived_tokens) 
 end)
 
-fun printError filename (msg, line, col) = (let
+fun printError filename (msg, line, col) =
+(let
   val posString = "[" ^ Int.toString line ^ ":" ^ Int.toString col ^ "] "
 in
   print (filename ^ posString ^ msg ^ "\n")
 end)
 
 
-fun readStream inStream n = (case (TextIO.endOfStream inStream) of
+fun readStream inStream n =
+(case (TextIO.endOfStream inStream) of
   true => "" |
   false => TextIO.inputN (inStream, n)
 )
 
 
-fun lex [filename] = (let
+fun lex [filename] =
+(let
   val inStream = readFile filename
   val lexer = Chars.makeLexer (readStream inStream)
 
@@ -69,7 +73,8 @@ in
 end)
 
 
-fun parse [filename] = (let
+fun parse [filename] =
+(let
   val inStream = readFile filename
   val tokenStream = CharStream.makeTokenStream (readStream inStream)
   val (term, rem) = TokenStream.parse (15, tokenStream, printError filename)  
@@ -85,7 +90,8 @@ fun flagSet flagMap str =
 )
 
 
-fun eval [filename] = (let
+fun eval [filename] =
+(let
   val inStream = readFile filename
   val tokenStream = CharStream.makeTokenStream (readStream inStream)
   val (term, rem) = TokenStream.parse (15, tokenStream, printError filename)  
@@ -94,7 +100,8 @@ in
   ignore (Tree.eval term)
 end)
 
-fun handleRequest flagMap args = ((
+fun handleRequest flagMap args =
+((
   if flagSet flagMap "--lex" then lex args else ();
   if flagSet flagMap "--parse" then parse args else ();
   if flagSet flagMap "--eval" then eval args else ()

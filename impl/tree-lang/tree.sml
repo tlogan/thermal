@@ -31,7 +31,8 @@ structure Tree = struct
 
   datatype term = 
     Sym of (term * int) |
-    Id of (string * int) | Assoc of (term * int) |
+    Id of (string * int) |
+    Assoc of (term * int) |
     Log of (term * int) |
 
     Intro_List of (term * term * int) |
