@@ -16,8 +16,8 @@ open Tree
   ADDF | SUBF | MULF | DIVF | 
   EQUAL | 
   ALLOC_MEM | SIZE | SLICE | SET | GET |
-  ALLOC_CHAN | SEND | RECV | 
-  LATCH | CHSE | RUN | EXEC | 
+  ALLOC_CHAN | SEND | RECV | LATCH | CHOOSE | OFFER | ABORT |
+  RUN | BIND | RETURN | EXEC | 
   LPAREN | RPAREN | LANG | RANG | LRPAREN | 
   INFIXL | INFIXR | DIGIT of int |
 
@@ -49,7 +49,7 @@ open Tree
 
 %right FATARROW CASE COLON DEF
 
-%left ALLOC_CHAN SEND RECV LATCH CHSE EXEC RUN ADD SUB MUL DIV SELECT EQUAL
+%left ALLOC_CHAN SEND RECV LATCH CHOOSE EXEC RUN ADD SUB MUL DIV SELECT EQUAL
 %nonassoc INFIXL INFIXR DIGIT
 
 %left LPAREN LANG
@@ -109,7 +109,7 @@ term_nt:
   term_nt DOT ID
     (Select (Intro_List (
       term_nt,
-      Intro_List (String_Intro (ID, IDleft), Value (Blank, IDright), IDleft),
+      Intro_List (Value (String ID, IDleft), Value (Blank, IDright), IDleft),
       DOTleft
   ), DOTleft)) |
 
@@ -117,19 +117,19 @@ term_nt:
 
   EQUAL (Intro_Func ([(Id ("_param", ~1), Select (Id ("_param", EQUALleft), EQUALleft))], EQUALleft)) |
 
-  ALLOC_CHAN (Intro_Func ([(Id ("_param", ~1), Event_Intro (Value (Alloc_Chan, ALLOC_CHANleft)))], ALLOC_CHANleft)) |
+  ALLOC_CHAN (Intro_Func ([(Id ("_param", ~1), Value (Event Alloc_Chan, ALLOC_CHANleft))], ALLOC_CHANleft)) |
 
-  SEND (Intro_Func ([(Id ("_param", ~1), Event_Intro (Send_Intro, Id ("_param", ~1), SENDleft))], SENDleft)) |
+  SEND (Intro_Func ([(Id ("_param", ~1), Intro_Send (Id ("_param", ~1), SENDleft))], SENDleft)) |
 
-  RECV (Intro_Func ([(Id ("_param", ~1), Event_Intro (Recv_Intro, Id ("_param", ~1), RECVleft))], RECVleft)) |
+  RECV (Intro_Func ([(Id ("_param", ~1), Intro_Recv (Id ("_param", ~1), RECVleft))], RECVleft)) |
 
-  LATCH (Intro_Func ([(Id ("_param", ~1), Event_Intro (Latch_Intro, Id ("_param", ~1), LATCHleft))], LATCHleft)) |
+  LATCH (Intro_Func ([(Id ("_param", ~1), Intro_Latch (Id ("_param", ~1), LATCHleft))], LATCHleft)) |
 
-  CHSE (Intro_Func ([(Id ("_param", ~1), Event_Intro (Choose_Intro, Id ("_param", ~1), CHSEleft))], CHSEleft)) |
+  CHOOSE (Intro_Func ([(Id ("_param", ~1), Intro_Choose (Id ("_param", ~1), CHOOSEleft))], CHOOSEleft)) |
 
-  RUN (Intro_Func ([(Id ("_param", ~1), Effect_Intro (Run_Intro, Id ("_param", ~1), RUNleft))], RUNleft)) |
+  RUN (Intro_Func ([(Id ("_param", ~1), Intro_Run (Id ("_param", ~1), RUNleft))], RUNleft)) |
 
-  EXEC (Intro_Func ([(Id ("_param", ~1), Effect_Intro (Exec_Intro, Id ("_param", ~1), EXECleft))], EXECleft)) |
+  EXEC (Intro_Func ([(Id ("_param", ~1), Intro_Exec (Id ("_param", ~1), EXECleft))], EXECleft)) |
 
   LRPAREN (Value (Blank, LRPARENleft)) | 
 

@@ -47,12 +47,12 @@ structure Tree = struct
     With of (term * term * int) |
 
     Intro_Rec of (
-      (infix_option * term) String_Map.map *
+      (string * (infix_option * term)) list *
       int
     ) |
 
     Intro_Mutual_Rec of (
-      ((infix_option * term) String_Map.map) *
+      (string * (infix_option * term)) list *
       int
     ) |
 
@@ -91,7 +91,7 @@ structure Tree = struct
       ((infix_option * ((term * term) list)) String_Map.map) 
     ) (* Func (lams, symbol_map, mutual_map) *) |
 
-    Rec of (infix_option * value) String_Map.map |
+    Rec of (string * (infix_option * value)) list |
 
 
     Event of event |
@@ -247,11 +247,11 @@ structure Tree = struct
     With (t1, t2, pos) => "with " ^ (to_string t1) ^ "\n" ^ (to_string t2) |
 
     Intro_Rec (fs, pos) => String.surround "" (
-      String.concatWith ",\n" (String_Map.listItems (String_Map.mapi from_field_to_string fs))
+      String.concatWith ",\n" (List.map from_field_to_string fs)
     ) |
 
     Intro_Mutual_Rec (fs, pos) => String.surround "mutual" (
-      String.concatWith ",\n" (String_Map.listItems (String_Map.mapi from_field_to_string fs))
+      String.concatWith ",\n" (List.map from_field_to_string fs)
     ) |
 
     Select (t, pos) => "select " ^ (to_string t) |
@@ -299,9 +299,7 @@ structure Tree = struct
 
     Rec fs => String.surround "val" (
       String.concatWith ",\n"
-      (String_Map.listItems
-        (String_Map.mapi from_field_value_to_string fs)
-      )
+      (List.map from_field_value_to_string fs)
     ) |
 
     _ => raise (Fail "NOT YET IMPLEMENTED")
@@ -549,7 +547,7 @@ TODO:
   )
 
   and from_fields_match_symbolic_term_insert symbol_map (p_fields, st_fields) =
-  (if (String_Map.numItems p_fields = String_Map.numItems st_fields) then
+  (if (List.length p_fields = List.length st_fields) then
     (List.foldl
       (fn (((p_key, (p_fop, p)), (st_key, (st_fop, st))), symbol_map_op) =>
         (if p_key = st_key andalso p_fop = st_fop then
@@ -564,7 +562,7 @@ TODO:
         )
       )
       (SOME symbol_map)
-      (ListPair.zip (String_Map.listItemsi p_fields, String_Map.listItemsi st_fields))
+      (ListPair.zip (p_fields, st_fields))
     )
   else
     NONE
@@ -591,10 +589,9 @@ TODO:
     ) |
 
     (Intro_Rec (p_fields, _), Rec v_fields) => (
-      from_fields_match_value_insert symbol_map (
-        String_Map.listItemsi p_fields,
-        String_Map.listItemsi v_fields
-      )
+      from_fields_match_value_insert
+      symbol_map
+      (p_fields, v_fields)
     ) |
 
     (
@@ -651,11 +648,12 @@ TODO:
         NONE
     ) |
 
-    (Intro_Rec (p_fields, _), Rec_Intro (v_fields, _)) => (case (p_fields, v_fields) of
-      ([], []) =>
-        SOME symbol_map |
+    (Intro_Rec (p_fields, _), Rec_Intro (v_fields, _)) =>
+    (case (p_fields, v_fields) of
+      ([], []) => SOME symbol_map |
 
-      ((pk, t) :: ps, _ :: _) => (let
+      ((pk, t) :: ps, _ :: _) =>
+      (let
         val (match, remainder) = (List.partition  
           (fn (k, v) => k = pk)
           v_fields
@@ -729,9 +727,12 @@ TODO:
     (case result of
       Rec fields =>
       (if cmode = Contin_With then
-        String_Map.mergeWith
-        (fn (_, b) => b)
-        (symbol_map', fields)
+        List.foldl
+        (fn ((k, v), symbol_map') =>
+          String_Map.insert (symbol_map', k, v)
+        )
+        symbol_map'
+        fields
       else
         symbol_map'
       ) |
@@ -1165,8 +1166,11 @@ TODO:
       Hole_Key.inc hole_key
     ) |
 
-    Intro_Rec (fields, pos) => (let
-      val mutual_map = (List.mapPartial
+    Intro_Rec (fields, pos) =>
+    (let
+
+      val mutual_map =
+      (List.mapPartial
         (fn
           (k, (fix_op,  Intro_Func (lams, _))) => 
             SOME (k, (fix_op, lams)) |
@@ -1176,7 +1180,8 @@ TODO:
       )
       
       (* embed mutual ids into ts' functions *)
-      val fields' = (map
+      val fields' =
+      (List.map
         (fn
           (k, (fix_op, Intro_Func (lams, pos))) =>
             (k, (fix_op, Value (Func (lams, symbol_map, mutual_map))), ~1) |

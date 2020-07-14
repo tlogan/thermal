@@ -1,15 +1,19 @@
-structure StringMap = MapFn(
-  type hash_key = string
-  val hashVal = HashString.hashString
-  val sameKey = (op =)
-) 
 
-val flagMapRef = ref (StringMap.insertList (StringMap.empty, [
-  ("--lex", false),
-  ("--parse", false),
-  ("--eval", false),
-  ("--help", false)
-]))
+structure String_Map = RedBlackMapFn (struct
+  type ord_key = string
+  val compare = String.compare
+end)
+
+val flagMapRef = ref
+(List.foldl
+  (fn ((k, v), str_map) => String_Map.insert (str_map, k, v))
+  String_Map.empty
+  [
+    ("--lex", false),
+    ("--parse", false),
+    ("--eval", false),
+    ("--help", false)
+])
 
 fun printHelp () = (
   print "Usage: ptltl [options]\n" ;
@@ -74,7 +78,8 @@ in
   print ((Tree.to_string term) ^ "\n") 
 end)
 
-fun flagSet flagMap str = (case StringMap.lookup (flagMap, str) of
+fun flagSet flagMap str =
+(case String_Map.find (flagMap, str) of
   SOME b => b |
   NONE => false
 )
@@ -105,24 +110,25 @@ val argsRef = ref []
 fun run () =
 let
   val _ = app
-    (fn s => case StringMap.lookup (!flagMapRef, s) of
-      SOME _ => flagMapRef := StringMap.insert (!flagMapRef, s, true) |
-      NONE => (
-        if (not (String.isPrefix "--" s)) then
-          argsRef := (!argsRef) @ [s] 
-        else
-          flagMapRef := (StringMap.insert (!flagMapRef, "--help", true))
-      )
-   )
-   (CommandLine.arguments ())
+  (fn s => case String_Map.find (!flagMapRef, s) of
+    SOME _ => flagMapRef := String_Map.insert (!flagMapRef, s, true) |
+    NONE =>
+    (if (not (String.isPrefix "--" s)) then
+      argsRef := (!argsRef) @ [s] 
+    else
+      flagMapRef := (String_Map.insert (!flagMapRef, "--help", true))
+    )
+  )
+  (CommandLine.arguments ())
 
   fun hasTrue bs =
-    case bs of
-      [] => false |
-      b :: bs' => b orelse (hasTrue bs')
+  (case bs of
+    [] => false |
+    b :: bs' => b orelse (hasTrue bs')
+  )
   
-  val hasFlag = (hasTrue (StringMap.listValues (!flagMapRef)))
-  val helpReq = StringMap.lookup (!flagMapRef, "--help")
+  val hasFlag = (hasTrue (String_Map.listItems (!flagMapRef)))
+  val helpReq = String_Map.find (!flagMapRef, "--help")
 
   (** DEBUG **)
   (*
@@ -136,9 +142,10 @@ let
   (****)
   
   val _ =
-    case (hasFlag, helpReq, !argsRef) of
-      (true, SOME false, args) => handleRequest (!flagMapRef) args |
-      _ => printHelp ()
+  (case (hasFlag, helpReq, !argsRef) of
+    (true, SOME false, args) => handleRequest (!flagMapRef) args |
+    _ => printHelp ()
+  )
   
 in ()
 end
