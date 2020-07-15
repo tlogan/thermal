@@ -1534,6 +1534,70 @@ TODO:
 
 *)
 
+   fun set_new_thread_key (context : global_context, new_thread_key) =
+   {
+     new_thread_key = new_thread_key,
+     suspension_map = #suspension_map context,
+
+     new_running_key = #new_running_key context, 
+     running_set = #running_set context, 
+
+     new_chan_key = #new_chan_key context,
+     chan_map = #chan_map context,
+
+     new_sync_send_key = #new_sync_send_key context,
+     send_completion_map = #send_completion_map context,
+
+     new_sync_recv_key = #new_sync_recv_key context,
+     recv_completion_map = #recv_completion_map context,
+
+     new_hole_key = #new_hole_key context
+   }
+
+   fun set_new_chan_key (context : global_context, new_chan_key) =
+   {
+     new_thread_key = #new_thread_key context,
+     suspension_map = #suspension_map context,
+
+     new_running_key = #new_running_key context, 
+     running_set = #running_set context, 
+
+     new_chan_key = new_chan_key,
+     chan_map = #chan_map context,
+
+     new_sync_send_key = #new_sync_send_key context,
+     send_completion_map = #send_completion_map context,
+
+     new_sync_recv_key = #new_sync_recv_key context,
+     recv_completion_map = #recv_completion_map context,
+
+     new_hole_key = #new_hole_key context
+   }
+
+   fun set_chan_map (context : global_context, chan_map) =
+   {
+     new_thread_key = #new_thread_key context,
+     suspension_map = #suspension_map context,
+
+     new_running_key = #new_running_key context, 
+     running_set = #running_set context, 
+
+     new_chan_key = #new_chan_key context,
+     chan_map = chan_map,
+
+     new_sync_send_key = #new_sync_send_key context,
+     send_completion_map = #send_completion_map context,
+
+     new_sync_recv_key = #new_sync_recv_key context,
+     recv_completion_map = #recv_completion_map context,
+
+     new_hole_key = #new_hole_key context
+   }
+
+
+
+
+
   fun run_event_step global_context (event, thread_key, trail, event_stack) =
   (case event of
     Offer v =>
@@ -1557,46 +1621,44 @@ TODO:
       end)
     ) |
 
-    _ => (* TODO *) ([], global_context) 
-    (*
 
-    Abort =>
-    (
-      [],
-      suspension_map,
-      running_config,
-      chan_config,
-      sync_config
-    ) |
+    Abort => ([], global_context) |
 
     Alloc_Chan => (let
+
       val new_chan = ([], [])    
-      val {new_chan_key, chan_map} = chan_config
+      val new_chan_key = #new_chan_key global_context
+      val chan_map = #chan_map global_context
+
       val chan_map' = Chan_Map.insert (chan_map, new_chan_key, new_chan)
       val new_chan_key' = Chan_Key.inc new_chan_key
 
-      val chan_config' = {
-        chan_map = chan_map',
-        new_chan_key = new_chan_key'
-      }
+      val global_context' = (
+        set_new_chan_key
+        (
+          set_chan_map (global_context, chan_map'),
+          new_chan_key'
+        )
+      )
 
-      val new_threads = [(
-        thread_key,
+      val new_thread =
+      (
         Value (Event (Offer (Chan new_chan_key)), ~1),
-        String_Map.empty,
-        [],
-        Run_Effect (trail, effect_stack) 
-      )]
+        {
+          thread_key = thread_key,
+          symbol_map = String_Map.empty,
+          term_stack = [],
+          thread_mode = Run_Event (trail, event_stack)
+        }
+      )
 
     in
-      (
-        new_threads,
-        suspension_map,
-        running_config,
-        chan_config',
-        sync_config
-      )
+      ([new_thread], global_context')
     end) |
+
+    _ => (* TODO *) ([], global_context) 
+    (*
+
       
     Latch (event', contin) =>
     (let
@@ -1675,27 +1737,6 @@ TODO:
     Recv chan_key =>
     *)
   )
-
-   fun set_new_thread_key (context : global_context, new_thread_key) =
-   {
-     new_thread_key = new_thread_key,
-     suspension_map = #suspension_map context,
-
-     new_running_key = #new_running_key context, 
-     running_set = #running_set context, 
-
-     new_chan_key = #new_chan_key context,
-     chan_map = #chan_map context,
-
-     new_sync_send_key = #new_sync_send_key context,
-     send_completion_map = #send_completion_map context,
-
-     new_sync_recv_key = #new_sync_recv_key context,
-     recv_completion_map = #recv_completion_map context,
-
-     new_hole_key = #new_hole_key context
-   }
-
 
   fun concur_step global_context threads =
   (case threads of
