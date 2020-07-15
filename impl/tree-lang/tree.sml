@@ -1312,7 +1312,7 @@ TODO:
     {
       thread_key = thread_key,
       symbol_map = symbol_map,
-      contin_stack = [],
+      term_stack = [],
       thread_mode = Exec_Effect effect_stack
     }
   )
@@ -1330,7 +1330,7 @@ TODO:
           {
             thread_key = thread_key,
             symbol_map = String_Map.empty,
-            contin_stack = [],
+            term_stack = [],
             thread_mode = Exec_Effect effect_stack
           }
         )
@@ -1348,7 +1348,7 @@ TODO:
           {
             thread_key = thread_key,
             symbol_map = symbol_map',
-            contin_stack = [],
+            term_stack = [],
             thread_mode = Exec_Effect effect_stack
           }
         )
@@ -1365,7 +1365,7 @@ TODO:
         {
           thread_key = thread_key,
           symbol_map = String_Map.empty,
-          contin_stack = [],
+          term_stack = [],
           thread_mode = Exec_Effect
           (
             (Contin_Bind, lams, fnc_store, mutual_map) ::
@@ -1384,7 +1384,7 @@ TODO:
         {
           thread_key = thread_key,
           symbol_map = String_Map.empty,
-          contin_stack = [],
+          term_stack = [],
           thread_mode = Exec_Effect effect_stack
         }
       )
@@ -1395,7 +1395,7 @@ TODO:
         {
           thread_key = thread_key,
           symbol_map = String_Map.empty,
-          contin_stack = [],
+          term_stack = [],
           thread_mode = Exec_Effect [] 
         }
       )
@@ -1410,7 +1410,7 @@ TODO:
         { 
           thread_key = thread_key,
           symbol_map = String_Map.empty,
-          contin_stack = [],
+          term_stack = [],
           thread_mode = Run_Event ([], [])
         }
       )
@@ -1531,32 +1531,34 @@ TODO:
     (new_threads, sync_config')
   end)
 
-  fun run_event_step (
-    thread_key, event, trail, contin_stack,
-    suspension_map,
-    running_config, chan_config, sync_config
-  ) = (case event of
-    Offer v =>  (case contin_stack of
-      [] => (* TODO: Try to commit or just leave around *) |
-      contin :: contin_stack' => (let
+
+*)
+
+  fun run_event_step global_context (event, thread_key, trail, event_stack) =
+  (case event of
+    Offer v =>
+    (case event_stack of
+      [] => raise (Fail "TODO: run_event_step; Try to commit or just leave around") |
+      contin :: contin_stack =>
+      (let
         val (t', symbol_map) = continue (v, contin)
-        val new_threads = [(
-          thread_key,
-          t',
-          symbol_map,
-          [],
-          Run_Effect (trail, effect_stack) 
-        )]
-      in
+        val new_thread =
         (
-          new_threads,
-          suspension_map,
-          running_config,
-          chan_config,
-          sync_config
+          t',
+          {
+            thread_key = thread_key,
+            symbol_map = symbol_map,
+            term_stack = [],
+            thread_mode = Run_Event (trail, contin_stack)
+          }
         )
+      in
+        ([new_thread], global_context)
       end)
     ) |
+
+    _ => (* TODO *) ([], global_context) 
+    (*
 
     Abort =>
     (
@@ -1669,13 +1671,10 @@ TODO:
         sync_config'
       )
     end)
-    (*
-    ** TODO **
-    Recv of Chan_Key.ord_key |
+
+    Recv chan_key =>
     *)
   )
-
-*)
 
    fun set_new_thread_key (context : global_context, new_thread_key) =
    {
@@ -1701,8 +1700,8 @@ TODO:
   fun concur_step global_context threads =
   (case threads of
     [] => NONE |
-    (t, thread_context as {thread_key, symbol_map, contin_stack, thread_mode}) :: threads' =>
-    (case (t, contin_stack, thread_mode) of
+    (t, thread_context as {thread_key, symbol_map, term_stack, thread_mode}) :: threads' =>
+    (case (t, term_stack, thread_mode) of
       (* exec effect case *)
       (Value (Effect effect, _), [], Exec_Effect effect_stack) =>
       (let
@@ -1712,38 +1711,27 @@ TODO:
           (effect, thread_key, effect_stack)
         )
 
-        val threads' = threads' @ new_threads
-
         val global_context' = set_new_thread_key (global_context, new_thread_key') 
 
       in
-        SOME (threads', global_context')
+        SOME (threads @ new_threads, global_context')
+      end) |
+
+      (* run event case *)
+      (Value (Event event, _), [], Run_Event (trail, event_stack)) => (let
+        val (new_threads, global_context') = (
+          run_event_step
+          global_context
+          (event, thread_key, trail, event_stack)
+        )
+      in
+        SOME (threads' @ new_threads, global_context')
       end) |
 
       _ => (* TODO *) NONE
       (*
 
 
-      (* run event case *)
-      (Value (Event event, _), [], Run_Event (trail, event_stack)) => (let
-
-        val (
-          new_threads, suspension_map',
-          running_config, chan_config, sync_config
-        ) =
-        run_event_step (
-          event, event_stack, suspension_map,
-          running_config, chan_config, sync_config
-        )
-
-        val thread_config' = {
-          new_thread_key = new_thread_key', 
-          thread_list = threads' @ new_threads,
-          suspension_map = suspension_map 
-        }
-      in
-        (thread_config', running_config', chan_config', sync_config', hole_key)
-      end) |
 
       (* eval term case *)
       _ => (let
@@ -1778,7 +1766,7 @@ TODO:
     val thread_context = {
       thread_key = Thread_Key.zero,
       symbol_map = String_Map.empty, 
-      contin_stack = [],
+      term_stack = [],
       thread_mode = Exec_Effect [] 
     }
 
