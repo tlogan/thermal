@@ -1403,21 +1403,21 @@ TODO:
       ([parent_thread, child_thread], Thread_Key.inc new_thread_key)
     end) |
 
-    _ => (* TODO *)([], Thread_Key.zero)
-    (*
-
     Run evt => (let
-      val new_threads =
-      [(
-        thread_id,
-        evt,
-        [],
-        Run_Event ([], [])
-      )]
+      val new_thread =
+      (
+        Value (Event evt, ~1),
+        { 
+          thread_key = thread_key,
+          symbol_map = String_Map.empty,
+          contin_stack = [],
+          thread_mode = Run_Event ([], [])
+        }
+      )
     in
-      (new_threads, new_thread_key)
+      ([new_thread], new_thread_key)
     end)
-    *)
+
   )
 
 
