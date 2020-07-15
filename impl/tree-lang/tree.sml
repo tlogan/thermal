@@ -1377,31 +1377,34 @@ TODO:
       ([new_thread], new_thread_key)
     end) |
 
-    _ => (* TODO *)([], Thread_Key.zero)
-    (*
-
-
     Exec effect' => (let
       val parent_thread = 
       (
-        thread_id,
         Value (Effect (Return Blank), ~1),
-        symbol_map,
-        [],
-        Exec_Effect effect_stack
+        {
+          thread_key = thread_key,
+          symbol_map = String_Map.empty,
+          contin_stack = [],
+          thread_mode = Exec_Effect effect_stack
+        }
       )
 
-      val new_thread = 
+      val child_thread = 
       (
-        new_thread_key,
         Value (Effect effect', ~1),
-        symbol_map,
-        [],
-        Exec_Effect [] 
+        {
+          thread_key = thread_key,
+          symbol_map = String_Map.empty,
+          contin_stack = [],
+          thread_mode = Exec_Effect [] 
+        }
       )
     in
-      ([parent_thread, new_thread_id], Thread_Key.inc new_thread_key)
+      ([parent_thread, child_thread], Thread_Key.inc new_thread_key)
     end) |
+
+    _ => (* TODO *)([], Thread_Key.zero)
+    (*
 
     Run evt => (let
       val new_threads =
