@@ -113,7 +113,12 @@ struct
 
   and effect =
     Return of value |
-    Bind of effect * contin |
+    Bind of (
+      effect *
+      ((term * term) list) *
+      ((infix_option * value) String_Map.map) *
+      ((infix_option * (term * term) list) String_Map.map)
+    ) |
     Exec of effect |
     Run of event 
 
@@ -123,19 +128,24 @@ struct
     Alloc_Chan | 
     Send of Chan_Key.ord_key * value  |
     Recv of Chan_Key.ord_key |
-    Latch of event * contin |
+    Latch of (
+      event *
+      ((term * term) list) *
+      ((infix_option * value) String_Map.map) *
+      ((infix_option * (term * term) list) String_Map.map)
+    ) |
     Choose of event * event
 
-  and contin = Contin of (
+  datatype contin_mode =
+    Contin_With | Contin_Norm | Contin_App |
+    Contin_Bind
+
+  type contin = (
     contin_mode * 
     ((term * term) list) *
     ((infix_option * value) String_Map.map) *
     ((infix_option * (term * term) list) String_Map.map)
   )
-
-  and contin_mode =
-    Contin_With | Contin_Norm | Contin_App |
-    Contin_Bind
 
   datatype past_event =  
     Choose_Left |
@@ -725,7 +735,7 @@ TODO:
 
   fun continue (result, contin) =
   (let
-    val Contin (cmode, lams, symbol_map', mutual_map) = contin
+    val (cmode, lams, symbol_map', mutual_map) = contin
   
     val symbol_map'' =
     (case result of
@@ -1347,31 +1357,29 @@ TODO:
       end)
     ) |
 
+    Bind (effect', lams, fnc_store, mutual_map) =>
+    (let
+      val new_thread = 
+      (
+        Value (Effect effect', ~1),
+        {
+          thread_key = thread_key,
+          symbol_map = String_Map.empty,
+          contin_stack = [],
+          thread_mode = Exec_Effect
+          (
+            (Contin_Bind, lams, fnc_store, mutual_map) ::
+            effect_stack
+          )
+        }
+      )
+    in
+      ([new_thread], new_thread_key)
+    end) |
+
     _ => (* TODO *)([], Thread_Key.zero)
     (*
 
-    Bind (effect', v) => (case v of
-      Func (lams, fnc_store, mutual_map, _) =>
-      (
-        [(
-          thread_id,
-          Value (Effect effect', ~1),
-          symbol_map,
-          [],
-          Exec_Effect (Contin_Bind, lams, fnc_store, mutual_map) :: effect_stack
-        )],
-        new_thread_key
-      ) |
-
-      _ =>
-      [(
-        thread_id,
-        Value (Error "bind with non-function", ~1),
-        symbol_map,
-        [],
-        Exec_Effect effect_stack
-      )]
-    ) |
 
     Exec effect' => (let
       val parent_thread = 
