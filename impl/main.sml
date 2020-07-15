@@ -13,7 +13,8 @@ val flagMapRef = ref
     ("--parse", false),
     ("--eval", false),
     ("--help", false)
-])
+  ]
+ )
 
 fun printHelp () = (
   print "Usage: ptltl [options]\n" ;

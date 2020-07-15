@@ -1,4 +1,5 @@
-structure Tree = struct
+structure Tree =
+struct
 
 
   structure Thread_Key = Key_Fn (val tag = "thread")
@@ -18,7 +19,8 @@ structure Tree = struct
 
   structure Hole_Key = Key_Fn (val tag = "_g")
 
-  structure String_Map = RedBlackMapFn (struct
+  structure String_Map = RedBlackMapFn
+  (struct
     type ord_key = string
     val compare = String.compare
   end)
@@ -127,7 +129,7 @@ structure Tree = struct
   and contin = Contin of (
     contin_mode * 
     ((term * term) list) *
-    ((infix_option * term) String_Map.map) *
+    ((infix_option * value) String_Map.map) *
     ((infix_option * (term * term) list) String_Map.map)
   )
 
@@ -721,8 +723,9 @@ TODO:
   fun hole k = Id (Hole_Key.to_string k, ~1)
 
 
-  fun continue (result, contin) = (let
-    val (cmode, lams, symbol_map', mutual_map) = contin
+  fun continue (result, contin) =
+  (let
+    val Contin (cmode, lams, symbol_map', mutual_map) = contin
   
     val symbol_map'' =
     (case result of
@@ -766,16 +769,15 @@ TODO:
       )
     )
 
-
   in
     (case (match_first lams) of
       NONE =>
       (
-        Error (
+        Value (Error (
           "result - " ^
           (value_to_string result) ^
           " - does not match continuation hole pattern"
-        ),
+        ), ~1),
         symbol_map'''
       ) |
 
@@ -1052,6 +1054,8 @@ TODO:
 
   fun eval_term_step (t, symbol_map, contin_stack, hole_key) = (case t of
 
+    _ => (* TODO *) raise (Fail "eval_term_step")
+    (*
     Value (v, _) => (case contin_stack of 
       [] => NONE |
       contin :: contin_stack' => (let
@@ -1062,8 +1066,6 @@ TODO:
     ) |
 
 
-    _ => (* TODO *) raise (Fail "eval_term_step")
-    (*
 
     Assoc (t', pos) =>
     SOME (
@@ -1291,20 +1293,62 @@ TODO:
   )
 
 
-(*
+  (*
+  (t, thread_context as {thread_key, symbol_map, contin_stack, thread_mode}) :: threads' =>
+  *)
+  fun mk_effect_thread (t, thread_key, symbol_map, effect_stack) =  
+  (
+    t,
+    {
+      thread_key = thread_key,
+      symbol_map = symbol_map,
+      contin_stack = [],
+      thread_mode = Exec_Effect effect_stack
+    }
+  )
 
-  fun exec_effect_step global_context effect_stack (effect, effect_stack) =
+
+  fun exec_effect_step new_thread_key (effect, thread_key, effect_stack) =
   (case effect of
-    Return v => (case effect_stack of
-      [] => [(Value (v, ~1), symbol_map, [])] |  
-      contin :: contin_stack => (let
+    Return v =>
+    (case effect_stack of
+      [] =>
+      (let
+        val new_thread =
+        (
+          Value (v, ~1),
+          {
+            thread_key = thread_key,
+            symbol_map = String_Map.empty,
+            contin_stack = [],
+            thread_mode = Exec_Effect effect_stack
+          }
+        )
+      in
+        ([new_thread], new_thread_key)
+      end) |
+
+      contin :: contin_stack =>
+      (let
         val (t', symbol_map') = continue (v, contin)
 
-        val new_threads = [(thread_id, t, symbol_map', [], Exec_Effect [])]
+        val new_thread =
+        (
+          t',
+          {
+            thread_key = thread_key,
+            symbol_map = symbol_map',
+            contin_stack = [],
+            thread_mode = Exec_Effect effect_stack
+          }
+        )
       in
-        (new_threads, new_thread_key)
+        ([new_thread], new_thread_key)
       end)
     ) |
+
+    _ => (* TODO *)([], Thread_Key.zero)
+    (*
 
     Bind (effect', v) => (case v of
       Func (lams, fnc_store, mutual_map, _) =>
@@ -1362,7 +1406,11 @@ TODO:
     in
       (new_threads, new_thread_key)
     end)
+    *)
   )
+
+
+(*
 
   fun clean_chan running_set chan (new_sends, new_recvs) = (let
     val (waiting_sends, waiting_recvs) = chan
@@ -1647,18 +1695,23 @@ TODO:
       (* exec effect case *)
       (Value (Effect effect, _), [], Exec_Effect effect_stack) =>
       (let
-        val (new_threads, new_thread_key') = exec_effect_step (effect, effect_stack)
+        val (new_threads, new_thread_key') = (
+          exec_effect_step
+          (#new_thread_key global_context)
+          (effect, thread_key, effect_stack)
+        )
 
         val threads' = threads' @ new_threads
 
         val global_context' = set_new_thread_key (global_context, new_thread_key') 
 
       in
-        (threads', global_context')
+        SOME (threads', global_context')
       end) |
 
       _ => (* TODO *) NONE
       (*
+
 
       (* run event case *)
       (Value (Event event, _), [], Run_Event (trail, event_stack)) => (let
