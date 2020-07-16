@@ -209,10 +209,10 @@ struct
     new_chan_key : Chan_Key.ord_key,
     chan_map : channel Chan_Map.map,
 
-    new_sync_send_key : Send_Sync_Key.ord_key,
+    new_send_sync_key : Send_Sync_Key.ord_key,
     send_completion_map : (history list) Send_Sync_Map.map,
 
-    new_sync_recv_key : Recv_Sync_Key.ord_key,
+    new_recv_sync_key : Recv_Sync_Key.ord_key,
     recv_completion_map : (history list) Recv_Sync_Map.map,
 
     new_hole_key : Hole_Key.ord_key
@@ -1063,7 +1063,6 @@ TODO:
     loop ([], ts)
   end)
 
-
   fun set_new_thread_key (context : global_context, new_thread_key) =
   {
     new_thread_key = new_thread_key,
@@ -1075,11 +1074,41 @@ TODO:
     new_chan_key = #new_chan_key context,
     chan_map = #chan_map context,
  
-    new_sync_send_key = #new_sync_send_key context,
+    new_send_sync_key = #new_send_sync_key context,
     send_completion_map = #send_completion_map context,
  
-    new_sync_recv_key = #new_sync_recv_key context,
+    new_recv_sync_key = #new_recv_sync_key context,
     recv_completion_map = #recv_completion_map context,
+ 
+    new_hole_key = #new_hole_key context
+  }
+
+
+  fun set_sync_context
+  (
+    context : global_context,
+    (
+      send_completion_map,
+      new_send_sync_key,
+      recv_completion_map,
+      new_recv_sync_key
+    )
+  ) =
+  {
+    new_thread_key = #new_thread_key context,
+    suspension_map = #suspension_map context,
+ 
+    new_running_key = #new_running_key context, 
+    running_set = #running_set context, 
+ 
+    new_chan_key = #new_chan_key context,
+    chan_map = #chan_map context,
+ 
+    new_send_sync_key = new_send_sync_key,
+    send_completion_map = send_completion_map,
+ 
+    new_recv_sync_key = new_recv_sync_key,
+    recv_completion_map = recv_completion_map,
  
     new_hole_key = #new_hole_key context
   }
@@ -1095,10 +1124,10 @@ TODO:
     new_chan_key = new_chan_key,
     chan_map = #chan_map context,
  
-    new_sync_send_key = #new_sync_send_key context,
+    new_send_sync_key = #new_send_sync_key context,
     send_completion_map = #send_completion_map context,
  
-    new_sync_recv_key = #new_sync_recv_key context,
+    new_recv_sync_key = #new_recv_sync_key context,
     recv_completion_map = #recv_completion_map context,
  
     new_hole_key = #new_hole_key context
@@ -1115,10 +1144,10 @@ TODO:
     new_chan_key = #new_chan_key context,
     chan_map = chan_map,
  
-    new_sync_send_key = #new_sync_send_key context,
+    new_send_sync_key = #new_send_sync_key context,
     send_completion_map = #send_completion_map context,
  
-    new_sync_recv_key = #new_sync_recv_key context,
+    new_recv_sync_key = #new_recv_sync_key context,
     recv_completion_map = #recv_completion_map context,
  
     new_hole_key = #new_hole_key context
@@ -1135,10 +1164,10 @@ TODO:
     new_chan_key = #new_chan_key context,
     chan_map = #chan_map context,
  
-    new_sync_send_key = #new_sync_send_key context,
+    new_send_sync_key = #new_send_sync_key context,
     send_completion_map = #send_completion_map context,
  
-    new_sync_recv_key = #new_sync_recv_key context,
+    new_recv_sync_key = #new_recv_sync_key context,
     recv_completion_map = #recv_completion_map context,
  
     new_hole_key = #new_hole_key context
@@ -1599,11 +1628,6 @@ TODO:
     )
   end)
 
-
-(*
-*)
-
-  (* val chan' = clean_chan running_set (chan, [waiting_send], []) *)
   fun clean_chan running_set (chan, new_sends, new_recvs) = (let
     val (waiting_sends, waiting_recvs) = chan
     val waiting_sends' = (List.foldl
@@ -1631,9 +1655,6 @@ TODO:
   in
     (waiting_sends', waiting_recvs')
   end)
-
-
-
 
   fun run_event_step global_context (event, thread_key, running_key, trail, event_stack) =
   (case event of
@@ -1752,31 +1773,36 @@ TODO:
       val waiting_send = (new_running_key, thread_key, trail, event_stack, msg)
       val chan' = clean_chan running_set (chan, [waiting_send], [])
       val (_, waiting_recvs) = chan'
-      (*
-      ** TODO **
-      val (new_threads, sync_config') =
+
+
+      val sync_context = (
+        #send_completion_map global_context,
+        #new_send_sync_key global_context,
+        #recv_completion_map global_context,
+        #new_recv_sync_key global_context
+      )
+
+      val (new_threads, sync_context') =
       (List.foldl  
-        (fn (waiting_recv, (new_threads, sync_config)) =>
+        (fn (waiting_recv, (new_threads, sync_context)) =>
         (let
-          val (synched_threads, sync_config') = (
+          val (synched_threads, sync_context') = (
             sync_send_recv
-            sync_config
+            sync_context
             (waiting_send, waiting_recv)
           )
         in
-          synched_threads @ new_threads
+          (synched_threads @ new_threads, sync_context')
         end)
         )
-        ([], sync_config)
+        ([], sync_context)
         waiting_recvs
       )
-      *)
+
+      val global_context' = set_sync_context (global_context, sync_context)
+
     in
-      ([], global_context)
-      (*
-      ** TODO **
-      (threads @ new_threads, global_config')
-      *)
+      (new_threads, global_context')
     end) |
 
     _ => (* TODO *) ([], global_context) 
@@ -1869,10 +1895,10 @@ TODO:
       new_chan_key = Chan_Key.zero,
       chan_map = Chan_Map.empty,
 
-      new_sync_send_key = Send_Sync_Key.zero,
+      new_send_sync_key = Send_Sync_Key.zero,
       send_completion_map = Send_Sync_Map.empty,
 
-      new_sync_recv_key = Recv_Sync_Key.zero,
+      new_recv_sync_key = Recv_Sync_Key.zero,
       recv_completion_map = Recv_Sync_Map.empty,
 
       new_hole_key = Hole_Key.zero
