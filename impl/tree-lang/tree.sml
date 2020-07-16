@@ -1173,20 +1173,20 @@ TODO:
     new_hole_key = #new_hole_key context
   }
 
-  fun eval_term_step (t, symbol_map, contin_stack, hole_key) = (case t of
+  fun eval_term_step global_context (t, symbol_map, contin_stack) = (case t of
 
-    _ => (* TODO *) raise (Fail "eval_term_step")
-    (*
     Value (v, _) => (case contin_stack of 
       [] => NONE |
       contin :: contin_stack' => (let
         val (t', symbol_map') = continue (v, contin)
+        val thread_snippet = (t', symbol_map', contin_stack')
       in
-        SOME (t', symbol_map', contin_stack', hole_key)
+        SOME (thread_snippet, global_context)
       end)
     ) |
 
-
+    _ => (* TODO *) raise (Fail "eval_term_step")
+    (*
 
     Assoc (t', pos) =>
     SOME (
@@ -1882,34 +1882,31 @@ TODO:
         SOME (threads' @ new_threads, global_context')
       end) |
 
-      _ => (* TODO *) NONE
-      (*
-
-
-
       (* eval term case *)
-      _ => (let
-        val result = eval_term_step (t, symbol_map, contin_stack, hole_key)
+      _ =>
+      (let
+        val result = eval_term_step global_context (t, symbol_map, term_stack)
 
-        val (new_threads, hole_key') =
+        val (new_threads, global_context') =
         (case result of
-          SOME (t', symbol_map', contin_stack', hole_key') => 
+          SOME ((t', symbol_map', term_stack'), global_context') => 
           (
-            [(thread_key, t', symbol_map', contin_stack', thread_mode)],
-            hole_key'
+            [(
+              t',
+              {
+                thread_key = thread_key,
+                symbol_map = symbol_map',
+                term_stack = term_stack',
+                thread_mode = thread_mode
+              }
+            )],
+            global_context'
           ) | 
-          NONE => ([], hole_key)
+          NONE => ([], global_context)
         )
-
-        val thread_config' = {
-          thread_key = thread_key, 
-          thread_list = threads' @ new_threads,
-          suspension_map = suspension_map 
-        }
       in
-        (thread_config', running_config, chan_config, sync_config, hole_key')
+        SOME (threads' @ new_threads, global_context')
       end)
-      *)
 
     )
   )
