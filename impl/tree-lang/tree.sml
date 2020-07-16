@@ -1679,33 +1679,36 @@ TODO:
       ([new_thread], global_context)
     end) |
 
+    Choose (evt_l, evt_r) =>
+    (let
+      val left_thread =
+      (
+        Value (Event evt_l, ~1),
+        {
+          thread_key = thread_key,
+          symbol_map = String_Map.empty,
+          term_stack = [],
+          thread_mode = Run_Event (Choose_Left :: trail, event_stack)
+        }
+      )
+
+      val right_thread =
+      (
+        Value (Event evt_r, ~1),
+        {
+          thread_key = thread_key,
+          symbol_map = String_Map.empty,
+          term_stack = [],
+          thread_mode = Run_Event (Choose_Right :: trail, event_stack)
+        }
+      )
+
+    in
+      ([left_thread, right_thread], global_context)
+    end) |
 
     _ => (* TODO *) ([], global_context) 
     (*
-
-
-    Choose (evt_l, evt_r) => (let
-      val new_threads = [
-        (
-          thread_key, Value (Effect evt_l, ~1),
-          String_Map.empty, [],
-          Run_Effect (Choose_Left :: trail, effect_stack)
-        ),
-        (
-          thread_key, Value (Effect evt_r, ~1),
-          String_Map.empty, [],
-          Run_Effect (Choose_Right :: trail, effect_stack)
-        )
-      ]
-    in
-      (
-        new_threads,
-        suspension_map,
-        running_config,
-        chan_config,
-        sync_config
-      )
-    end) |
 
     Send (chan_key, msg) => (let
       val chan_map = #chan_map chan_config
