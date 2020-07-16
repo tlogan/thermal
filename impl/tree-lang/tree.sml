@@ -178,7 +178,6 @@ struct
     thread_mode
   )
 
-
   type waiting_send = (
     Running_Key.ord_key *
     Thread_Key.ord_key *
@@ -400,6 +399,137 @@ struct
   in
     Int.toString i3
   end)
+
+
+  fun set_new_thread_key (context : global_context, new_thread_key) =
+  {
+    new_thread_key = new_thread_key,
+    suspension_map = #suspension_map context,
+ 
+    new_running_key = #new_running_key context, 
+    running_set = #running_set context, 
+ 
+    new_chan_key = #new_chan_key context,
+    chan_map = #chan_map context,
+ 
+    new_send_sync_key = #new_send_sync_key context,
+    send_completion_map = #send_completion_map context,
+ 
+    new_recv_sync_key = #new_recv_sync_key context,
+    recv_completion_map = #recv_completion_map context,
+ 
+    new_hole_key = #new_hole_key context
+  }
+
+
+  fun set_sync_context
+  (
+    context : global_context,
+    (
+      send_completion_map,
+      new_send_sync_key,
+      recv_completion_map,
+      new_recv_sync_key
+    )
+  ) =
+  {
+    new_thread_key = #new_thread_key context,
+    suspension_map = #suspension_map context,
+ 
+    new_running_key = #new_running_key context, 
+    running_set = #running_set context, 
+ 
+    new_chan_key = #new_chan_key context,
+    chan_map = #chan_map context,
+ 
+    new_send_sync_key = new_send_sync_key,
+    send_completion_map = send_completion_map,
+ 
+    new_recv_sync_key = new_recv_sync_key,
+    recv_completion_map = recv_completion_map,
+ 
+    new_hole_key = #new_hole_key context
+  }
+ 
+  fun set_new_chan_key (context : global_context, new_chan_key) =
+  {
+    new_thread_key = #new_thread_key context,
+    suspension_map = #suspension_map context,
+ 
+    new_running_key = #new_running_key context, 
+    running_set = #running_set context, 
+ 
+    new_chan_key = new_chan_key,
+    chan_map = #chan_map context,
+ 
+    new_send_sync_key = #new_send_sync_key context,
+    send_completion_map = #send_completion_map context,
+ 
+    new_recv_sync_key = #new_recv_sync_key context,
+    recv_completion_map = #recv_completion_map context,
+ 
+    new_hole_key = #new_hole_key context
+  }
+ 
+  fun set_chan_map (context : global_context, chan_map) =
+  {
+    new_thread_key = #new_thread_key context,
+    suspension_map = #suspension_map context,
+ 
+    new_running_key = #new_running_key context, 
+    running_set = #running_set context, 
+ 
+    new_chan_key = #new_chan_key context,
+    chan_map = chan_map,
+ 
+    new_send_sync_key = #new_send_sync_key context,
+    send_completion_map = #send_completion_map context,
+ 
+    new_recv_sync_key = #new_recv_sync_key context,
+    recv_completion_map = #recv_completion_map context,
+ 
+    new_hole_key = #new_hole_key context
+  }
+ 
+  fun set_new_running_key (context : global_context, new_running_key) =
+  {
+    new_thread_key = #new_thread_key context,
+    suspension_map = #suspension_map context,
+ 
+    new_running_key = new_running_key, 
+    running_set = #running_set context, 
+ 
+    new_chan_key = #new_chan_key context,
+    chan_map = #chan_map context,
+ 
+    new_send_sync_key = #new_send_sync_key context,
+    send_completion_map = #send_completion_map context,
+ 
+    new_recv_sync_key = #new_recv_sync_key context,
+    recv_completion_map = #recv_completion_map context,
+ 
+    new_hole_key = #new_hole_key context
+  }
+
+  fun set_new_hole_key (context : global_context, new_hole_key) =
+  {
+    new_thread_key = #new_thread_key context,
+    suspension_map = #suspension_map context,
+ 
+    new_running_key = #new_running_key context, 
+    running_set = #running_set context, 
+ 
+    new_chan_key = #new_chan_key context,
+    chan_map = #chan_map context,
+ 
+    new_send_sync_key = #new_send_sync_key context,
+    send_completion_map = #send_completion_map context,
+ 
+    new_recv_sync_key = #new_recv_sync_key context,
+    recv_completion_map = #recv_completion_map context,
+ 
+    new_hole_key = new_hole_key
+  }
 
 
   fun values_equal (v_a, v_b) =
@@ -795,7 +925,6 @@ TODO:
 
       SOME (t_body, symbol_map'''') =>
       (t_body, symbol_map'''')
-
     )
   end)
 
@@ -926,70 +1055,65 @@ TODO:
   )
 
 
-  fun reduce_single (
-    t, norm_f, reduce_f,
-    symbol_map,
-    contin_stack,
-    hole_key
-  ) = (case t of
-
+  fun reduce_single global_context
+  (
+    t : term,
+    norm_f,
+    reduce_f,
+    symbol_map : (infix_option * value) String_Map.map,
+    contin_stack : contin list
+  ) =
+  (case t of
     (Id (id, _)) =>
     (case (String_Map.find (symbol_map, id)) of
       SOME (NONE, v) =>
       (
-        Value (reduce_f v, ~1),
-        symbol_map,
-        contin_stack,
-        hole_key
+        (Value (reduce_f v, ~1), symbol_map, contin_stack),
+        global_context
       ) |
 
       _  =>
       (
-        Value (Error ("reduce single variable " ^ id ^ " cannot be resolved"), ~1),
-        symbol_map,
-        contin_stack,
-        hole_key
+        (
+          Value (Error ("reduce single variable " ^ id ^ " cannot be resolved"), ~1),
+          symbol_map,
+          contin_stack
+        ),
+        global_context 
       )
-
     ) |
 
     Value (v, pos) =>
     (case (reduce_f v) of
       Error msg =>
       (
-        Value (Error msg, pos), 
-        symbol_map,
-        contin_stack,
-        hole_key
+        (Value (Error msg, pos), symbol_map, contin_stack),
+        global_context 
       ) |
 
       result =>
       (
-        Value (result, pos),
-        symbol_map,
-        contin_stack,
-        hole_key
+        (Value (result, pos), symbol_map, contin_stack),
+        global_context 
       )
 
     ) |
 
     _ =>
     (let
+      val new_hole_key = #new_hole_key global_context
       val contin = (
         Contin_Norm,
-        [( hole hole_key, norm_f (hole hole_key) )],
+        [( hole new_hole_key, norm_f (hole new_hole_key) )],
         symbol_map,
-        []
+        String_Map.empty 
       )
     in
       (
-        t,
-        symbol_map,
-        contin :: contin_stack,
-        Hole_Key.inc hole_key
+        (t, symbol_map, contin :: contin_stack),
+        set_new_hole_key (global_context, Hole_Key.inc new_hole_key)
       )
     end)
-
   )
 
   fun reduce_list
@@ -1063,117 +1187,14 @@ TODO:
     loop ([], ts)
   end)
 
-  fun set_new_thread_key (context : global_context, new_thread_key) =
-  {
-    new_thread_key = new_thread_key,
-    suspension_map = #suspension_map context,
- 
-    new_running_key = #new_running_key context, 
-    running_set = #running_set context, 
- 
-    new_chan_key = #new_chan_key context,
-    chan_map = #chan_map context,
- 
-    new_send_sync_key = #new_send_sync_key context,
-    send_completion_map = #send_completion_map context,
- 
-    new_recv_sync_key = #new_recv_sync_key context,
-    recv_completion_map = #recv_completion_map context,
- 
-    new_hole_key = #new_hole_key context
-  }
 
-
-  fun set_sync_context
+  fun eval_term_step global_context
   (
-    context : global_context,
-    (
-      send_completion_map,
-      new_send_sync_key,
-      recv_completion_map,
-      new_recv_sync_key
-    )
+    t,
+    symbol_map : (infix_option * value) String_Map.map,
+    contin_stack
   ) =
-  {
-    new_thread_key = #new_thread_key context,
-    suspension_map = #suspension_map context,
- 
-    new_running_key = #new_running_key context, 
-    running_set = #running_set context, 
- 
-    new_chan_key = #new_chan_key context,
-    chan_map = #chan_map context,
- 
-    new_send_sync_key = new_send_sync_key,
-    send_completion_map = send_completion_map,
- 
-    new_recv_sync_key = new_recv_sync_key,
-    recv_completion_map = recv_completion_map,
- 
-    new_hole_key = #new_hole_key context
-  }
- 
-  fun set_new_chan_key (context : global_context, new_chan_key) =
-  {
-    new_thread_key = #new_thread_key context,
-    suspension_map = #suspension_map context,
- 
-    new_running_key = #new_running_key context, 
-    running_set = #running_set context, 
- 
-    new_chan_key = new_chan_key,
-    chan_map = #chan_map context,
- 
-    new_send_sync_key = #new_send_sync_key context,
-    send_completion_map = #send_completion_map context,
- 
-    new_recv_sync_key = #new_recv_sync_key context,
-    recv_completion_map = #recv_completion_map context,
- 
-    new_hole_key = #new_hole_key context
-  }
- 
-  fun set_chan_map (context : global_context, chan_map) =
-  {
-    new_thread_key = #new_thread_key context,
-    suspension_map = #suspension_map context,
- 
-    new_running_key = #new_running_key context, 
-    running_set = #running_set context, 
- 
-    new_chan_key = #new_chan_key context,
-    chan_map = chan_map,
- 
-    new_send_sync_key = #new_send_sync_key context,
-    send_completion_map = #send_completion_map context,
- 
-    new_recv_sync_key = #new_recv_sync_key context,
-    recv_completion_map = #recv_completion_map context,
- 
-    new_hole_key = #new_hole_key context
-  }
- 
-  fun set_new_running_key (context : global_context, new_running_key) =
-  {
-    new_thread_key = #new_thread_key context,
-    suspension_map = #suspension_map context,
- 
-    new_running_key = new_running_key, 
-    running_set = #running_set context, 
- 
-    new_chan_key = #new_chan_key context,
-    chan_map = #chan_map context,
- 
-    new_send_sync_key = #new_send_sync_key context,
-    send_completion_map = #send_completion_map context,
- 
-    new_recv_sync_key = #new_recv_sync_key context,
-    recv_completion_map = #recv_completion_map context,
- 
-    new_hole_key = #new_hole_key context
-  }
-
-  fun eval_term_step global_context (t, symbol_map, contin_stack) = (case t of
+  (case t of
 
     Value (v, _) => (case contin_stack of 
       [] => NONE |
@@ -1185,15 +1206,14 @@ TODO:
       end)
     ) |
 
-    _ => (* TODO *) raise (Fail "eval_term_step")
-    (*
-
-    Assoc (t', pos) =>
-    SOME (
-      t', symbol_map, contin_stack, hole_key
+    Assoc (t', pos) => SOME
+    (
+      (t', symbol_map, contin_stack),
+      global_context 
     ) |
 
-    Log (t', pos) => SOME (reduce_single (
+    Log (t', pos) =>
+    SOME (reduce_single global_context (
       t',
       fn t => Log (t, pos),
       fn v => (
@@ -1201,9 +1221,12 @@ TODO:
         v
       ),
       symbol_map,
-      contin_stack,
-      hole_key
+      contin_stack
     )) | 
+
+    _ => (* TODO *) raise (Fail "eval_term_step")
+    (*
+
 
     Id (id, pos) =>
     (case (String_Map.find (symbol_map, id)) of
