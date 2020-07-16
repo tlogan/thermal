@@ -137,8 +137,11 @@ struct
     Choose of event * event
 
   datatype contin_mode =
-    Contin_With | Contin_Norm | Contin_App |
-    Contin_Bind
+    Contin_With |
+    Contin_Norm |
+    Contin_App |
+    Contin_Bind |
+    Contin_Latch
 
   type contin = (
     contin_mode * 
@@ -1624,8 +1627,8 @@ TODO:
 
     Abort => ([], global_context) |
 
-    Alloc_Chan => (let
-
+    Alloc_Chan =>
+    (let
       val new_chan = ([], [])    
       val new_chan_key = #new_chan_key global_context
       val chan_map = #chan_map global_context
@@ -1651,35 +1654,35 @@ TODO:
           thread_mode = Run_Event (trail, event_stack)
         }
       )
-
     in
       ([new_thread], global_context')
     end) |
 
+    Latch (event', lams, fnc_store, mutual_map) =>
+    (let
+      val new_thread = 
+      (
+        Value (Event event', ~1),
+        {
+          thread_key = thread_key,
+          symbol_map = String_Map.empty,
+          term_stack = [],
+          thread_mode = Run_Event
+          (
+            trail,
+            (Contin_Latch, lams, fnc_store, mutual_map) ::
+            event_stack
+          )
+        }
+      )
+    in
+      ([new_thread], global_context)
+    end) |
+
+
     _ => (* TODO *) ([], global_context) 
     (*
 
-      
-    Latch (event', contin) =>
-    (let
-      val contin_stack' = contin :: contin_stack
-
-      val new_threads = [(
-        thread_key,
-        Value (Event event', ~1),
-        String_Map.empty,
-        [],
-        Run_Effect (trail, contin_stack') 
-      )]
-    in
-      (
-        new_threads,
-        suspension_map,
-        running_config,
-        chan_config,
-        sync_config
-      )
-    end) |
 
     Choose (evt_l, evt_r) => (let
       val new_threads = [
