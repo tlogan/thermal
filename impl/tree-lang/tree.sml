@@ -1762,15 +1762,15 @@ TODO:
       ([left_thread, right_thread], global_context)
     end) |
 
-    Send (chan_key, msg) => (let
+    Send (chan_key, msg) =>
+    (let
       val chan_map = #chan_map global_context 
       (* Expectation: chan_key certainly exists in chan_map; raise exception otherwise *)
       val chan = Chan_Map.lookup (chan_map, chan_key)
 
       val running_set = #running_set global_context 
-      val new_running_key = #new_running_key global_context 
 
-      val waiting_send = (new_running_key, thread_key, trail, event_stack, msg)
+      val waiting_send = (running_key, thread_key, trail, event_stack, msg)
       val chan' = clean_chan running_set (chan, [waiting_send], [])
       val (_, waiting_recvs) = chan'
 
@@ -1800,16 +1800,57 @@ TODO:
       )
 
       val global_context' = set_sync_context (global_context, sync_context)
+      val chan_map' = Chan_Map.insert (chan_map, chan_key, chan')
+      val global_context' = set_chan_map (global_context', chan_map')
 
     in
       (new_threads, global_context')
     end) |
 
-    _ => (* TODO *) ([], global_context) 
-    (*
-
     Recv chan_key =>
-    *)
+    (let
+      val chan_map = #chan_map global_context 
+      (* Expectation: chan_key certainly exists in chan_map; raise exception otherwise *)
+      val chan = Chan_Map.lookup (chan_map, chan_key)
+
+      val running_set = #running_set global_context 
+
+      val waiting_recv = (running_key, thread_key, trail, event_stack)
+      val chan' = clean_chan running_set (chan, [], [waiting_recv])
+      val (waiting_sends, _) = chan'
+
+
+      val sync_context = (
+        #send_completion_map global_context,
+        #new_send_sync_key global_context,
+        #recv_completion_map global_context,
+        #new_recv_sync_key global_context
+      )
+
+      val (new_threads, sync_context') =
+      (List.foldl  
+        (fn (waiting_send, (new_threads, sync_context)) =>
+        (let
+          val (synched_threads, sync_context') = (
+            sync_send_recv
+            sync_context
+            (waiting_send, waiting_recv)
+          )
+        in
+          (synched_threads @ new_threads, sync_context')
+        end)
+        )
+        ([], sync_context)
+        waiting_sends
+      )
+
+      val global_context' = set_sync_context (global_context, sync_context)
+      val chan_map' = Chan_Map.insert (chan_map, chan_key, chan')
+      val global_context' = set_chan_map (global_context', chan_map')
+
+    in
+      (new_threads, global_context')
+    end)
   )
 
   fun concur_step global_context threads =
