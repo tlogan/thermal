@@ -11,11 +11,11 @@ struct
   structure Chan_Key = Key_Fn (val tag = "chan")
   structure Chan_Map = RedBlackMapFn (Chan_Key)
 
-  structure Sync_Send_Key = Key_Fn (val tag = "sync_send")
-  structure Sync_Send_Map = RedBlackMapFn (Sync_Send_Key)
+  structure Send_Sync_Key = Key_Fn (val tag = "sync_send")
+  structure Send_Sync_Map = RedBlackMapFn (Send_Sync_Key)
 
-  structure Sync_Recv_Key = Key_Fn (val tag = "sync_recv")
-  structure Sync_Recv_Map = RedBlackMapFn (Sync_Recv_Key)
+  structure Recv_Sync_Key = Key_Fn (val tag = "sync_recv")
+  structure Recv_Sync_Map = RedBlackMapFn (Recv_Sync_Key)
 
   structure Hole_Key = Key_Fn (val tag = "_g")
 
@@ -153,17 +153,17 @@ struct
   datatype past_event =  
     Choose_Left |
     Choose_Right |
-    Sync_Send of (
+    Send_Sync of (
       Thread_Key.ord_key *
       past_event list *
-      Sync_Send_Key.ord_key *
-      Sync_Recv_Key.ord_key
+      Send_Sync_Key.ord_key *
+      Recv_Sync_Key.ord_key
     ) |
-    Sync_Recv of (
+    Recv_Sync of (
       Thread_Key.ord_key *
       past_event list *
-      Sync_Recv_Key.ord_key *
-      Sync_Send_Key.ord_key
+      Recv_Sync_Key.ord_key *
+      Send_Sync_Key.ord_key
     )
 
   datatype thread_mode =
@@ -209,11 +209,11 @@ struct
     new_chan_key : Chan_Key.ord_key,
     chan_map : channel Chan_Map.map,
 
-    new_sync_send_key : Sync_Send_Key.ord_key,
-    send_completion_map : (history list) Sync_Send_Map.map,
+    new_sync_send_key : Send_Sync_Key.ord_key,
+    send_completion_map : (history list) Send_Sync_Map.map,
 
-    new_sync_recv_key : Sync_Recv_Key.ord_key,
-    recv_completion_map : (history list) Sync_Recv_Map.map,
+    new_sync_recv_key : Recv_Sync_Key.ord_key,
+    recv_completion_map : (history list) Recv_Sync_Map.map,
 
     new_hole_key : Hole_Key.ord_key
   }
@@ -1423,15 +1423,20 @@ TODO:
   )
 
 
-(*
 
-  fun sync_send_recv sync_config (waiting_send, waiting_recv)  = (let
+  fun sync_send_recv (
+    send_completion_map,
+    new_send_sync_key,
+    recv_completion_map,
+    new_recv_sync_key
+  ) (waiting_send, waiting_recv) =
+  (let
 
     val (
       send_running_key,
       send_thread_key,
       send_trail,
-      send_contin,
+      send_stack,
       send_msg 
     ) = waiting_send 
 
@@ -1439,74 +1444,77 @@ TODO:
       recv_running_key,
       recv_thread_key,
       recv_trail,
-      recv_contin
+      recv_stack
     ) = waiting_recv 
 
-    val send_completion_map = #send_completion_map sync_config
-    val send_sync_key = #send_sync_key sync_config
-    val send_completion_map' = Send_Sync_Map.insert (
-      send_completion_map, send_sync_key, []
-    ) 
-    val send_sync_key' = Send_Sync_Key.inc send_sync_key
-
-    val recv_completion_map = #recv_completion_map sync_config
-    val recv_sync_key = #recv_sync_key sync_config
-    val recv_completion_map' = Recv_Sync_Map.insert (
-      recv_completion_map, recv_sync_key, []
-    ) 
-    val recv_sync_key' = Recv_Sync_Key.inc recv_sync_key
-
-    val sync_config' = {
-      send_completion_map = send_completion_map',
-      send_sync_key = send_sync_key',
-
-      recv_completion_map = recv_completion_map',
-      recv_sync_key = recv_sync_key'
-    }
-
-
-    val send_head = Sync_Recv (
+    val send_head = Recv_Sync (
       recv_thread_key,
       recv_trail,
-      recv_completion_key,
-      send_completion_key
+      new_recv_sync_key,
+      new_send_sync_key
     ) 
     
-    val recv_head = Sync_Send (
+    val recv_head = Send_Sync (
       send_thread_key,
       send_trail,
-      send_completion_key,
-      recv_completion_key
+      new_send_sync_key,
+      new_recv_sync_key
     ) 
 
+    val send_completion_map' = Send_Sync_Map.insert (
+      send_completion_map, new_send_sync_key, []
+    ) 
+    val new_send_sync_key' = Send_Sync_Key.inc new_send_sync_key
 
-    val send_thread = (
-      send_thread_key,
+    val recv_completion_map' = Recv_Sync_Map.insert (
+      recv_completion_map, new_recv_sync_key, []
+    ) 
+    val new_recv_sync_key' = Recv_Sync_Key.inc new_recv_sync_key
+
+    (*
+
+    val send_thread =
+    (
       Value (Event (Offer Blank), ~1),
-      String_Map.empty,
-      [],
-      Run_Effect (
-        send_running_key, send_head :: send_trail, send_contin
-      )
+      {
+        thread_key = send_thread_key,
+        symbol_map = String_Map.empty,
+        term_stack = [],
+        Run_Event (
+          send_running_key, send_head :: send_trail, send_contin
+        )
+      }
     )
 
-    val recv_thread = (
-      recv_thread_key,
+    val recv_thread =
+    (
       Value (Event (Offer msg), ~1),
-      String_Map.empty,
-      [],
-      Run_Effect (
-        recv_running_key, recv_head :: recv_trail, recv_contin
-      )
+      {
+        thread_key = recv_thread_key,
+        symbol_map = String_Map.empty,
+        term_stack = [],
+        thread_mode = Run_Event (
+          recv_running_key, recv_head :: recv_trail, recv_contin
+        )
+      }
     )
-
-    val new_threads = [send_thread, recv_thread]
+    *)
 
   in
-    (new_threads, sync_config')
+    (* TODO *)
+    (
+      [],
+      (
+        send_completion_map,
+        new_send_sync_key,
+        recv_completion_map,
+        new_recv_sync_key
+      )
+    )
   end)
 
 
+(*
 *)
 
   (* val chan' = clean_chan running_set (chan, [waiting_send], []) *)
@@ -1719,9 +1727,9 @@ TODO:
 
       val waiting_send = (new_running_key, thread_key, trail, event_stack, msg)
       val chan' = clean_chan running_set (chan, [waiting_send], [])
+      val (_, waiting_recvs) = chan'
       (*
       ** TODO **
-      val (_, waiting_recvs) = chan'
       val (new_threads, sync_config') =
       (List.foldl  
         (fn (waiting_recv, (new_threads, sync_config)) =>
@@ -1839,11 +1847,11 @@ TODO:
       new_chan_key = Chan_Key.zero,
       chan_map = Chan_Map.empty,
 
-      new_sync_send_key = Sync_Send_Key.zero,
-      send_completion_map = Sync_Send_Map.empty,
+      new_sync_send_key = Send_Sync_Key.zero,
+      send_completion_map = Send_Sync_Map.empty,
 
-      new_sync_recv_key = Sync_Recv_Key.zero,
-      recv_completion_map = Sync_Recv_Map.empty,
+      new_sync_recv_key = Recv_Sync_Key.zero,
+      recv_completion_map = Recv_Sync_Map.empty,
 
       new_hole_key = Hole_Key.zero
     }
