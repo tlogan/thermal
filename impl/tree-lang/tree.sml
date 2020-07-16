@@ -168,7 +168,7 @@ struct
 
   datatype thread_mode =
     Exec_Effect of contin list | 
-    Run_Event of past_event list * contin list
+    Run_Event of Running_Key.ord_key * past_event list * contin list
 
   type thread = (
     Thread_Key.ord_key *
@@ -1062,7 +1062,87 @@ TODO:
   in
     loop ([], ts)
   end)
-  
+
+
+  fun set_new_thread_key (context : global_context, new_thread_key) =
+  {
+    new_thread_key = new_thread_key,
+    suspension_map = #suspension_map context,
+ 
+    new_running_key = #new_running_key context, 
+    running_set = #running_set context, 
+ 
+    new_chan_key = #new_chan_key context,
+    chan_map = #chan_map context,
+ 
+    new_sync_send_key = #new_sync_send_key context,
+    send_completion_map = #send_completion_map context,
+ 
+    new_sync_recv_key = #new_sync_recv_key context,
+    recv_completion_map = #recv_completion_map context,
+ 
+    new_hole_key = #new_hole_key context
+  }
+ 
+  fun set_new_chan_key (context : global_context, new_chan_key) =
+  {
+    new_thread_key = #new_thread_key context,
+    suspension_map = #suspension_map context,
+ 
+    new_running_key = #new_running_key context, 
+    running_set = #running_set context, 
+ 
+    new_chan_key = new_chan_key,
+    chan_map = #chan_map context,
+ 
+    new_sync_send_key = #new_sync_send_key context,
+    send_completion_map = #send_completion_map context,
+ 
+    new_sync_recv_key = #new_sync_recv_key context,
+    recv_completion_map = #recv_completion_map context,
+ 
+    new_hole_key = #new_hole_key context
+  }
+ 
+  fun set_chan_map (context : global_context, chan_map) =
+  {
+    new_thread_key = #new_thread_key context,
+    suspension_map = #suspension_map context,
+ 
+    new_running_key = #new_running_key context, 
+    running_set = #running_set context, 
+ 
+    new_chan_key = #new_chan_key context,
+    chan_map = chan_map,
+ 
+    new_sync_send_key = #new_sync_send_key context,
+    send_completion_map = #send_completion_map context,
+ 
+    new_sync_recv_key = #new_sync_recv_key context,
+    recv_completion_map = #recv_completion_map context,
+ 
+    new_hole_key = #new_hole_key context
+  }
+ 
+  fun set_new_running_key (context : global_context, new_running_key) =
+  {
+    new_thread_key = #new_thread_key context,
+    suspension_map = #suspension_map context,
+ 
+    new_running_key = new_running_key, 
+    running_set = #running_set context, 
+ 
+    new_chan_key = #new_chan_key context,
+    chan_map = #chan_map context,
+ 
+    new_sync_send_key = #new_sync_send_key context,
+    send_completion_map = #send_completion_map context,
+ 
+    new_sync_recv_key = #new_sync_recv_key context,
+    recv_completion_map = #recv_completion_map context,
+ 
+    new_hole_key = #new_hole_key context
+  }
 
   fun eval_term_step (t, symbol_map, contin_stack, hole_key) = (case t of
 
@@ -1320,7 +1400,7 @@ TODO:
   )
 
 
-  fun exec_effect_step new_thread_key (effect, thread_key, effect_stack) =
+  fun exec_effect_step global_context (effect, thread_key, effect_stack) =
   (case effect of
     Return v =>
     (case effect_stack of
@@ -1337,7 +1417,7 @@ TODO:
           }
         )
       in
-        ([new_thread], new_thread_key)
+        ([new_thread], global_context)
       end) |
 
       contin :: contin_stack =>
@@ -1355,7 +1435,7 @@ TODO:
           }
         )
       in
-        ([new_thread], new_thread_key)
+        ([new_thread], global_context)
       end)
     ) |
 
@@ -1376,7 +1456,7 @@ TODO:
         }
       )
     in
-      ([new_thread], new_thread_key)
+      ([new_thread], global_context)
     end) |
 
     Exec effect' => (let
@@ -1391,21 +1471,27 @@ TODO:
         }
       )
 
+      val new_thread_key = #new_thread_key global_context
       val child_thread = 
       (
         Value (Effect effect', ~1),
         {
-          thread_key = thread_key,
+          thread_key = new_thread_key,
           symbol_map = String_Map.empty,
           term_stack = [],
           thread_mode = Exec_Effect [] 
         }
       )
+
+      val global_context' = set_new_thread_key (global_context, Thread_Key.inc new_thread_key) 
+      
     in
-      ([parent_thread, child_thread], Thread_Key.inc new_thread_key)
+      ([parent_thread, child_thread], global_context')
     end) |
 
+
     Run evt => (let
+      val new_running_key = #new_running_key global_context
       val new_thread =
       (
         Value (Event evt, ~1),
@@ -1413,11 +1499,13 @@ TODO:
           thread_key = thread_key,
           symbol_map = String_Map.empty,
           term_stack = [],
-          thread_mode = Run_Event ([], [])
+          thread_mode = Run_Event (new_running_key, [], [])
         }
       )
+
+      val global_context' = set_new_running_key (global_context, Running_Key.inc new_running_key) 
     in
-      ([new_thread], new_thread_key)
+      ([new_thread], global_context')
     end)
 
   )
@@ -1461,6 +1549,33 @@ TODO:
       new_recv_sync_key
     ) 
 
+    val send_thread =
+    (
+      Value (Event (Offer Blank), ~1),
+      {
+        thread_key = send_thread_key,
+        symbol_map = String_Map.empty,
+        term_stack = [],
+        thread_mode = Run_Event (
+          send_running_key, send_head :: send_trail, send_stack
+        )
+      }
+    )
+
+    val recv_thread =
+    (
+      Value (Event (Offer send_msg), ~1),
+      {
+        thread_key = recv_thread_key,
+        symbol_map = String_Map.empty,
+        term_stack = [],
+        thread_mode = Run_Event (
+          recv_running_key, recv_head :: recv_trail, recv_stack
+        )
+      }
+    )
+
+
     val send_completion_map' = Send_Sync_Map.insert (
       send_completion_map, new_send_sync_key, []
     ) 
@@ -1471,44 +1586,16 @@ TODO:
     ) 
     val new_recv_sync_key' = Recv_Sync_Key.inc new_recv_sync_key
 
-    (*
-
-    val send_thread =
-    (
-      Value (Event (Offer Blank), ~1),
-      {
-        thread_key = send_thread_key,
-        symbol_map = String_Map.empty,
-        term_stack = [],
-        Run_Event (
-          send_running_key, send_head :: send_trail, send_contin
-        )
-      }
-    )
-
-    val recv_thread =
-    (
-      Value (Event (Offer msg), ~1),
-      {
-        thread_key = recv_thread_key,
-        symbol_map = String_Map.empty,
-        term_stack = [],
-        thread_mode = Run_Event (
-          recv_running_key, recv_head :: recv_trail, recv_contin
-        )
-      }
-    )
-    *)
 
   in
     (* TODO *)
     (
-      [],
+      [send_thread, recv_thread],
       (
-        send_completion_map,
-        new_send_sync_key,
-        recv_completion_map,
-        new_recv_sync_key
+        send_completion_map',
+        new_send_sync_key',
+        recv_completion_map',
+        new_recv_sync_key'
       )
     )
   end)
@@ -1547,71 +1634,9 @@ TODO:
   end)
 
 
-   fun set_new_thread_key (context : global_context, new_thread_key) =
-   {
-     new_thread_key = new_thread_key,
-     suspension_map = #suspension_map context,
-
-     new_running_key = #new_running_key context, 
-     running_set = #running_set context, 
-
-     new_chan_key = #new_chan_key context,
-     chan_map = #chan_map context,
-
-     new_sync_send_key = #new_sync_send_key context,
-     send_completion_map = #send_completion_map context,
-
-     new_sync_recv_key = #new_sync_recv_key context,
-     recv_completion_map = #recv_completion_map context,
-
-     new_hole_key = #new_hole_key context
-   }
-
-   fun set_new_chan_key (context : global_context, new_chan_key) =
-   {
-     new_thread_key = #new_thread_key context,
-     suspension_map = #suspension_map context,
-
-     new_running_key = #new_running_key context, 
-     running_set = #running_set context, 
-
-     new_chan_key = new_chan_key,
-     chan_map = #chan_map context,
-
-     new_sync_send_key = #new_sync_send_key context,
-     send_completion_map = #send_completion_map context,
-
-     new_sync_recv_key = #new_sync_recv_key context,
-     recv_completion_map = #recv_completion_map context,
-
-     new_hole_key = #new_hole_key context
-   }
-
-   fun set_chan_map (context : global_context, chan_map) =
-   {
-     new_thread_key = #new_thread_key context,
-     suspension_map = #suspension_map context,
-
-     new_running_key = #new_running_key context, 
-     running_set = #running_set context, 
-
-     new_chan_key = #new_chan_key context,
-     chan_map = chan_map,
-
-     new_sync_send_key = #new_sync_send_key context,
-     send_completion_map = #send_completion_map context,
-
-     new_sync_recv_key = #new_sync_recv_key context,
-     recv_completion_map = #recv_completion_map context,
-
-     new_hole_key = #new_hole_key context
-   }
 
 
-
-
-
-  fun run_event_step global_context (event, thread_key, trail, event_stack) =
+  fun run_event_step global_context (event, thread_key, running_key, trail, event_stack) =
   (case event of
     Offer v =>
     (case event_stack of
@@ -1626,14 +1651,13 @@ TODO:
             thread_key = thread_key,
             symbol_map = symbol_map,
             term_stack = [],
-            thread_mode = Run_Event (trail, contin_stack)
+            thread_mode = Run_Event (running_key, trail, contin_stack)
           }
         )
       in
         ([new_thread], global_context)
       end)
     ) |
-
 
     Abort => ([], global_context) |
 
@@ -1661,7 +1685,7 @@ TODO:
           thread_key = thread_key,
           symbol_map = String_Map.empty,
           term_stack = [],
-          thread_mode = Run_Event (trail, event_stack)
+          thread_mode = Run_Event (running_key, trail, event_stack)
         }
       )
     in
@@ -1679,6 +1703,7 @@ TODO:
           term_stack = [],
           thread_mode = Run_Event
           (
+            running_key,
             trail,
             (Contin_Latch, lams, fnc_store, mutual_map) ::
             event_stack
@@ -1698,7 +1723,7 @@ TODO:
           thread_key = thread_key,
           symbol_map = String_Map.empty,
           term_stack = [],
-          thread_mode = Run_Event (Choose_Left :: trail, event_stack)
+          thread_mode = Run_Event (running_key, Choose_Left :: trail, event_stack)
         }
       )
 
@@ -1709,7 +1734,7 @@ TODO:
           thread_key = thread_key,
           symbol_map = String_Map.empty,
           term_stack = [],
-          thread_mode = Run_Event (Choose_Right :: trail, event_stack)
+          thread_mode = Run_Event (running_key, Choose_Right :: trail, event_stack)
         }
       )
 
@@ -1770,24 +1795,22 @@ TODO:
       (* exec effect case *)
       (Value (Effect effect, _), [], Exec_Effect effect_stack) =>
       (let
-        val (new_threads, new_thread_key') = (
+        val (new_threads, global_context') = (
           exec_effect_step
-          (#new_thread_key global_context)
+          global_context
           (effect, thread_key, effect_stack)
         )
-
-        val global_context' = set_new_thread_key (global_context, new_thread_key') 
 
       in
         SOME (threads @ new_threads, global_context')
       end) |
 
       (* run event case *)
-      (Value (Event event, _), [], Run_Event (trail, event_stack)) => (let
+      (Value (Event event, _), [], Run_Event (running_key, trail, event_stack)) => (let
         val (new_threads, global_context') = (
           run_event_step
           global_context
-          (event, thread_key, trail, event_stack)
+          (event, thread_key, running_key, trail, event_stack)
         )
       in
         SOME (threads' @ new_threads, global_context')
