@@ -1588,7 +1588,6 @@ TODO:
 
 
   in
-    (* TODO *)
     (
       [send_thread, recv_thread],
       (
