@@ -1378,29 +1378,26 @@ TODO:
       )
     end) |
 
-    _ => (* TODO *) raise (Fail "eval_term_step")
-    (*
-    
     Intro_Mutual_Rec (fields, pos) => (let
       val ts = (map (fn (k, (fix_op, t)) => t) fields)
 
-      fun f con ts = (let
-        val fields' = (List.map
-          (fn ((key, (fix_op, _)), t) => (key, (fix_op, t)))
-          (ListPair.zip (fields, ts))
-        )
-      in
-        con (fields',  pos)
-      end)
-
-
+      fun map_to_fields ts =
+      (List.map
+        (fn ((key, (fix_op, _)), t) => (key, (fix_op, t)))
+        (ListPair.zip (fields, ts))
+      )
     in
-      SOME (reduce_list (
-        ts, f Intro_Mutual_Rec, f Rec_Val, 
-        symbol_map, contin_stack,
-        hole_key
+      SOME (reduce_list global_context (
+        ts,
+        fn ts => Intro_Mutual_Rec (map_to_fields ts, pos),
+        fn vs => Rec (map_to_fields vs),
+        symbol_map, contin_stack
       ))
     end) |
+
+    _ => (* TODO *) raise (Fail "eval_term_step")
+    (*
+    
 
     Select (t, pos) => SOME (reduce_single (
       t,
