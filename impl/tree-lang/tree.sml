@@ -1315,24 +1315,38 @@ TODO:
       global_context
     ) |
 
+
+    App (t_fn, t_arg, pos) =>
+    SOME (apply global_context (
+      t_fn, t_arg, pos,
+      symbol_map, contin_stack
+    )) |
+
+    With (t1, t2, _) =>
+    (let
+      val contin =
+      (
+        Contin_With,
+        [(Value (Blank, ~1), t2)],
+        symbol_map,
+        String_Map.empty
+      )
+    in
+      SOME (
+        (
+          t1,
+          symbol_map,
+          contin :: contin_stack
+        ),
+        global_context
+      )
+    end) |
+
     _ => (* TODO *) raise (Fail "eval_term_step")
     (*
 
 
-    App (t_fn, t_arg, pos) =>
-    apply global_context (
-      t_fn, t_arg, pos,
-      symbol_map, contin_stack
-    ) |
 
-
-    With (t1, t2, _) =>
-    (
-      t1,
-      symbol_map,
-      SOME (Contin_With, [(hole hole_key, t2)], symbol_map, []),
-      Hole_Key.inc hole_key
-    ) |
 
     Intro_Rec (fields, pos) =>
     (let
