@@ -1116,11 +1116,21 @@ TODO:
     end)
   )
 
-  fun reduce_list
+(*
+    t : term,
+    norm_f,
+    reduce_f,
+    symbol_map : (infix_option * value) String_Map.map,
+    contin_stack : contin list
+*)
+
+  fun reduce_list global_context
   (
-    ts, norm_f, reduce_f,
-    symbol_map, contin_stack,
-    hole_key
+    ts : term list,
+    norm_f,
+    reduce_f,
+    symbol_map : (infix_option * value) String_Map.map,
+    contin_stack : contin list
   ) =
   (let
     fun loop (prefix, postfix) =
@@ -1129,17 +1139,14 @@ TODO:
       (case (reduce_f prefix) of 
         Error msg =>
         (
-          Value (Error msg, ~1), 
-          symbol_map, contin_stack,
-          hole_key
+          (Value (Error msg, ~1), symbol_map, contin_stack),
+          global_context 
         ) |
 
         v =>
         (
-          Value (v, ~1),
-          symbol_map,
-          contin_stack,
-          hole_key
+          (Value (v, ~1), symbol_map, contin_stack),
+          global_context 
         )
 
       ) |
@@ -1148,9 +1155,12 @@ TODO:
       (case (String_Map.find (symbol_map, id)) of
         SOME (NONE, v) => loop (prefix @ [v], xs) |
         _ => (
-          Value (Error ("reduce list variable " ^ id ^ " cannot be resolved"), ~1),
-          symbol_map, contin_stack,
-          hole_key
+          (
+            Value (Error ("reduce list variable " ^ id ^ " cannot be resolved"), ~1),
+            symbol_map,
+            contin_stack
+          ),
+          global_context 
         )
 
       ) |
@@ -1159,25 +1169,25 @@ TODO:
 
       x :: xs =>
       (let
+        val new_hole_key = #new_hole_key global_context
         val contin =
         (
           Contin_Norm,
           [(
-            hole hole_key,
+            hole new_hole_key,
             norm_f (
               (map (fn v => Value (v, ~1)) prefix) @
-              (hole hole_key :: xs)
+              (hole new_hole_key :: xs)
             )
           )],
           symbol_map,
-          []
+          String_Map.empty 
         )
+        
       in
         (
-          x,
-          symbol_map,
-          contin :: contin_stack,
-          Hole_Key.inc hole_key
+          (x, symbol_map, contin :: contin_stack),
+          set_new_hole_key (global_context, Hole_Key.inc new_hole_key)
         )
       end)
 
@@ -1224,47 +1234,48 @@ TODO:
       contin_stack
     )) | 
 
-    _ => (* TODO *) raise (Fail "eval_term_step")
-    (*
-
-
     Id (id, pos) =>
     (case (String_Map.find (symbol_map, id)) of
-      SOME (NONE, v) =>
+
+      SOME (NONE, v) => SOME
       (
-        Value (v, ~1),
-        symbol_map,
-        contin_stack,
-        hole_key
+        (Value (v, ~1), symbol_map, contin_stack),
+        global_context 
       ) |
 
-      _ =>
+      _ => SOME
       (
-        Value (Error ("variable " ^ id ^ " cannot be resolved"), ~1),
-        symbol_map,
-        contin_stack,
-        hole_key
+        (
+          Value (Error ("variable " ^ id ^ " cannot be resolved"), ~1),
+          symbol_map,
+          contin_stack
+        ),
+        global_context 
       )
+
 
     ) |
 
-
-    Intro_List (t, t', pos) => SOME (reduce_list (
+    Intro_List (t, t', pos) =>
+    SOME (reduce_list global_context (
       [t, t'],
       (fn
         [t, t'] => Intro_List (t, t', pos) |
         _ => raise (Fail "Internal: Intro_List")
       ),
       (fn
-        [v, Blank] => List ([v], pos) |
-        [v, List vs] => List (v :: vs, pos) |
+        [v, Blank] => List [v] |
+        [v, List vs] => List (v :: vs) |
         _ => Error "cons with non-list"
       ),
       symbol_map,
-      contin_stack,
-      hole_key
-
+      contin_stack
     )) |
+
+
+    _ => (* TODO *) raise (Fail "eval_term_step")
+    (*
+
 
 
     Intro_Func (lams, pos) =>
