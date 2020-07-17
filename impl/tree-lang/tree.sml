@@ -929,63 +929,79 @@ TODO:
   end)
 
 
-  fun apply (
+  fun apply global_context
+  (
     t_fn, t_arg, pos,
     symbol_map,
-    contin_stack,
-    hole_key
-  ) = (case t_fn of
+    contin_stack
+  ) =
+  (case t_fn of
     Id (id, _) =>
     (case (String_Map.find (symbol_map, id)) of
       SOME (_, v_fn) =>
       (
-        App (Value (v_fn, ~1), t_arg, pos), 
-        symbol_map,
-        contin_stack,
-        hole_key
+        (
+          App (Value (v_fn, ~1), t_arg, pos), 
+          symbol_map,
+          contin_stack
+        ),
+        global_context 
       ) |
 
       _ =>
       (
-        Value (Error ("apply arg variable " ^ id ^ " cannot be resolved"), ~1),
-        symbol_map,
-        contin_stack,
-        hole_key
+        (
+          Value (Error ("apply arg variable " ^ id ^ " cannot be resolved"), ~1),
+          symbol_map,
+          contin_stack
+        ),
+        global_context
       )
 
     ) |
 
     Value (Func (lams, fnc_store, mutual_map), _) =>
     (
-      t_arg,
-      symbol_map,
-      (Contin_App, lams, fnc_store, mutual_map) :: contin_stack,
-      hole_key
+      (
+        t_arg,
+        symbol_map,
+        (Contin_App, lams, fnc_store, mutual_map) :: contin_stack
+      ),
+      global_context
     ) |
 
     Value (v, pos) =>
     (
-      Value (Error ("application of non-function: " ^ (value_to_string v)), pos),
-      symbol_map,
-      contin_stack,
-      hole_key
+      (
+        Value (Error ("application of non-function: " ^ (value_to_string v)), pos),
+        symbol_map,
+        contin_stack
+      ),
+      global_context 
     ) |
 
     _ =>
-    (
-      t_fn,
-      symbol_map,
+    (let
+      val new_hole_key = #new_hole_key global_context
+      val contin =
       (
         Contin_Norm,
-        [(
-          hole hole_key,
-          App (hole hole_key, t_arg, pos)
-        )],
+        [( hole new_hole_key, App (hole new_hole_key, t_arg, pos) )],
         symbol_map,
         String_Map.empty 
-      ) :: contin_stack,
-      Hole_Key.inc hole_key
-    )
+      )
+
+      val global_context' = set_new_hole_key (global_context, Hole_Key.inc new_hole_key)
+    in
+      (
+        (
+          t_fn,
+          symbol_map,
+          contin :: contin_stack
+        ),
+        global_context
+      )
+    end)
   )
 
 
@@ -1272,47 +1288,41 @@ TODO:
       contin_stack
     )) |
 
-
-    _ => (* TODO *) raise (Fail "eval_term_step")
-    (*
-
-
-
     Intro_Func (lams, pos) =>
+    SOME (
       (
-        Value (Func (lams, symbol_map, []), ~1),
+        Value (Func (lams, symbol_map, String_Map.empty), pos),
         symbol_map,
-        contin_stack,
-        hole_key
-      ) |
-
-    (*
-    Func_Mutual (lams, [], mutual_map, pos) =>
-        (
-          Value (Func (lams, symbol_map, mutual_map), ~1),
-          symbol_map,
-          contin_stack,
-          hole_key
-        ) |
-    *)
-
+        contin_stack
+      ),
+      global_context 
+    ) |
 
     Compo (Compo (t1, Id (id, pos), p1), t2, p2) => (let
       val t_m = associate_infix symbol_map t
       val t' = to_app symbol_map t_m 
     in
-      (t', symbol_map, contin_stack, hole_key)
+      SOME (
+        (t', symbol_map, contin_stack),
+        global_context
+      )
     end) |
 
-    Compo (t1, t2, pos) => (
-      App (t1, t2, pos), symbol_map, contin_stack, hole_key
+
+    Compo (t1, t2, pos) =>
+    SOME (
+      (App (t1, t2, pos), symbol_map, contin_stack),
+      global_context
     ) |
 
+    _ => (* TODO *) raise (Fail "eval_term_step")
+    (*
 
-    App (t_fn, t_arg, pos) => apply (
+
+    App (t_fn, t_arg, pos) =>
+    apply global_context (
       t_fn, t_arg, pos,
-      symbol_map, contin_stack,
-      hole_key
+      symbol_map, contin_stack
     ) |
 
 
