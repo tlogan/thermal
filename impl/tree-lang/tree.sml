@@ -1342,22 +1342,20 @@ TODO:
       )
     end) |
 
-    _ => (* TODO *) raise (Fail "eval_term_step")
-    (*
-
-
-
-
     Intro_Rec (fields, pos) =>
     (let
 
       val mutual_map =
-      (List.mapPartial
+      (List.foldl
         (fn
-          (k, (fix_op,  Intro_Func (lams, _))) => 
-            SOME (k, (fix_op, lams)) |
-          _ => NONE
+          ((k, (fix_op,  Intro_Func (lams, _))), mutual_map) => 
+          (
+            String_Map.insert (mutual_map, k, (fix_op, lams))
+          ) |
+
+          (_, mutual_map) => mutual_map
         )
+        String_Map.empty
         fields
       )
       
@@ -1365,18 +1363,23 @@ TODO:
       val fields' =
       (List.map
         (fn
-          (k, (fix_op, Intro_Func (lams, pos))) =>
-            (k, (fix_op, Value (Func (lams, symbol_map, mutual_map))), ~1) |
+          (k, (fix_op, Intro_Func (lams, pos))) => (
+            (k, (fix_op, Value (Func (lams, symbol_map, mutual_map), ~1)))
+          ) |
+
           field => field 
         )
        fields 
       )
     in
-      (
-        Intro_Mutual_Rec (fields', pos), 
-        symbol_map, contin_stack, hole_key
+      SOME (
+        (Intro_Mutual_Rec (fields', pos), symbol_map, contin_stack),
+        global_context
       )
     end) |
+
+    _ => (* TODO *) raise (Fail "eval_term_step")
+    (*
     
     Intro_Mutual_Rec (fields, pos) => (let
       val ts = (map (fn (k, (fix_op, t)) => t) fields)
