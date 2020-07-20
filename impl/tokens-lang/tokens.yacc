@@ -127,6 +127,10 @@ term_nt:
 
   CHOOSE (Intro_Func ([(Id ("_param", ~1), Intro_Choose (Id ("_param", ~1), CHOOSEleft))], CHOOSEleft)) |
 
+  OFFER (Intro_Func ([(Id ("_param", ~1), Intro_Offer (Id ("_param", ~1), OFFERleft))], OFFERleft)) |
+
+  ABORT (Intro_Abort ABORTleft) |
+
   RUN (Intro_Func ([(Id ("_param", ~1), Intro_Run (Id ("_param", ~1), RUNleft))], RUNleft)) |
 
   EXEC (Intro_Func ([(Id ("_param", ~1), Intro_Exec (Id ("_param", ~1), EXECleft))], EXECleft)) |

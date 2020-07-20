@@ -67,7 +67,7 @@ struct
     Intro_Latch of (term * int) |
     Intro_Choose of (term * int) |
     Intro_Offer of (term * int) |
-    Intro_Abort of (term * int) |
+    Intro_Abort of int |
 
     (* effect *)
     Intro_Return of (term * int) |
@@ -1503,20 +1503,46 @@ TODO:
       (fn
         List [Event event, Func (lams, fnc_store, mutual_map)] =>
           Event (Latch (event, lams, fnc_store, mutual_map)) |
-        _ => Error "intro_altch without event-funciton pair"
+        _ => Error "intro_latch without event-funciton pair"
       ),
       symbol_map,
       contin_stack
     )) |
 
+    Intro_Choose (t, pos) =>
+    SOME (reduce_single global_context (
+      t, fn t => Intro_Choose (t, pos),
+      (fn
+        List [Event event_left, Event event_right] =>
+          Event (Choose (event_left, event_right)) |
+        _ => Error "intro_choose without event-event pair"
+      ),
+      symbol_map,
+      contin_stack
+    )) |
+
+    Intro_Offer (t, pos) =>
+    SOME (reduce_single global_context (
+      t, fn t => Intro_Offer (t, pos),
+      (fn v => Event (Offer v)),
+      symbol_map,
+      contin_stack
+    )) |
+
+    Intro_Abort pos =>
+    SOME (
+      (
+        Value (Event Abort, pos),
+        symbol_map,
+        contin_stack
+      ),
+      global_context
+    ) |
+
     _ => raise (Fail "TODO")
 
     (*
     ** TODO **
-    Intro_Latch of (term * int) |
-    Intro_Choose of (term * int) |
-    Intro_Offer of (term * int) |
-    Intro_Abort of (term * int) |
 
     (* effect *)
     Intro_Return of (term * int) |
