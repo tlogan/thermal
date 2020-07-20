@@ -1416,60 +1416,56 @@ TODO:
       contin_stack
     )) |
 
-    _ => (* TODO *) raise (Fail "eval_term_step")
-    (*
-
-    Add_Num (t, pos) => SOME (reduce_single (
+    Add_Num (t, pos) =>
+    SOME (reduce_single global_context (
       t, fn t => Add_Num (t, pos),
       (fn
-        List ([Num (n1, _), Num (n2, _)]) =>
+        List ([Num n1, Num n2]) =>
           Num (num_add (n1, n2)) |
         _ => Error "adding non-numbers"
       ),
       symbol_map,
-      contin_stack,
-      hole_key
+      contin_stack
     )) |
 
-    Sub_Num (t, pos) => SOME (reduce_single (
+    Sub_Num (t, pos) =>
+    SOME (reduce_single global_context (
       t, fn t => Sub_Num (t, pos),
       (fn
-        List ([Num (n1, _), Num (n2, _)]) => (
+        List ([Num n1, Num n2]) => (
           Num (num_sub (n1, n2))
         ) |
         _ => Error "subtracting non-numbers"
       ),
       symbol_map,
-      contin_stack,
-      hole_key
+      contin_stack
     )) |
 
-    Mul_Num (t, pos) => SOME (reduce_single (
+    Mul_Num (t, pos) =>
+    SOME (reduce_single global_context (
       t, fn t => Mul_Num (t, pos),
       (fn
-        List ([Num (n1, _), Num (n2, _)], _) => (
+        List ([Num n1, Num n2]) => (
           Num (num_mul (n1, n2))
         ) |
         _ => Error "multplying non-numbers"
       ),
       symbol_map,
-      contin_stack,
-      hole_key
+      contin_stack
     )) |
 
-    Div_Num (t, pos) => SOME (reduce_single (
+    Div_Num (t, pos) =>
+    SOME (reduce_single global_context (
       t, fn t => Div_Num (t, pos),
       (fn
-        List ([Num (n1, _), Num (n2, _)], _) => (
+        List ([Num n1, Num n2]) => (
           Num (num_div (n1, n2))
         ) |
         _ => Error "dividing non-numbers"
       ),
       symbol_map,
-      contin_stack,
-      hole_key
+      contin_stack
     ))
-    *)
 
   )
 
