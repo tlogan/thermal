@@ -1539,17 +1539,49 @@ TODO:
       global_context
     ) |
 
-    _ => raise (Fail "TODO")
+    Intro_Run (t, pos) =>
+    SOME (reduce_single global_context (
+      t, fn t => Intro_Run (t, pos),
+      (fn
+        Event event => Effect (Run event) |
+        _ => Error "intro_run without event"
+      ),
+      symbol_map,
+      contin_stack
+    )) |
 
-    (*
-    ** TODO **
+    Intro_Exec (t, pos) =>
+    SOME (reduce_single global_context (
+      t, fn t => Intro_Exec (t, pos),
+      (fn
+        Effect effect => Effect (Exec effect) |
+        _ => Error "intro_exec without effect"
+      ),
+      symbol_map,
+      contin_stack
+    )) |
 
-    (* effect *)
-    Intro_Return of (term * int) |
-    Intro_Run of (term * int) |
-    Intro_Bind of (term * int) |
-    Intro_Exec of (term * int) |
-    *)
+    Intro_Return (t, pos) =>
+    SOME (reduce_single global_context (
+      t, fn t => Intro_Return (t, pos),
+      (fn v => Effect (Return v)),
+      symbol_map,
+      contin_stack
+    )) |
+
+    Intro_Bind (t, pos) =>
+    SOME (reduce_single global_context (
+      t, fn t => Intro_Bind (t, pos),
+      (fn
+        List [Effect effect, Func (lams, fnc_store, mutual_map)] =>
+          Effect (Bind (effect, lams, fnc_store, mutual_map)) |
+        _ => Error "intro_bind without effect-funciton pair"
+      ),
+      symbol_map,
+      contin_stack
+    ))
+
+
 
   )
 
