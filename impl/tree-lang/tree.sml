@@ -1395,27 +1395,29 @@ TODO:
       ))
     end) |
 
-    _ => (* TODO *) raise (Fail "eval_term_step")
-    (*
-    
-
-    Select (t, pos) => SOME (reduce_single (
+    Select (t, pos) =>
+    SOME (reduce_single global_context (
       t,
       fn t => Select (t, pos),
       (fn
-        List ([Rec (fields, _), String (key, _)]) =>
-        (case String_Map.find (fields, key) of
-          SOME (_, v) => v |
+        List ([Rec fields, String key]) =>
+        (case (
+          List.find
+          (fn (k, v) => k = key)
+          fields
+        ) of
+          SOME (_, (_, v)) => v |
           NONE => Error "selection not found"
         ) |
 
         _ => Error "selecting from non-record"
       ),
       symbol_map,
-      contin_stack,
-      hole_key
-
+      contin_stack
     )) |
+
+    _ => (* TODO *) raise (Fail "eval_term_step")
+    (*
 
     Add_Num (t, pos) => SOME (reduce_single (
       t, fn t => Add_Num (t, pos),
