@@ -1465,7 +1465,65 @@ TODO:
       ),
       symbol_map,
       contin_stack
-    ))
+    )) |
+
+    Sym (_, pos) =>
+    SOME (
+      (Value (Error "symbol used in non-pattern", pos), symbol_map, contin_stack),
+      global_context 
+    ) |
+
+    Intro_Send (t, pos) =>
+    SOME (reduce_single global_context (
+      t, fn t => Intro_Send (t, pos),
+      (fn
+        List ([Chan k, msg]) =>
+          Event (Send (k, msg)) |
+        _ => Error "intro_send without channel-message pair"
+      ),
+      symbol_map,
+      contin_stack
+    )) |
+
+    Intro_Recv (t, pos) =>
+    SOME (reduce_single global_context (
+      t, fn t => Intro_Recv (t, pos),
+      (fn
+        Chan k =>
+          Event (Recv k) |
+        _ => Error "intro_recv without channel"
+      ),
+      symbol_map,
+      contin_stack
+    )) |
+
+    Intro_Latch (t, pos) =>
+    SOME (reduce_single global_context (
+      t, fn t => Intro_Latch (t, pos),
+      (fn
+        List [Event event, Func (lams, fnc_store, mutual_map)] =>
+          Event (Latch (event, lams, fnc_store, mutual_map)) |
+        _ => Error "intro_altch without event-funciton pair"
+      ),
+      symbol_map,
+      contin_stack
+    )) |
+
+    _ => raise (Fail "TODO")
+
+    (*
+    ** TODO **
+    Intro_Latch of (term * int) |
+    Intro_Choose of (term * int) |
+    Intro_Offer of (term * int) |
+    Intro_Abort of (term * int) |
+
+    (* effect *)
+    Intro_Return of (term * int) |
+    Intro_Run of (term * int) |
+    Intro_Bind of (term * int) |
+    Intro_Exec of (term * int) |
+    *)
 
   )
 
