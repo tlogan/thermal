@@ -1814,7 +1814,17 @@ TODO:
   (case event of
     Offer v =>
     (case event_stack of
-      [] => raise (Fail "TODO: run_event_step; Try to commit or just leave around") |
+      [] =>
+      (let
+        (** add own trail to sync nodes within trails **)
+        (** collect the communicating complete trails, grouped by thread **)
+        (** find a combination that is commitable **) 
+        (** remove running keys for commitable trails **)
+        (** take offering of commitable trails and continue thread suspension **)
+      in
+        raise (Fail "TODO: run_event_step; Try to commit or just leave around")
+      end) |
+
       contin :: contin_stack =>
       (let
         val (t', symbol_map) = continue (v, contin)
