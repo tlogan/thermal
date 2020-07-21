@@ -1818,7 +1818,7 @@ TODO:
       (let
         (** add own trail to sync nodes within trails **)
         (** collect the communicating complete trails, grouped by thread **)
-        (** find a combination that is commitable **) 
+        (** find a minimal combination that is commitable **) 
         (** remove running keys for commitable trails **)
         (** take offering of commitable trails and continue thread suspension **)
       in
