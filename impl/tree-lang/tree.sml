@@ -1581,25 +1581,7 @@ TODO:
       contin_stack
     ))
 
-
-
   )
-
-
-  (*
-  (t, thread_context as {thread_key, symbol_map, contin_stack, thread_mode}) :: threads' =>
-  *)
-  fun mk_effect_thread (t, thread_key, symbol_map, effect_stack) =  
-  (
-    t,
-    {
-      thread_key = thread_key,
-      symbol_map = symbol_map,
-      term_stack = [],
-      thread_mode = Exec_Effect effect_stack
-    }
-  )
-
 
   fun exec_effect_step global_context (effect, thread_key, effect_stack) =
   (case effect of
@@ -2084,7 +2066,8 @@ TODO:
   )
 
 
-  fun eval t = (let
+  fun eval t =
+  (let
 
     val thread_context = {
       thread_key = Thread_Key.zero,
