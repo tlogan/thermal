@@ -1860,6 +1860,82 @@ TODO:
     (x :: xs, ys) => (x :: xs = ys) orelse extends (xs, ys)
   )
 
+  fun find_commit_maps
+  (global_context : global_context)
+  (commit_map : completion Thread_Map.map)
+  (thread_key, running_key, path) =
+  (case path of
+    Send_Sync
+    (
+      recv_thread_key,
+      recv_running_key,
+      recv_path,
+      send_key,
+      recv_key
+    ) :: path' => 
+    (if Running_Set.member (#running_set global_context, recv_running_key) then
+      (case Thread_Map.find (commit_map, recv_thread_key) of
+        SOME (recv_completion as (_, _, complete_path, _)) =>
+        (let
+          val recv_path' =
+          Recv_Sync (
+            thread_key, running_key, path', recv_key, send_key
+          ) :: recv_path
+        in
+          (if extends (complete_path, recv_path') then
+            find_commit_maps global_context commit_map (thread_key, running_key, path')
+          else
+            []
+          )
+        end) |
+
+        NONE =>
+        (let
+          val recv_completions_map = #recv_completions_map global_context 
+          val recv_completions = Recv_Sync_Map.lookup (recv_completions_map, recv_key)
+          val commit_maps = List.concat (
+            List.map
+            (fn recv_completion as (_, _, recv_complete_path, _) => 
+            (let
+              val commit_map' =
+              Thread_Map.insert (commit_map, recv_thread_key, recv_completion)
+            in
+              find_commit_maps
+              global_context commit_map'
+              (recv_thread_key, recv_running_key, recv_complete_path)
+            end))
+            recv_completions
+          )
+          val commit_maps' = List.concat (
+            List.map
+            (fn commit_map =>
+              find_commit_maps
+              global_context commit_map
+              (thread_key, running_key, path')
+            )
+            commit_maps
+          )
+        in
+          commit_maps
+        end)
+
+      )
+    else
+      []
+    ) |
+
+    _ :: path' =>
+    ( 
+      [] (* TODO *)
+    ) |
+
+
+    [] => [commit_map] 
+
+  )
+
+
+
 
   fun run_event_step global_context (event, thread_key, running_key, path, event_stack) =
   (case event of
@@ -1877,79 +1953,6 @@ TODO:
         val (send_completions_map', recv_completions_map') =
         add_completion (send_completions_map, recv_completions_map) (path, completion)
 
-        fun find_commit_maps
-        (global_context : global_context)
-        (commit_map : completion Thread_Map.map)
-        (thread_key, running_key, path) =
-        (case path of
-          Send_Sync
-          (
-            recv_thread_key,
-            recv_running_key,
-            recv_path,
-            send_key,
-            recv_key
-          ) :: path' => 
-          (if Running_Set.member (#running_set global_context, recv_running_key) then
-            (case Thread_Map.find (commit_map, recv_thread_key) of
-              SOME (recv_completion as (_, _, complete_path, _)) =>
-              (let
-                val recv_path' =
-                Recv_Sync (
-                  thread_key, running_key, path', recv_key, send_key
-                ) :: recv_path
-              in
-                (if extends (complete_path, recv_path') then
-                  find_commit_maps global_context commit_map (thread_key, running_key, path')
-                else
-                  []
-                )
-              end) |
-
-              NONE =>
-              (let
-                val recv_completions_map = #recv_completions_map global_context 
-                val recv_completions = Recv_Sync_Map.lookup (recv_completions_map, recv_key)
-                val commit_maps = List.concat (
-                  List.map
-                  (fn recv_completion as (_, _, recv_complete_path, _) => 
-                  (let
-                    val commit_map' =
-                    Thread_Map.insert (commit_map, recv_thread_key, recv_completion)
-                  in
-                    find_commit_maps
-                    global_context commit_map'
-                    (recv_thread_key, recv_running_key, recv_complete_path)
-                  end))
-                  recv_completions
-                )
-                val commit_maps' = List.concat (
-                  List.map
-                  (fn commit_map =>
-                    find_commit_maps
-                    global_context commit_map
-                    (thread_key, running_key, path')
-                  )
-                  commit_maps
-                )
-              in
-                commit_maps
-              end)
-
-            )
-          else
-            []
-          ) |
-
-          _ :: path' =>
-          ( 
-            [] (* TODO *)
-          ) |
-
-
-          [] => [commit_map] 
-
-        )
 
 
         val init_commit_map = Thread_Map.singleton (thread_key, completion)
