@@ -2015,18 +2015,20 @@ TODO:
         add_completion (send_completions_map, recv_completions_map) (path, completion)
 
 
-
-        val init_commit_map = Thread_Map.singleton (thread_key, completion)
-        val running_set = #running_set global_context
-        val commit_maps = find_commit_maps global_context init_commit_map (thread_key, running_key, path)  
-
         (** find a all completion combinations that is commitable **) 
         (** completion combination = Map of thread_id -> completion **)
-        (** TODO **)
-        (** remove running keys for commitable paths **)
-        (** TODO **)
-        (** take offering of commitable paths and continue thread suspension **)
-        (** TODO **)
+        val init_commit_map = Thread_Map.singleton (thread_key, completion)
+        val running_set = #running_set global_context
+        val commit_maps =
+        (
+          find_commit_maps
+          global_context init_commit_map
+          (thread_key, running_key, path)  
+        )
+
+        (** TODO: remove running keys for commitable paths **)
+        (** TODO: take offerings of commitable completions and continue thread suspension **)
+
       in
         raise (Fail "TODO: run_event_step; Try to commit or just leave around")
       end) |
