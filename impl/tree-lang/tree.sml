@@ -1875,14 +1875,14 @@ TODO:
     ) :: path' => 
     (if Running_Set.member (#running_set global_context, recv_running_key) then
       (case Thread_Map.find (commit_map, recv_thread_key) of
-        SOME (recv_completion as (_, _, complete_path, _)) =>
+        SOME (recv_completion as (_, _, recv_complete_path, _)) =>
         (let
           val recv_path' =
           Recv_Sync (
-            thread_key, running_key, path', recv_key, send_key
+            thread_key, running_key, path', send_key, recv_key
           ) :: recv_path
         in
-          (if extends (complete_path, recv_path') then
+          (if extends (recv_complete_path, recv_path') then
             find_commit_maps global_context commit_map (thread_key, running_key, path')
           else
             []
