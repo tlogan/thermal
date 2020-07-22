@@ -195,7 +195,13 @@ struct
 
   type channel = waiting_send list * waiting_recv list
   
-  type history = (Thread_Key.ord_key * past_event list)
+  type completion =
+  (
+    Thread_Key.ord_key *
+    Running_Key.ord_key *
+    past_event list *
+    value
+  )
 
   type global_context =
   {
@@ -209,10 +215,10 @@ struct
     chan_map : channel Chan_Map.map,
 
     new_send_sync_key : Send_Sync_Key.ord_key,
-    send_completion_map : (history list) Send_Sync_Map.map,
+    send_completion_map : (completion list) Send_Sync_Map.map,
 
     new_recv_sync_key : Recv_Sync_Key.ord_key,
-    recv_completion_map : (history list) Recv_Sync_Map.map,
+    recv_completion_map : (completion list) Recv_Sync_Map.map,
 
     new_hole_key : Hole_Key.ord_key
   }
@@ -1810,12 +1816,64 @@ TODO:
     (waiting_sends', waiting_recvs')
   end)
 
+  fun add_completion (send_completion_map, recv_completion_map) (trail, completion) =  
+  (
+    List.foldl
+    (fn
+
+      (Send_Sync (thread_key, partner_trail, send_key, _), (send_map, recv_map)) => 
+      (let
+        val completions = Send_Sync_Map.lookup (send_map, send_key)
+        val completions' = completion :: completions 
+      in
+        (
+          Send_Sync_Map.insert (send_map, send_key, completions'),
+          recv_map
+        )
+      end) |
+
+      (Recv_Sync (thread_key, partner_trail, recv_key, _), (send_map, recv_map)) => 
+      (let
+        val completions = Recv_Sync_Map.lookup (recv_map, recv_key)
+        val completions' = completion :: completions 
+      in
+        (
+          send_map,
+          Recv_Sync_Map.insert (recv_map, recv_key, completions')
+        )
+      end) |
+
+      (node, map_pair) => map_pair 
+    )
+    (send_completion_map, recv_completion_map)
+    trail
+  )
+
   fun run_event_step global_context (event, thread_key, running_key, trail, event_stack) =
   (case event of
     Offer v =>
     (case event_stack of
       [] =>
       (let
+        (***
+          type completion =
+          (
+            Thread_Key.ord_key *
+            Running_Key.ord_key *
+            past_event list *
+            value
+          )
+        ***)
+
+        val completion = (thread_key, running_key, trail, v)
+
+        val send_completion_map = #send_completion_map global_context
+        val recv_completion_map = #recv_completion_map global_context
+
+        val (send_completion_map', recv_completion_map') =
+        add_completion (send_completion_map, recv_completion_map) (trail, completion)
+
+
         (** add own trail to sync nodes within trails **)
         (** collect the communicating complete trails, grouped by thread **)
         (** find a minimal combination that is commitable **) 
