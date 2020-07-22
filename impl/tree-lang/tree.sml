@@ -1855,30 +1855,24 @@ TODO:
     (case event_stack of
       [] =>
       (let
-        (***
-          type completion =
-          (
-            Thread_Key.ord_key *
-            Running_Key.ord_key *
-            past_event list *
-            value
-          )
-        ***)
 
-        val completion = (thread_key, running_key, trail, v)
+        val completion : completion = (thread_key, running_key, trail, v)
 
         val send_completion_map = #send_completion_map global_context
         val recv_completion_map = #recv_completion_map global_context
 
+        (** add new completion to own trail **)
         val (send_completion_map', recv_completion_map') =
         add_completion (send_completion_map, recv_completion_map) (trail, completion)
 
-
-        (** add own trail to sync nodes within trails **)
         (** collect the communicating complete trails, grouped by thread **)
+        (** TODO **)
         (** find a minimal combination that is commitable **) 
+        (** TODO **)
         (** remove running keys for commitable trails **)
+        (** TODO **)
         (** take offering of commitable trails and continue thread suspension **)
+        (** TODO **)
       in
         raise (Fail "TODO: run_event_step; Try to commit or just leave around")
       end) |
