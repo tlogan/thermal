@@ -217,10 +217,10 @@ struct
     chan_map : channel Chan_Map.map,
 
     new_send_sync_key : Send_Sync_Key.ord_key,
-    send_completion_map : (completion list) Send_Sync_Map.map,
+    send_completions_map : (completion list) Send_Sync_Map.map,
 
     new_recv_sync_key : Recv_Sync_Key.ord_key,
-    recv_completion_map : (completion list) Recv_Sync_Map.map,
+    recv_completions_map : (completion list) Recv_Sync_Map.map,
 
     new_hole_key : Hole_Key.ord_key
   }
@@ -421,10 +421,10 @@ struct
     chan_map = #chan_map context,
  
     new_send_sync_key = #new_send_sync_key context,
-    send_completion_map = #send_completion_map context,
+    send_completions_map = #send_completions_map context,
  
     new_recv_sync_key = #new_recv_sync_key context,
-    recv_completion_map = #recv_completion_map context,
+    recv_completions_map = #recv_completions_map context,
  
     new_hole_key = #new_hole_key context
   }
@@ -434,9 +434,9 @@ struct
   (
     context : global_context,
     (
-      send_completion_map,
+      send_completions_map,
       new_send_sync_key,
-      recv_completion_map,
+      recv_completions_map,
       new_recv_sync_key
     )
   ) =
@@ -451,10 +451,10 @@ struct
     chan_map = #chan_map context,
  
     new_send_sync_key = new_send_sync_key,
-    send_completion_map = send_completion_map,
+    send_completions_map = send_completions_map,
  
     new_recv_sync_key = new_recv_sync_key,
-    recv_completion_map = recv_completion_map,
+    recv_completions_map = recv_completions_map,
  
     new_hole_key = #new_hole_key context
   }
@@ -471,10 +471,10 @@ struct
     chan_map = #chan_map context,
  
     new_send_sync_key = #new_send_sync_key context,
-    send_completion_map = #send_completion_map context,
+    send_completions_map = #send_completions_map context,
  
     new_recv_sync_key = #new_recv_sync_key context,
-    recv_completion_map = #recv_completion_map context,
+    recv_completions_map = #recv_completions_map context,
  
     new_hole_key = #new_hole_key context
   }
@@ -491,10 +491,10 @@ struct
     chan_map = chan_map,
  
     new_send_sync_key = #new_send_sync_key context,
-    send_completion_map = #send_completion_map context,
+    send_completions_map = #send_completions_map context,
  
     new_recv_sync_key = #new_recv_sync_key context,
-    recv_completion_map = #recv_completion_map context,
+    recv_completions_map = #recv_completions_map context,
  
     new_hole_key = #new_hole_key context
   }
@@ -511,10 +511,10 @@ struct
     chan_map = #chan_map context,
  
     new_send_sync_key = #new_send_sync_key context,
-    send_completion_map = #send_completion_map context,
+    send_completions_map = #send_completions_map context,
  
     new_recv_sync_key = #new_recv_sync_key context,
-    recv_completion_map = #recv_completion_map context,
+    recv_completions_map = #recv_completions_map context,
  
     new_hole_key = #new_hole_key context
   }
@@ -531,10 +531,10 @@ struct
     chan_map = #chan_map context,
  
     new_send_sync_key = #new_send_sync_key context,
-    send_completion_map = #send_completion_map context,
+    send_completions_map = #send_completions_map context,
  
     new_recv_sync_key = #new_recv_sync_key context,
-    recv_completion_map = #recv_completion_map context,
+    recv_completions_map = #recv_completions_map context,
  
     new_hole_key = new_hole_key
   }
@@ -1704,9 +1704,9 @@ TODO:
 
 
   fun sync_send_recv (
-    send_completion_map,
+    send_completions_map,
     new_send_sync_key,
-    recv_completion_map,
+    recv_completions_map,
     new_recv_sync_key
   ) (waiting_send, waiting_recv) =
   (let
@@ -1769,13 +1769,13 @@ TODO:
     )
 
 
-    val send_completion_map' = Send_Sync_Map.insert (
-      send_completion_map, new_send_sync_key, []
+    val send_completions_map' = Send_Sync_Map.insert (
+      send_completions_map, new_send_sync_key, []
     ) 
     val new_send_sync_key' = Send_Sync_Key.inc new_send_sync_key
 
-    val recv_completion_map' = Recv_Sync_Map.insert (
-      recv_completion_map, new_recv_sync_key, []
+    val recv_completions_map' = Recv_Sync_Map.insert (
+      recv_completions_map, new_recv_sync_key, []
     ) 
     val new_recv_sync_key' = Recv_Sync_Key.inc new_recv_sync_key
 
@@ -1784,9 +1784,9 @@ TODO:
     (
       [send_thread, recv_thread],
       (
-        send_completion_map',
+        send_completions_map',
         new_send_sync_key',
-        recv_completion_map',
+        recv_completions_map',
         new_recv_sync_key'
       )
     )
@@ -1820,7 +1820,7 @@ TODO:
     (waiting_sends', waiting_recvs')
   end)
 
-  fun add_completion (send_completion_map, recv_completion_map) (trail, completion) =  
+  fun add_completion (send_completions_map, recv_completions_map) (trail, completion) =  
   (
     List.foldl
     (fn
@@ -1849,7 +1849,7 @@ TODO:
 
       (node, map_pair) => map_pair 
     )
-    (send_completion_map, recv_completion_map)
+    (send_completions_map, recv_completions_map)
     trail
   )
 
@@ -1870,14 +1870,17 @@ TODO:
 
         val completion : completion = (thread_key, running_key, trail, v)
 
-        val send_completion_map = #send_completion_map global_context
-        val recv_completion_map = #recv_completion_map global_context
+        val send_completions_map = #send_completions_map global_context
+        val recv_completions_map = #recv_completions_map global_context
 
         (** add new completion to own trail **)
-        val (send_completion_map', recv_completion_map') =
-        add_completion (send_completion_map, recv_completion_map) (trail, completion)
+        val (send_completions_map', recv_completions_map') =
+        add_completion (send_completions_map, recv_completions_map) (trail, completion)
 
-        fun find_commit_maps running_set commit_map (thread_key, running_key, trail) =
+        fun find_commit_maps
+        (global_context : global_context)
+        (commit_map : completion Thread_Map.map)
+        (thread_key, running_key, trail) =
         (case trail of
           Send_Sync
           (
@@ -1887,7 +1890,7 @@ TODO:
             send_key,
             recv_key
           ) :: trail' => 
-          (if Running_Set.member (running_set, recv_running_key) then
+          (if Running_Set.member (#running_set global_context, recv_running_key) then
             (case Thread_Map.find (commit_map, recv_thread_key) of
               SOME (recv_completion as (_, _, complete_trail, _)) =>
               (let
@@ -1897,11 +1900,42 @@ TODO:
                 ) :: recv_trail
               in
                 (if extends (complete_trail, recv_trail') then
-                  find_commit_maps running_set commit_map (thread_key, running_key, trail')
+                  find_commit_maps global_context commit_map (thread_key, running_key, trail')
                 else
                   []
                 )
+              end) |
+
+              NONE =>
+              (let
+                val recv_completions_map = #recv_completions_map global_context 
+                val recv_completions = Recv_Sync_Map.lookup (recv_completions_map, recv_key)
+                val commit_maps = List.concat (
+                  List.map
+                  (fn recv_completion as (_, _, recv_complete_trail, _) => 
+                  (let
+                    val commit_map' =
+                    Thread_Map.insert (commit_map, recv_thread_key, recv_completion)
+                  in
+                    find_commit_maps
+                    global_context commit_map'
+                    (recv_thread_key, recv_running_key, recv_complete_trail)
+                  end))
+                  recv_completions
+                )
+                val commit_maps' = List.concat (
+                  List.map
+                  (fn commit_map =>
+                    find_commit_maps
+                    global_context commit_map
+                    (thread_key, running_key, trail')
+                  )
+                  commit_maps
+                )
+              in
+                commit_maps
               end)
+
             )
           else
             []
@@ -1920,7 +1954,7 @@ TODO:
 
         val init_commit_map = Thread_Map.singleton (thread_key, completion)
         val running_set = #running_set global_context
-        val commit_maps = find_commit_maps running_set init_commit_map (thread_key, running_key, trail)  
+        val commit_maps = find_commit_maps global_context init_commit_map (thread_key, running_key, trail)  
 
         (** find a all completion combinations that is commitable **) 
         (** completion combination = Map of thread_id -> completion **)
@@ -2048,9 +2082,9 @@ TODO:
 
 
       val sync_context = (
-        #send_completion_map global_context,
+        #send_completions_map global_context,
         #new_send_sync_key global_context,
-        #recv_completion_map global_context,
+        #recv_completions_map global_context,
         #new_recv_sync_key global_context
       )
 
@@ -2093,9 +2127,9 @@ TODO:
 
 
       val sync_context = (
-        #send_completion_map global_context,
+        #send_completions_map global_context,
         #new_send_sync_key global_context,
-        #recv_completion_map global_context,
+        #recv_completions_map global_context,
         #new_recv_sync_key global_context
       )
 
@@ -2207,10 +2241,10 @@ TODO:
       chan_map = Chan_Map.empty,
 
       new_send_sync_key = Send_Sync_Key.zero,
-      send_completion_map = Send_Sync_Map.empty,
+      send_completions_map = Send_Sync_Map.empty,
 
       new_recv_sync_key = Recv_Sync_Key.zero,
-      recv_completion_map = Recv_Sync_Map.empty,
+      recv_completions_map = Recv_Sync_Map.empty,
 
       new_hole_key = Hole_Key.zero
     }
