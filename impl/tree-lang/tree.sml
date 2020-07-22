@@ -1714,7 +1714,7 @@ TODO:
     val (
       send_thread_key,
       send_running_key,
-      send_trail,
+      send_path,
       send_stack,
       send_msg 
     ) = waiting_send 
@@ -1722,14 +1722,14 @@ TODO:
     val (
       recv_thread_key,
       recv_running_key,
-      recv_trail,
+      recv_path,
       recv_stack
     ) = waiting_recv 
 
     val send_head = Recv_Sync (
       recv_thread_key,
       recv_running_key,
-      recv_trail,
+      recv_path,
       new_recv_sync_key,
       new_send_sync_key
     ) 
@@ -1737,7 +1737,7 @@ TODO:
     val recv_head = Send_Sync (
       send_thread_key,
       send_running_key,
-      send_trail,
+      send_path,
       new_send_sync_key,
       new_recv_sync_key
     ) 
@@ -1750,7 +1750,7 @@ TODO:
         symbol_map = String_Map.empty,
         term_stack = [],
         thread_mode = Run_Event (
-          send_running_key, send_head :: send_trail, send_stack
+          send_running_key, send_head :: send_path, send_stack
         )
       }
     )
@@ -1763,7 +1763,7 @@ TODO:
         symbol_map = String_Map.empty,
         term_stack = [],
         thread_mode = Run_Event (
-          recv_running_key, recv_head :: recv_trail, recv_stack
+          recv_running_key, recv_head :: recv_path, recv_stack
         )
       }
     )
@@ -1820,7 +1820,7 @@ TODO:
     (waiting_sends', waiting_recvs')
   end)
 
-  fun add_completion (send_completions_map, recv_completions_map) (trail, completion) =  
+  fun add_completion (send_completions_map, recv_completions_map) (path, completion) =  
   (
     List.foldl
     (fn
@@ -1850,57 +1850,57 @@ TODO:
       (node, map_pair) => map_pair 
     )
     (send_completions_map, recv_completions_map)
-    trail
+    path
   )
 
-  fun extends (longer_trail, shorter_trail) =
-  (case (longer_trail, shorter_trail) of
+  fun extends (longer_path, shorter_path) =
+  (case (longer_path, shorter_path) of
     (_, []) => true | 
     ([], y :: ys) => false |
     (x :: xs, ys) => (x :: xs = ys) orelse extends (xs, ys)
   )
 
 
-  fun run_event_step global_context (event, thread_key, running_key, trail, event_stack) =
+  fun run_event_step global_context (event, thread_key, running_key, path, event_stack) =
   (case event of
     Offer v =>
     (case event_stack of
       [] =>
       (let
 
-        val completion : completion = (thread_key, running_key, trail, v)
+        val completion : completion = (thread_key, running_key, path, v)
 
         val send_completions_map = #send_completions_map global_context
         val recv_completions_map = #recv_completions_map global_context
 
-        (** add new completion to own trail **)
+        (** add new completion to own path **)
         val (send_completions_map', recv_completions_map') =
-        add_completion (send_completions_map, recv_completions_map) (trail, completion)
+        add_completion (send_completions_map, recv_completions_map) (path, completion)
 
         fun find_commit_maps
         (global_context : global_context)
         (commit_map : completion Thread_Map.map)
-        (thread_key, running_key, trail) =
-        (case trail of
+        (thread_key, running_key, path) =
+        (case path of
           Send_Sync
           (
             recv_thread_key,
             recv_running_key,
-            recv_trail,
+            recv_path,
             send_key,
             recv_key
-          ) :: trail' => 
+          ) :: path' => 
           (if Running_Set.member (#running_set global_context, recv_running_key) then
             (case Thread_Map.find (commit_map, recv_thread_key) of
-              SOME (recv_completion as (_, _, complete_trail, _)) =>
+              SOME (recv_completion as (_, _, complete_path, _)) =>
               (let
-                val recv_trail' =
+                val recv_path' =
                 Recv_Sync (
-                  thread_key, running_key, trail', recv_key, send_key
-                ) :: recv_trail
+                  thread_key, running_key, path', recv_key, send_key
+                ) :: recv_path
               in
-                (if extends (complete_trail, recv_trail') then
-                  find_commit_maps global_context commit_map (thread_key, running_key, trail')
+                (if extends (complete_path, recv_path') then
+                  find_commit_maps global_context commit_map (thread_key, running_key, path')
                 else
                   []
                 )
@@ -1912,14 +1912,14 @@ TODO:
                 val recv_completions = Recv_Sync_Map.lookup (recv_completions_map, recv_key)
                 val commit_maps = List.concat (
                   List.map
-                  (fn recv_completion as (_, _, recv_complete_trail, _) => 
+                  (fn recv_completion as (_, _, recv_complete_path, _) => 
                   (let
                     val commit_map' =
                     Thread_Map.insert (commit_map, recv_thread_key, recv_completion)
                   in
                     find_commit_maps
                     global_context commit_map'
-                    (recv_thread_key, recv_running_key, recv_complete_trail)
+                    (recv_thread_key, recv_running_key, recv_complete_path)
                   end))
                   recv_completions
                 )
@@ -1928,7 +1928,7 @@ TODO:
                   (fn commit_map =>
                     find_commit_maps
                     global_context commit_map
-                    (thread_key, running_key, trail')
+                    (thread_key, running_key, path')
                   )
                   commit_maps
                 )
@@ -1941,7 +1941,7 @@ TODO:
             []
           ) |
 
-          _ :: trail' =>
+          _ :: path' =>
           ( 
             [] (* TODO *)
           ) |
@@ -1954,14 +1954,14 @@ TODO:
 
         val init_commit_map = Thread_Map.singleton (thread_key, completion)
         val running_set = #running_set global_context
-        val commit_maps = find_commit_maps global_context init_commit_map (thread_key, running_key, trail)  
+        val commit_maps = find_commit_maps global_context init_commit_map (thread_key, running_key, path)  
 
         (** find a all completion combinations that is commitable **) 
         (** completion combination = Map of thread_id -> completion **)
         (** TODO **)
-        (** remove running keys for commitable trails **)
+        (** remove running keys for commitable paths **)
         (** TODO **)
-        (** take offering of commitable trails and continue thread suspension **)
+        (** take offering of commitable paths and continue thread suspension **)
         (** TODO **)
       in
         raise (Fail "TODO: run_event_step; Try to commit or just leave around")
@@ -1977,7 +1977,7 @@ TODO:
             thread_key = thread_key,
             symbol_map = symbol_map,
             term_stack = [],
-            thread_mode = Run_Event (running_key, trail, contin_stack)
+            thread_mode = Run_Event (running_key, path, contin_stack)
           }
         )
       in
@@ -2011,7 +2011,7 @@ TODO:
           thread_key = thread_key,
           symbol_map = String_Map.empty,
           term_stack = [],
-          thread_mode = Run_Event (running_key, trail, event_stack)
+          thread_mode = Run_Event (running_key, path, event_stack)
         }
       )
     in
@@ -2030,7 +2030,7 @@ TODO:
           thread_mode = Run_Event
           (
             running_key,
-            trail,
+            path,
             (Contin_Latch, lams, fnc_store, mutual_map) ::
             event_stack
           )
@@ -2049,7 +2049,7 @@ TODO:
           thread_key = thread_key,
           symbol_map = String_Map.empty,
           term_stack = [],
-          thread_mode = Run_Event (running_key, Choose_Left :: trail, event_stack)
+          thread_mode = Run_Event (running_key, Choose_Left :: path, event_stack)
         }
       )
 
@@ -2060,7 +2060,7 @@ TODO:
           thread_key = thread_key,
           symbol_map = String_Map.empty,
           term_stack = [],
-          thread_mode = Run_Event (running_key, Choose_Right :: trail, event_stack)
+          thread_mode = Run_Event (running_key, Choose_Right :: path, event_stack)
         }
       )
 
@@ -2076,7 +2076,7 @@ TODO:
 
       val running_set = #running_set global_context 
 
-      val waiting_send = (thread_key, running_key, trail, event_stack, msg)
+      val waiting_send = (thread_key, running_key, path, event_stack, msg)
       val chan' = clean_chan running_set (chan, [waiting_send], [])
       val (_, waiting_recvs) = chan'
 
@@ -2121,7 +2121,7 @@ TODO:
 
       val running_set = #running_set global_context 
 
-      val waiting_recv = (thread_key, running_key, trail, event_stack)
+      val waiting_recv = (thread_key, running_key, path, event_stack)
       val chan' = clean_chan running_set (chan, [], [waiting_recv])
       val (waiting_sends, _) = chan'
 
@@ -2178,11 +2178,11 @@ TODO:
       end) |
 
       (* run event case *)
-      (Value (Event event, _), [], Run_Event (running_key, trail, event_stack)) => (let
+      (Value (Event event, _), [], Run_Event (running_key, path, event_stack)) => (let
         val (new_threads, global_context') = (
           run_event_step
           global_context
-          (event, thread_key, running_key, trail, event_stack)
+          (event, thread_key, running_key, path, event_stack)
         )
       in
         SOME (threads' @ new_threads, global_context')
