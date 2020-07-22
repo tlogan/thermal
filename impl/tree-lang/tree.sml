@@ -155,12 +155,14 @@ struct
     Choose_Right |
     Send_Sync of (
       Thread_Key.ord_key *
+      Running_Key.ord_key *
       past_event list *
       Send_Sync_Key.ord_key *
       Recv_Sync_Key.ord_key
     ) |
     Recv_Sync of (
       Thread_Key.ord_key *
+      Running_Key.ord_key *
       past_event list *
       Recv_Sync_Key.ord_key *
       Send_Sync_Key.ord_key
@@ -1864,6 +1866,29 @@ TODO:
         (** add new completion to own trail **)
         val (send_completion_map', recv_completion_map') =
         add_completion (send_completion_map, recv_completion_map) (trail, completion)
+
+        (*
+        fun find_commit_maps commit_maps (thread_key, trail) =
+        (case trail of
+          Send_Sync
+          (
+            partner_thread_key,
+            partner_running_key,
+            partner_trail,
+            _,
+            recv_key
+          ) :: trail' => 
+          (let
+          in
+          end) |
+          _ => [] 
+        )
+
+
+        val init_commit_map = Thread_Map.singleton (thread_key, completion)
+        val commit_maps = find_commit_maps [init_commit_map] (thread_key, trail)  
+
+        *)
 
         (** find a all completion combinations that is commitable **) 
         (** completion combination = Map of thread_id -> completion **)
