@@ -199,7 +199,6 @@ struct
   
   type completion =
   (
-    Thread_Key.ord_key *
     Running_Key.ord_key *
     past_event list *
     value
@@ -1875,7 +1874,7 @@ TODO:
     ) :: path' => 
     (if Running_Set.member (#running_set global_context, recv_running_key) then
       (case Thread_Map.find (commit_map, recv_thread_key) of
-        SOME (recv_completion as (_, _, recv_complete_path, _)) =>
+        SOME (recv_completion as (_, recv_complete_path, _)) =>
         (let
           val recv_path' =
           Recv_Sync (
@@ -1895,7 +1894,7 @@ TODO:
           val recv_completions = Recv_Sync_Map.lookup (recv_completions_map, recv_key)
           val commit_maps = List.concat (
             List.map
-            (fn recv_completion as (_, _, recv_complete_path, _) => 
+            (fn recv_completion as (_, recv_complete_path, _) => 
             (let
               val commit_map' =
               Thread_Map.insert (commit_map, recv_thread_key, recv_completion)
@@ -1934,7 +1933,7 @@ TODO:
     ) :: path' => 
     (if Running_Set.member (#running_set global_context, send_running_key) then
       (case Thread_Map.find (commit_map, send_thread_key) of
-        SOME (send_completion as (_, _, send_complete_path, _)) =>
+        SOME (send_completion as (_, send_complete_path, _)) =>
         (let
           val send_path' =
           Send_Sync (
@@ -1954,7 +1953,7 @@ TODO:
           val send_completions = Send_Sync_Map.lookup (send_completions_map, send_key)
           val commit_maps = List.concat (
             List.map
-            (fn send_completion as (_, _, send_complete_path, _) => 
+            (fn send_completion as (_, send_complete_path, _) => 
             (let
               val commit_map' =
               Thread_Map.insert (commit_map, send_thread_key, send_completion)
@@ -2005,7 +2004,8 @@ TODO:
       [] =>
       (let
 
-        val completion : completion = (thread_key, running_key, path, v)
+        val completion : completion = (running_key, path, v)
+        val init_commit_map = Thread_Map.singleton (thread_key, completion)
 
         val send_completions_map = #send_completions_map global_context
         val recv_completions_map = #recv_completions_map global_context
@@ -2014,10 +2014,8 @@ TODO:
         val (send_completions_map', recv_completions_map') =
         add_completion (send_completions_map, recv_completions_map) (path, completion)
 
-
         (** find a all completion combinations that is commitable **) 
         (** completion combination = Map of thread_id -> completion **)
-        val init_commit_map = Thread_Map.singleton (thread_key, completion)
         val running_set = #running_set global_context
         val commit_maps =
         (
