@@ -151,8 +151,8 @@ struct
   )
 
   datatype past_event =  
-    Choose_Left |
-    Choose_Right |
+    Left_Choice |
+    Right_Choice |
     Send_Sync of (
       Thread_Key.ord_key *
       Running_Key.ord_key *
@@ -2052,7 +2052,7 @@ TODO:
           thread_key = thread_key,
           symbol_map = String_Map.empty,
           term_stack = [],
-          thread_mode = Run_Event (running_key, Choose_Left :: path, event_stack)
+          thread_mode = Run_Event (running_key, Left_Choice :: path, event_stack)
         }
       )
 
@@ -2063,7 +2063,7 @@ TODO:
           thread_key = thread_key,
           symbol_map = String_Map.empty,
           term_stack = [],
-          thread_mode = Run_Event (running_key, Choose_Right :: path, event_stack)
+          thread_mode = Run_Event (running_key, Right_Choice :: path, event_stack)
         }
       )
 
