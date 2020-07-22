@@ -181,16 +181,16 @@ struct
   )
 
   type waiting_send = (
-    Running_Key.ord_key *
     Thread_Key.ord_key *
+    Running_Key.ord_key *
     past_event list *
     contin list *
     value
   )
 
   type waiting_recv = (
-    Running_Key.ord_key *
     Thread_Key.ord_key *
+    Running_Key.ord_key *
     past_event list *
     contin list
   )
@@ -1712,22 +1712,23 @@ TODO:
   (let
 
     val (
-      send_running_key,
       send_thread_key,
+      send_running_key,
       send_trail,
       send_stack,
       send_msg 
     ) = waiting_send 
 
     val (
-      recv_running_key,
       recv_thread_key,
+      recv_running_key,
       recv_trail,
       recv_stack
     ) = waiting_recv 
 
     val send_head = Recv_Sync (
       recv_thread_key,
+      recv_running_key,
       recv_trail,
       new_recv_sync_key,
       new_send_sync_key
@@ -1735,6 +1736,7 @@ TODO:
     
     val recv_head = Send_Sync (
       send_thread_key,
+      send_running_key,
       send_trail,
       new_send_sync_key,
       new_recv_sync_key
@@ -1793,7 +1795,7 @@ TODO:
   fun clean_chan running_set (chan, new_sends, new_recvs) = (let
     val (waiting_sends, waiting_recvs) = chan
     val waiting_sends' = (List.foldl
-      (fn (send as (running_key, _, _, _, _), waiting_sends') =>
+      (fn (send as (_, running_key, _, _, _), waiting_sends') =>
         if Running_Set.member (running_set, running_key) then
           send :: waiting_sends'
         else
@@ -1804,7 +1806,7 @@ TODO:
     )
 
     val waiting_recvs' = (List.foldl
-      (fn (recv as (running_key, _, _, _), waiting_recvs') =>
+      (fn (recv as (_, running_key, _, _), waiting_recvs') =>
         (if Running_Set.member (running_set, running_key) then
           recv :: waiting_recvs'
         else
@@ -1823,7 +1825,7 @@ TODO:
     List.foldl
     (fn
 
-      (Send_Sync (thread_key, partner_trail, send_key, _), (send_map, recv_map)) => 
+      (Send_Sync (_, _, partner_trail, send_key, _), (send_map, recv_map)) => 
       (let
         val completions = Send_Sync_Map.lookup (send_map, send_key)
         val completions' = completion :: completions 
@@ -1834,7 +1836,7 @@ TODO:
         )
       end) |
 
-      (Recv_Sync (thread_key, partner_trail, recv_key, _), (send_map, recv_map)) => 
+      (Recv_Sync (_, _, partner_trail, recv_key, _), (send_map, recv_map)) => 
       (let
         val completions = Recv_Sync_Map.lookup (recv_map, recv_key)
         val completions' = completion :: completions 
@@ -2010,7 +2012,7 @@ TODO:
 
       val running_set = #running_set global_context 
 
-      val waiting_send = (running_key, thread_key, trail, event_stack, msg)
+      val waiting_send = (thread_key, running_key, trail, event_stack, msg)
       val chan' = clean_chan running_set (chan, [waiting_send], [])
       val (_, waiting_recvs) = chan'
 
@@ -2055,7 +2057,7 @@ TODO:
 
       val running_set = #running_set global_context 
 
-      val waiting_recv = (running_key, thread_key, trail, event_stack)
+      val waiting_recv = (thread_key, running_key, trail, event_stack)
       val chan' = clean_chan running_set (chan, [], [waiting_recv])
       val (waiting_sends, _) = chan'
 
