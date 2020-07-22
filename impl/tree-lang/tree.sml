@@ -157,15 +157,15 @@ struct
       Thread_Key.ord_key *
       Running_Key.ord_key *
       past_event list *
-      Send_Sync_Key.ord_key *
-      Recv_Sync_Key.ord_key
+      Recv_Sync_Key.ord_key *
+      Send_Sync_Key.ord_key
     ) |
     Recv_Sync of (
       Thread_Key.ord_key *
       Running_Key.ord_key *
       past_event list *
-      Recv_Sync_Key.ord_key *
-      Send_Sync_Key.ord_key
+      Send_Sync_Key.ord_key *
+      Recv_Sync_Key.ord_key
     )
 
   datatype thread_mode =
@@ -1726,7 +1726,7 @@ TODO:
       recv_stack
     ) = waiting_recv 
 
-    val send_head = Recv_Sync (
+    val send_head = Send_Sync (
       recv_thread_key,
       recv_running_key,
       recv_path,
@@ -1734,7 +1734,7 @@ TODO:
       new_send_sync_key
     ) 
     
-    val recv_head = Send_Sync (
+    val recv_head = Recv_Sync (
       send_thread_key,
       send_running_key,
       send_path,
@@ -1825,7 +1825,7 @@ TODO:
     List.foldl
     (fn
 
-      (Send_Sync (_, _, _, send_key, _), (send_map, recv_map)) => 
+      (Send_Sync (_, _, _, _, send_key), (send_map, recv_map)) => 
       (let
         val completions = Send_Sync_Map.lookup (send_map, send_key)
         val completions' = completion :: completions 
@@ -1836,7 +1836,7 @@ TODO:
         )
       end) |
 
-      (Recv_Sync (_, _, _, recv_key, _), (send_map, recv_map)) => 
+      (Recv_Sync (_, _, _, _, recv_key), (send_map, recv_map)) => 
       (let
         val completions = Recv_Sync_Map.lookup (recv_map, recv_key)
         val completions' = completion :: completions 
@@ -1870,8 +1870,8 @@ TODO:
       recv_thread_key,
       recv_running_key,
       recv_path,
-      send_key,
-      recv_key
+      recv_key,
+      send_key
     ) :: path' => 
     (if Running_Set.member (#running_set global_context, recv_running_key) then
       (case Thread_Map.find (commit_map, recv_thread_key) of
