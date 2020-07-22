@@ -1825,7 +1825,7 @@ TODO:
     List.foldl
     (fn
 
-      (Send_Sync (_, _, partner_trail, send_key, _), (send_map, recv_map)) => 
+      (Send_Sync (_, _, _, send_key, _), (send_map, recv_map)) => 
       (let
         val completions = Send_Sync_Map.lookup (send_map, send_key)
         val completions' = completion :: completions 
@@ -1836,7 +1836,7 @@ TODO:
         )
       end) |
 
-      (Recv_Sync (_, _, partner_trail, recv_key, _), (send_map, recv_map)) => 
+      (Recv_Sync (_, _, _, recv_key, _), (send_map, recv_map)) => 
       (let
         val completions = Recv_Sync_Map.lookup (recv_map, recv_key)
         val completions' = completion :: completions 
@@ -1874,9 +1874,9 @@ TODO:
         (case trail of
           Send_Sync
           (
-            partner_thread_key,
-            partner_running_key,
-            partner_trail,
+            recv_thread_key,
+            recv_running_key,
+            recv_trail,
             _,
             recv_key
           ) :: trail' => 
@@ -1889,7 +1889,6 @@ TODO:
 
         val init_commit_map = Thread_Map.singleton (thread_key, completion)
         val commit_maps = find_commit_maps [init_commit_map] (thread_key, trail)  
-
         *)
 
         (** find a all completion combinations that is commitable **) 
