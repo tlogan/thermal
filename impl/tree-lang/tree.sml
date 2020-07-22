@@ -1865,9 +1865,8 @@ TODO:
         val (send_completion_map', recv_completion_map') =
         add_completion (send_completion_map, recv_completion_map) (trail, completion)
 
-        (** collect the communicating complete trails, grouped by thread **)
-        (** TODO **)
-        (** find a minimal combination that is commitable **) 
+        (** find a all completion combinations that is commitable **) 
+        (** completion combination = Map of thread_id -> completion **)
         (** TODO **)
         (** remove running keys for commitable trails **)
         (** TODO **)
