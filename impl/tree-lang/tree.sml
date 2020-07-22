@@ -1853,6 +1853,14 @@ TODO:
     trail
   )
 
+  fun extends (longer_trail, shorter_trail) =
+  (case (longer_trail, shorter_trail) of
+    (_, []) => true | 
+    ([], y :: ys) => false |
+    (x :: xs, ys) => (x :: xs = ys) orelse extends (xs, ys)
+  )
+
+
   fun run_event_step global_context (event, thread_key, running_key, trail, event_stack) =
   (case event of
     Offer v =>
@@ -1869,27 +1877,50 @@ TODO:
         val (send_completion_map', recv_completion_map') =
         add_completion (send_completion_map, recv_completion_map) (trail, completion)
 
-        (*
-        fun find_commit_maps commit_maps (thread_key, trail) =
+        fun find_commit_maps running_set commit_map (thread_key, running_key, trail) =
         (case trail of
           Send_Sync
           (
             recv_thread_key,
             recv_running_key,
             recv_trail,
-            _,
+            send_key,
             recv_key
           ) :: trail' => 
-          (let
-          in
-          end) |
-          _ => [] 
+          (if Running_Set.member (running_set, recv_running_key) then
+            (case Thread_Map.find (commit_map, recv_thread_key) of
+              SOME (recv_completion as (_, _, complete_trail, _)) =>
+              (let
+                val recv_trail' =
+                Recv_Sync (
+                  thread_key, running_key, trail', recv_key, send_key
+                ) :: recv_trail
+              in
+                (if extends (complete_trail, recv_trail') then
+                  find_commit_maps running_set commit_map (thread_key, running_key, trail')
+                else
+                  []
+                )
+              end)
+            )
+          else
+            []
+          ) |
+
+          _ :: trail' =>
+          ( 
+            [] (* TODO *)
+          ) |
+
+
+          [] => [commit_map] 
+
         )
 
 
         val init_commit_map = Thread_Map.singleton (thread_key, completion)
-        val commit_maps = find_commit_maps [init_commit_map] (thread_key, trail)  
-        *)
+        val running_set = #running_set global_context
+        val commit_maps = find_commit_maps running_set init_commit_map (thread_key, running_key, trail)  
 
         (** find a all completion combinations that is commitable **) 
         (** completion combination = Map of thread_id -> completion **)
