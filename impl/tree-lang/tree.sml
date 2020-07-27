@@ -2014,9 +2014,8 @@ TODO:
         val (send_completions_map', recv_completions_map') =
         add_completion (send_completions_map, recv_completions_map) (path, completion)
 
-        (** find a all completion combinations that is commitable **) 
+        (** find a all completion combinations that are commitable **) 
         (** completion combination = Map of thread_id -> completion **)
-        val running_set = #running_set global_context
         val commit_maps : (completion Thread_Map.map) list =
         (
           find_commit_maps
@@ -2024,22 +2023,22 @@ TODO:
           (thread_key, running_key, path)  
         )
 
-        (** TODO: remove running keys for commitable paths **)
+
+        val final_commit_map = (
+          List.hd commit_maps
+          (* TODO: determine best way to pick commit map *) 
+        )
+
+        (** remove running keys for commitable paths **)
         val running_set = #running_set global_context
-        val running_set' = (
-          List.foldl
-          (fn (commit_map, running_set') =>
-            (
-              Thread_Map.foldl
-              (fn (compl as (running_key, _, _), running_set') =>
-                Running_Set.delete (running_set', running_key)
-              ) 
-              running_set'
-              commit_map
-            )
-          )
+        val running_set' = 
+        (
+          Thread_Map.foldl
+          (fn (compl as (running_key, _, _), running_set') =>
+            Running_Set.delete (running_set', running_key)
+          ) 
           running_set
-          commit_maps
+          final_commit_map
         )
 
         (** TODO: take offerings of commitable completions and continue thread suspension **)
