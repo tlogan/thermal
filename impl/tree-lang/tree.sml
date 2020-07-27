@@ -407,6 +407,46 @@ struct
     Int.toString i3
   end)
 
+  fun set_recv_completions_map (context : global_context, recv_completions_map) =
+  {
+    new_thread_key = #new_thread_key context,
+    suspension_map = #suspension_map context,
+ 
+    new_syncing_key = #new_syncing_key context, 
+    syncing_set = #syncing_set context, 
+ 
+    new_chan_key = #new_chan_key context,
+    chan_map = #chan_map context,
+ 
+    new_send_comm_key = #new_send_comm_key context,
+    send_completions_map = #send_completions_map context,
+ 
+    new_recv_comm_key = #new_recv_comm_key context,
+    recv_completions_map = recv_completions_map,
+ 
+    new_hole_key = #new_hole_key context
+  }
+
+  fun set_send_completions_map (context : global_context, send_completions_map) =
+  {
+    new_thread_key = #new_thread_key context,
+    suspension_map = #suspension_map context,
+ 
+    new_syncing_key = #new_syncing_key context, 
+    syncing_set = #syncing_set context, 
+ 
+    new_chan_key = #new_chan_key context,
+    chan_map = #chan_map context,
+ 
+    new_send_comm_key = #new_send_comm_key context,
+    send_completions_map = send_completions_map,
+ 
+    new_recv_comm_key = #new_recv_comm_key context,
+    recv_completions_map = #recv_completions_map context,
+ 
+    new_hole_key = #new_hole_key context
+  }
+
   fun set_syncing_set (context : global_context, syncing_set) =
   {
     new_thread_key = #new_thread_key context,
@@ -2114,10 +2154,58 @@ TODO:
           final_commit_map
         )
 
-        (* TODO: remove communication keys from Send_Comm/Recv_Comm*)
+        (* remove communication keys from send/recv_communications_map *)
+        val (send_completions_map', recv_completions_map') =
+        (
+          Thread_Map.foldl
+          (fn
+            (
+              completion as (_, path, _),
+              (send_completions_map, recv_completions_map)
+            ) =>
+            (List.foldl
+              (fn
+                (Send_Comm (_, _, _, _, send_key), (send_completions_map, recv_completions_map)) =>
+                (let
+                  val send_completions_map' = 
+                  (if Send_Comm_Map.inDomain (send_completions_map, send_key) then
+                    #1 (Send_Comm_Map.remove (send_completions_map, send_key))
+                  else 
+                    send_completions_map
+                  )
+                in
+                  (send_completions_map', recv_completions_map)
+                end) |
+
+                (Recv_Comm (_, _, _, _, recv_key), (send_completions_map, recv_completions_map)) =>
+                (let
+                  val recv_completions_map' = 
+                  (if Recv_Comm_Map.inDomain (recv_completions_map, recv_key) then
+                    #1 (Recv_Comm_Map.remove (recv_completions_map, recv_key))
+                  else 
+                    recv_completions_map
+                  )
+                in
+                  (send_completions_map, recv_completions_map')
+                end) |
+
+                (_, (send_completions_map, recv_completions_map)) =>
+                (send_completions_map, recv_completions_map)
+
+
+              )
+              (send_completions_map', recv_completions_map')
+              path
+            )
+          ) 
+          (send_completions_map', recv_completions_map')
+          final_commit_map
+        )
 
         val global_context' = set_syncing_set (global_context, syncing_set')
         val global_context' = set_suspension_map (global_context', suspension_map')
+        val global_context' = set_send_completions_map (global_context, send_completions_map')
+        val global_context' = set_recv_completions_map (global_context, recv_completions_map')
 
       in
         (synced_threads, global_context')
