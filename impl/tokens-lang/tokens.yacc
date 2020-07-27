@@ -17,7 +17,7 @@ open Tree
   EQUAL | 
   ALLOC_MEM | SIZE | SLICE | SET | GET |
   ALLOC_CHAN | SEND | RECV | LATCH | CHOOSE | OFFER | ABORT |
-  RUN | BIND | RETURN | EXEC | 
+  SYNC | BIND | RETURN | EXEC | 
   LPAREN | RPAREN | LANG | RANG | LRPAREN | 
   INFIXL | INFIXR | DIGIT of int |
 
@@ -49,7 +49,7 @@ open Tree
 
 %right FATARROW CASE COLON DEF
 
-%left ALLOC_CHAN SEND RECV LATCH CHOOSE OFFER ABORT EXEC RUN ADD SUB MUL DIV SELECT EQUAL
+%left ALLOC_CHAN SEND RECV LATCH CHOOSE OFFER ABORT EXEC SYNC ADD SUB MUL DIV SELECT EQUAL
 %nonassoc INFIXL INFIXR DIGIT
 
 %left LPAREN LANG
@@ -131,7 +131,7 @@ term_nt:
 
   ABORT (Intro_Abort ABORTleft) |
 
-  RUN (Intro_Func ([(Id ("_param", ~1), Intro_Run (Id ("_param", ~1), RUNleft))], RUNleft)) |
+  SYNC (Intro_Func ([(Id ("_param", ~1), Intro_Sync (Id ("_param", ~1), SYNCleft))], SYNCleft)) |
 
   EXEC (Intro_Func ([(Id ("_param", ~1), Intro_Exec (Id ("_param", ~1), EXECleft))], EXECleft)) |
 

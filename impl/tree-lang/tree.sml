@@ -5,17 +5,17 @@ struct
   structure Thread_Key = Key_Fn (val tag = "thread")
   structure Thread_Map = RedBlackMapFn (Thread_Key)
 
-  structure Running_Key = Key_Fn (val tag = "thread")
-  structure Running_Set = RedBlackSetFn (Running_Key)
+  structure Syncing_Key = Key_Fn (val tag = "thread")
+  structure Syncing_Set = RedBlackSetFn (Syncing_Key)
 
   structure Chan_Key = Key_Fn (val tag = "chan")
   structure Chan_Map = RedBlackMapFn (Chan_Key)
 
-  structure Send_Sync_Key = Key_Fn (val tag = "sync_send")
-  structure Send_Sync_Map = RedBlackMapFn (Send_Sync_Key)
+  structure Send_Comm_Key = Key_Fn (val tag = "comm_send")
+  structure Send_Comm_Map = RedBlackMapFn (Send_Comm_Key)
 
-  structure Recv_Sync_Key = Key_Fn (val tag = "sync_recv")
-  structure Recv_Sync_Map = RedBlackMapFn (Recv_Sync_Key)
+  structure Recv_Comm_Key = Key_Fn (val tag = "comm_recv")
+  structure Recv_Comm_Map = RedBlackMapFn (Recv_Comm_Key)
 
   structure Hole_Key = Key_Fn (val tag = "_g")
 
@@ -71,7 +71,7 @@ struct
 
     (* effect *)
     Intro_Return of (term * int) |
-    Intro_Run of (term * int) |
+    Intro_Sync of (term * int) |
     Intro_Bind of (term * int) |
     Intro_Exec of (term * int) |
 
@@ -120,7 +120,7 @@ struct
       ((infix_option * (term * term) list) String_Map.map)
     ) |
     Exec of effect |
-    Run of event 
+    Sync of event 
 
   and event =
     Offer of value |
@@ -153,24 +153,24 @@ struct
   datatype past_event =  
     Left_Choice |
     Right_Choice |
-    Send_Sync of (
+    Send_Comm of (
       Thread_Key.ord_key *
-      Running_Key.ord_key *
+      Syncing_Key.ord_key *
       past_event list *
-      Recv_Sync_Key.ord_key *
-      Send_Sync_Key.ord_key
+      Recv_Comm_Key.ord_key *
+      Send_Comm_Key.ord_key
     ) |
-    Recv_Sync of (
+    Recv_Comm of (
       Thread_Key.ord_key *
-      Running_Key.ord_key *
+      Syncing_Key.ord_key *
       past_event list *
-      Send_Sync_Key.ord_key *
-      Recv_Sync_Key.ord_key
+      Send_Comm_Key.ord_key *
+      Recv_Comm_Key.ord_key
     )
 
   datatype thread_mode =
     Exec_Effect of contin list | 
-    Run_Event of Running_Key.ord_key * past_event list * contin list
+    Sync_Event of Syncing_Key.ord_key * past_event list * contin list
 
   type thread = (
     Thread_Key.ord_key *
@@ -182,7 +182,7 @@ struct
 
   type waiting_send = (
     Thread_Key.ord_key *
-    Running_Key.ord_key *
+    Syncing_Key.ord_key *
     past_event list *
     contin list *
     value
@@ -190,7 +190,7 @@ struct
 
   type waiting_recv = (
     Thread_Key.ord_key *
-    Running_Key.ord_key *
+    Syncing_Key.ord_key *
     past_event list *
     contin list
   )
@@ -199,7 +199,7 @@ struct
   
   type completion =
   (
-    Running_Key.ord_key *
+    Syncing_Key.ord_key *
     past_event list *
     value
   )
@@ -209,17 +209,17 @@ struct
     new_thread_key : Thread_Key.ord_key,
     suspension_map : (contin list) Thread_Map.map,
 
-    new_running_key : Running_Key.ord_key,
-    running_set : Running_Set.set, 
+    new_syncing_key : Syncing_Key.ord_key,
+    syncing_set : Syncing_Set.set, 
 
     new_chan_key : Chan_Key.ord_key,
     chan_map : channel Chan_Map.map,
 
-    new_send_sync_key : Send_Sync_Key.ord_key,
-    send_completions_map : (completion list) Send_Sync_Map.map,
+    new_send_comm_key : Send_Comm_Key.ord_key,
+    send_completions_map : (completion list) Send_Comm_Map.map,
 
-    new_recv_sync_key : Recv_Sync_Key.ord_key,
-    recv_completions_map : (completion list) Recv_Sync_Map.map,
+    new_recv_comm_key : Recv_Comm_Key.ord_key,
+    recv_completions_map : (completion list) Recv_Comm_Map.map,
 
     new_hole_key : Hole_Key.ord_key
   }
@@ -282,7 +282,7 @@ struct
     _ => "(NOT YET IMPLEMENTED)"
 
     (*
-    Run (t, pos) => "run " ^ (to_string t) |
+    Sync (t, pos) => "sync " ^ (to_string t) |
 
     Exec (t, pos) => "exec " ^ (to_string t) |
 
@@ -407,52 +407,91 @@ struct
     Int.toString i3
   end)
 
+  fun set_syncing_set (context : global_context, syncing_set) =
+  {
+    new_thread_key = #new_thread_key context,
+    suspension_map = #suspension_map context,
+ 
+    new_syncing_key = #new_syncing_key context, 
+    syncing_set = syncing_set, 
+ 
+    new_chan_key = #new_chan_key context,
+    chan_map = #chan_map context,
+ 
+    new_send_comm_key = #new_send_comm_key context,
+    send_completions_map = #send_completions_map context,
+ 
+    new_recv_comm_key = #new_recv_comm_key context,
+    recv_completions_map = #recv_completions_map context,
+ 
+    new_hole_key = #new_hole_key context
+  }
+
+  fun set_suspension_map (context : global_context, suspension_map) =
+  {
+    new_thread_key = #new_thread_key context,
+    suspension_map = suspension_map,
+ 
+    new_syncing_key = #new_syncing_key context, 
+    syncing_set = #syncing_set context, 
+ 
+    new_chan_key = #new_chan_key context,
+    chan_map = #chan_map context,
+ 
+    new_send_comm_key = #new_send_comm_key context,
+    send_completions_map = #send_completions_map context,
+ 
+    new_recv_comm_key = #new_recv_comm_key context,
+    recv_completions_map = #recv_completions_map context,
+ 
+    new_hole_key = #new_hole_key context
+  }
 
   fun set_new_thread_key (context : global_context, new_thread_key) =
   {
     new_thread_key = new_thread_key,
     suspension_map = #suspension_map context,
  
-    new_running_key = #new_running_key context, 
-    running_set = #running_set context, 
+    new_syncing_key = #new_syncing_key context, 
+    syncing_set = #syncing_set context, 
  
     new_chan_key = #new_chan_key context,
     chan_map = #chan_map context,
  
-    new_send_sync_key = #new_send_sync_key context,
+    new_send_comm_key = #new_send_comm_key context,
     send_completions_map = #send_completions_map context,
  
-    new_recv_sync_key = #new_recv_sync_key context,
+    new_recv_comm_key = #new_recv_comm_key context,
     recv_completions_map = #recv_completions_map context,
  
     new_hole_key = #new_hole_key context
   }
 
 
-  fun set_sync_context
+  fun set_comm_context
   (
     context : global_context,
     (
       send_completions_map,
-      new_send_sync_key,
+      new_send_comm_key,
       recv_completions_map,
-      new_recv_sync_key
+      new_recv_comm_key
     )
   ) =
   {
     new_thread_key = #new_thread_key context,
     suspension_map = #suspension_map context,
  
-    new_running_key = #new_running_key context, 
-    running_set = #running_set context, 
+    new_syncing_key = #new_syncing_key context, 
+    syncing_set = #syncing_set context, 
  
     new_chan_key = #new_chan_key context,
     chan_map = #chan_map context,
  
-    new_send_sync_key = new_send_sync_key,
+    new_send_comm_key = new_send_comm_key,
     send_completions_map = send_completions_map,
  
-    new_recv_sync_key = new_recv_sync_key,
+    new_recv_comm_key = new_recv_comm_key,
     recv_completions_map = recv_completions_map,
  
     new_hole_key = #new_hole_key context
@@ -463,16 +502,16 @@ struct
     new_thread_key = #new_thread_key context,
     suspension_map = #suspension_map context,
  
-    new_running_key = #new_running_key context, 
-    running_set = #running_set context, 
+    new_syncing_key = #new_syncing_key context, 
+    syncing_set = #syncing_set context, 
  
     new_chan_key = new_chan_key,
     chan_map = #chan_map context,
  
-    new_send_sync_key = #new_send_sync_key context,
+    new_send_comm_key = #new_send_comm_key context,
     send_completions_map = #send_completions_map context,
  
-    new_recv_sync_key = #new_recv_sync_key context,
+    new_recv_comm_key = #new_recv_comm_key context,
     recv_completions_map = #recv_completions_map context,
  
     new_hole_key = #new_hole_key context
@@ -483,36 +522,36 @@ struct
     new_thread_key = #new_thread_key context,
     suspension_map = #suspension_map context,
  
-    new_running_key = #new_running_key context, 
-    running_set = #running_set context, 
+    new_syncing_key = #new_syncing_key context, 
+    syncing_set = #syncing_set context, 
  
     new_chan_key = #new_chan_key context,
     chan_map = chan_map,
  
-    new_send_sync_key = #new_send_sync_key context,
+    new_send_comm_key = #new_send_comm_key context,
     send_completions_map = #send_completions_map context,
  
-    new_recv_sync_key = #new_recv_sync_key context,
+    new_recv_comm_key = #new_recv_comm_key context,
     recv_completions_map = #recv_completions_map context,
  
     new_hole_key = #new_hole_key context
   }
  
-  fun set_new_running_key (context : global_context, new_running_key) =
+  fun set_new_syncing_key (context : global_context, new_syncing_key) =
   {
     new_thread_key = #new_thread_key context,
     suspension_map = #suspension_map context,
  
-    new_running_key = new_running_key, 
-    running_set = #running_set context, 
+    new_syncing_key = new_syncing_key, 
+    syncing_set = #syncing_set context, 
  
     new_chan_key = #new_chan_key context,
     chan_map = #chan_map context,
  
-    new_send_sync_key = #new_send_sync_key context,
+    new_send_comm_key = #new_send_comm_key context,
     send_completions_map = #send_completions_map context,
  
-    new_recv_sync_key = #new_recv_sync_key context,
+    new_recv_comm_key = #new_recv_comm_key context,
     recv_completions_map = #recv_completions_map context,
  
     new_hole_key = #new_hole_key context
@@ -523,16 +562,16 @@ struct
     new_thread_key = #new_thread_key context,
     suspension_map = #suspension_map context,
  
-    new_running_key = #new_running_key context, 
-    running_set = #running_set context, 
+    new_syncing_key = #new_syncing_key context, 
+    syncing_set = #syncing_set context, 
  
     new_chan_key = #new_chan_key context,
     chan_map = #chan_map context,
  
-    new_send_sync_key = #new_send_sync_key context,
+    new_send_comm_key = #new_send_comm_key context,
     send_completions_map = #send_completions_map context,
  
-    new_recv_sync_key = #new_recv_sync_key context,
+    new_recv_comm_key = #new_recv_comm_key context,
     recv_completions_map = #recv_completions_map context,
  
     new_hole_key = new_hole_key
@@ -1546,12 +1585,12 @@ TODO:
       global_context
     ) |
 
-    Intro_Run (t, pos) =>
+    Intro_Sync (t, pos) =>
     SOME (reduce_single global_context (
-      t, fn t => Intro_Run (t, pos),
+      t, fn t => Intro_Sync (t, pos),
       (fn
-        Event event => Effect (Run event) |
-        _ => Error "intro_run without event"
+        Event event => Effect (Sync event) |
+        _ => Error "intro_sync without event"
       ),
       symbol_map,
       contin_stack
@@ -1680,8 +1719,8 @@ TODO:
     end) |
 
 
-    Run evt => (let
-      val new_running_key = #new_running_key global_context
+    Sync evt => (let
+      val new_syncing_key = #new_syncing_key global_context
       val new_thread =
       (
         Value (Event evt, ~1),
@@ -1689,11 +1728,11 @@ TODO:
           thread_key = thread_key,
           symbol_map = String_Map.empty,
           term_stack = [],
-          thread_mode = Run_Event (new_running_key, [], [])
+          thread_mode = Sync_Event (new_syncing_key, [], [])
         }
       )
 
-      val global_context' = set_new_running_key (global_context, Running_Key.inc new_running_key) 
+      val global_context' = set_new_syncing_key (global_context, Syncing_Key.inc new_syncing_key) 
     in
       ([new_thread], global_context')
     end)
@@ -1702,17 +1741,17 @@ TODO:
 
 
 
-  fun sync_send_recv (
+  fun comm_send_recv (
     send_completions_map,
-    new_send_sync_key,
+    new_send_comm_key,
     recv_completions_map,
-    new_recv_sync_key
+    new_recv_comm_key
   ) (waiting_send, waiting_recv) =
   (let
 
     val (
       send_thread_key,
-      send_running_key,
+      send_syncing_key,
       send_path,
       send_stack,
       send_msg 
@@ -1720,25 +1759,25 @@ TODO:
 
     val (
       recv_thread_key,
-      recv_running_key,
+      recv_syncing_key,
       recv_path,
       recv_stack
     ) = waiting_recv 
 
-    val send_head = Send_Sync (
+    val send_head = Send_Comm (
       recv_thread_key,
-      recv_running_key,
+      recv_syncing_key,
       recv_path,
-      new_recv_sync_key,
-      new_send_sync_key
+      new_recv_comm_key,
+      new_send_comm_key
     ) 
     
-    val recv_head = Recv_Sync (
+    val recv_head = Recv_Comm (
       send_thread_key,
-      send_running_key,
+      send_syncing_key,
       send_path,
-      new_send_sync_key,
-      new_recv_sync_key
+      new_send_comm_key,
+      new_recv_comm_key
     ) 
 
     val send_thread =
@@ -1748,8 +1787,8 @@ TODO:
         thread_key = send_thread_key,
         symbol_map = String_Map.empty,
         term_stack = [],
-        thread_mode = Run_Event (
-          send_running_key, send_head :: send_path, send_stack
+        thread_mode = Sync_Event (
+          send_syncing_key, send_head :: send_path, send_stack
         )
       }
     )
@@ -1761,22 +1800,22 @@ TODO:
         thread_key = recv_thread_key,
         symbol_map = String_Map.empty,
         term_stack = [],
-        thread_mode = Run_Event (
-          recv_running_key, recv_head :: recv_path, recv_stack
+        thread_mode = Sync_Event (
+          recv_syncing_key, recv_head :: recv_path, recv_stack
         )
       }
     )
 
 
-    val send_completions_map' = Send_Sync_Map.insert (
-      send_completions_map, new_send_sync_key, []
+    val send_completions_map' = Send_Comm_Map.insert (
+      send_completions_map, new_send_comm_key, []
     ) 
-    val new_send_sync_key' = Send_Sync_Key.inc new_send_sync_key
+    val new_send_comm_key' = Send_Comm_Key.inc new_send_comm_key
 
-    val recv_completions_map' = Recv_Sync_Map.insert (
-      recv_completions_map, new_recv_sync_key, []
+    val recv_completions_map' = Recv_Comm_Map.insert (
+      recv_completions_map, new_recv_comm_key, []
     ) 
-    val new_recv_sync_key' = Recv_Sync_Key.inc new_recv_sync_key
+    val new_recv_comm_key' = Recv_Comm_Key.inc new_recv_comm_key
 
 
   in
@@ -1784,18 +1823,18 @@ TODO:
       [send_thread, recv_thread],
       (
         send_completions_map',
-        new_send_sync_key',
+        new_send_comm_key',
         recv_completions_map',
-        new_recv_sync_key'
+        new_recv_comm_key'
       )
     )
   end)
 
-  fun clean_chan running_set (chan, new_sends, new_recvs) = (let
+  fun clean_chan syncing_set (chan, new_sends, new_recvs) = (let
     val (waiting_sends, waiting_recvs) = chan
     val waiting_sends' = (List.foldl
-      (fn (send as (_, running_key, _, _, _), waiting_sends') =>
-        if Running_Set.member (running_set, running_key) then
+      (fn (send as (_, syncing_key, _, _, _), waiting_sends') =>
+        if Syncing_Set.member (syncing_set, syncing_key) then
           send :: waiting_sends'
         else
           waiting_sends
@@ -1805,8 +1844,8 @@ TODO:
     )
 
     val waiting_recvs' = (List.foldl
-      (fn (recv as (_, running_key, _, _), waiting_recvs') =>
-        (if Running_Set.member (running_set, running_key) then
+      (fn (recv as (_, syncing_key, _, _), waiting_recvs') =>
+        (if Syncing_Set.member (syncing_set, syncing_key) then
           recv :: waiting_recvs'
         else
           waiting_recvs
@@ -1824,25 +1863,25 @@ TODO:
     List.foldl
     (fn
 
-      (Send_Sync (_, _, _, _, send_key), (send_map, recv_map)) => 
+      (Send_Comm (_, _, _, _, send_key), (send_map, recv_map)) => 
       (let
-        val completions = Send_Sync_Map.lookup (send_map, send_key)
+        val completions = Send_Comm_Map.lookup (send_map, send_key)
         val completions' = completion :: completions 
       in
         (
-          Send_Sync_Map.insert (send_map, send_key, completions'),
+          Send_Comm_Map.insert (send_map, send_key, completions'),
           recv_map
         )
       end) |
 
-      (Recv_Sync (_, _, _, _, recv_key), (send_map, recv_map)) => 
+      (Recv_Comm (_, _, _, _, recv_key), (send_map, recv_map)) => 
       (let
-        val completions = Recv_Sync_Map.lookup (recv_map, recv_key)
+        val completions = Recv_Comm_Map.lookup (recv_map, recv_key)
         val completions' = completion :: completions 
       in
         (
           send_map,
-          Recv_Sync_Map.insert (recv_map, recv_key, completions')
+          Recv_Comm_Map.insert (recv_map, recv_key, completions')
         )
       end) |
 
@@ -1862,27 +1901,27 @@ TODO:
   fun find_commit_maps
   (global_context : global_context)
   (commit_map : completion Thread_Map.map)
-  (thread_key, running_key, path) =
+  (thread_key, syncing_key, path) =
   (case path of
-    Send_Sync
+    Send_Comm
     (
       recv_thread_key,
-      recv_running_key,
+      recv_syncing_key,
       recv_path,
       recv_key,
       send_key
     ) :: path' => 
-    (if Running_Set.member (#running_set global_context, recv_running_key) then
+    (if Syncing_Set.member (#syncing_set global_context, recv_syncing_key) then
       (case Thread_Map.find (commit_map, recv_thread_key) of
         SOME (recv_completion as (_, recv_complete_path, _)) =>
         (let
           val recv_path' =
-          Recv_Sync (
-            thread_key, running_key, path', send_key, recv_key
+          Recv_Comm (
+            thread_key, syncing_key, path', send_key, recv_key
           ) :: recv_path
         in
           (if extends (recv_complete_path, recv_path') then
-            find_commit_maps global_context commit_map (thread_key, running_key, path')
+            find_commit_maps global_context commit_map (thread_key, syncing_key, path')
           else
             []
           )
@@ -1891,7 +1930,7 @@ TODO:
         NONE =>
         (let
           val recv_completions_map = #recv_completions_map global_context 
-          val recv_completions = Recv_Sync_Map.lookup (recv_completions_map, recv_key)
+          val recv_completions = Recv_Comm_Map.lookup (recv_completions_map, recv_key)
           val commit_maps = List.concat (
             List.map
             (fn recv_completion as (_, recv_complete_path, _) => 
@@ -1901,7 +1940,7 @@ TODO:
             in
               find_commit_maps
               global_context commit_map'
-              (recv_thread_key, recv_running_key, recv_complete_path)
+              (recv_thread_key, recv_syncing_key, recv_complete_path)
             end))
             recv_completions
           )
@@ -1910,7 +1949,7 @@ TODO:
             (fn commit_map =>
               find_commit_maps
               global_context commit_map
-              (thread_key, running_key, path')
+              (thread_key, syncing_key, path')
             )
             commit_maps
           )
@@ -1923,25 +1962,25 @@ TODO:
       []
     ) |
 
-    Recv_Sync
+    Recv_Comm
     (
       send_thread_key,
-      send_running_key,
+      send_syncing_key,
       send_path,
       send_key,
       recv_key
     ) :: path' => 
-    (if Running_Set.member (#running_set global_context, send_running_key) then
+    (if Syncing_Set.member (#syncing_set global_context, send_syncing_key) then
       (case Thread_Map.find (commit_map, send_thread_key) of
         SOME (send_completion as (_, send_complete_path, _)) =>
         (let
           val send_path' =
-          Send_Sync (
-            thread_key, running_key, path', recv_key, send_key
+          Send_Comm (
+            thread_key, syncing_key, path', recv_key, send_key
           ) :: send_path
         in
           (if extends (send_complete_path, send_path') then
-            find_commit_maps global_context commit_map (thread_key, running_key, path')
+            find_commit_maps global_context commit_map (thread_key, syncing_key, path')
           else
             []
           )
@@ -1950,7 +1989,7 @@ TODO:
         NONE =>
         (let
           val send_completions_map = #send_completions_map global_context 
-          val send_completions = Send_Sync_Map.lookup (send_completions_map, send_key)
+          val send_completions = Send_Comm_Map.lookup (send_completions_map, send_key)
           val commit_maps = List.concat (
             List.map
             (fn send_completion as (_, send_complete_path, _) => 
@@ -1960,7 +1999,7 @@ TODO:
             in
               find_commit_maps
               global_context commit_map'
-              (send_thread_key, send_running_key, send_complete_path)
+              (send_thread_key, send_syncing_key, send_complete_path)
             end))
             send_completions
           )
@@ -1969,7 +2008,7 @@ TODO:
             (fn commit_map =>
               find_commit_maps
               global_context commit_map
-              (thread_key, running_key, path')
+              (thread_key, syncing_key, path')
             )
             commit_maps
           )
@@ -1986,7 +2025,7 @@ TODO:
     ( 
       find_commit_maps
       global_context commit_map
-      (thread_key, running_key, path')
+      (thread_key, syncing_key, path')
     ) |
 
 
@@ -1995,16 +2034,14 @@ TODO:
   )
 
 
-
-
-  fun run_event_step global_context (event, thread_key, running_key, path, event_stack) =
+  fun sync_event_step global_context (event, thread_key, syncing_key, path, event_stack) =
   (case event of
     Offer v =>
     (case event_stack of
       [] =>
       (let
 
-        val completion : completion = (running_key, path, v)
+        val completion : completion = (syncing_key, path, v)
         val init_commit_map = Thread_Map.singleton (thread_key, completion)
 
         val send_completions_map = #send_completions_map global_context
@@ -2020,31 +2057,70 @@ TODO:
         (
           find_commit_maps
           global_context init_commit_map
-          (thread_key, running_key, path)  
+          (thread_key, syncing_key, path)  
         )
 
 
         val final_commit_map = (
           List.hd commit_maps
-          (* TODO: determine best way to pick commit map *) 
+          (* TODO: determine if commit_maps should be filtered before taking head *) 
         )
 
-        (** remove running keys for commitable paths **)
-        val running_set = #running_set global_context
-        val running_set' = 
+        (** remove syncing keys for commitable paths **)
+        val syncing_set = #syncing_set global_context
+        val syncing_set' = 
         (
           Thread_Map.foldl
-          (fn (compl as (running_key, _, _), running_set') =>
-            Running_Set.delete (running_set', running_key)
+          (fn (compl as (syncing_key, _, _), syncing_set) =>
+            Syncing_Set.delete (syncing_set, syncing_key)
           ) 
-          running_set
+          syncing_set
           final_commit_map
         )
 
-        (** TODO: take offerings of commitable completions and continue thread suspension **)
+        (** take offerings of commitable completions and continue thread suspension **)
+        val suspension_map = #suspension_map global_context
+        val (synced_threads, suspension_map') =
+        (
+          Thread_Map.foldli
+          (fn
+            (
+              thread_key,
+              completion as (_, _, v),
+              (synced_threads, suspension_map)
+            ) =>
+            (let
+              val (suspension_map', effect_stack) =
+              Thread_Map.remove (suspension_map, thread_key)
+
+              val synced_thread =
+              (
+                Value (Effect (Return v), ~1),
+                {
+                  thread_key = thread_key,
+                  symbol_map = String_Map.empty,
+                  term_stack = [],
+                  thread_mode = Exec_Effect effect_stack 
+                }
+              )
+            in
+              (
+                synced_thread :: synced_threads,
+                suspension_map'
+              )
+            end)
+          )
+          ([], suspension_map)
+          final_commit_map
+        )
+
+        (* TODO: remove communication keys from Send_Comm/Recv_Comm*)
+
+        val global_context' = set_syncing_set (global_context, syncing_set')
+        val global_context' = set_suspension_map (global_context', suspension_map')
 
       in
-        raise (Fail "TODO: run_event_step; Try to commit or just leave around")
+        (synced_threads, global_context')
       end) |
 
       contin :: contin_stack =>
@@ -2057,7 +2133,7 @@ TODO:
             thread_key = thread_key,
             symbol_map = symbol_map,
             term_stack = [],
-            thread_mode = Run_Event (running_key, path, contin_stack)
+            thread_mode = Sync_Event (syncing_key, path, contin_stack)
           }
         )
       in
@@ -2091,7 +2167,7 @@ TODO:
           thread_key = thread_key,
           symbol_map = String_Map.empty,
           term_stack = [],
-          thread_mode = Run_Event (running_key, path, event_stack)
+          thread_mode = Sync_Event (syncing_key, path, event_stack)
         }
       )
     in
@@ -2107,9 +2183,9 @@ TODO:
           thread_key = thread_key,
           symbol_map = String_Map.empty,
           term_stack = [],
-          thread_mode = Run_Event
+          thread_mode = Sync_Event
           (
-            running_key,
+            syncing_key,
             path,
             (Contin_Latch, lams, fnc_store, mutual_map) ::
             event_stack
@@ -2129,7 +2205,7 @@ TODO:
           thread_key = thread_key,
           symbol_map = String_Map.empty,
           term_stack = [],
-          thread_mode = Run_Event (running_key, Left_Choice :: path, event_stack)
+          thread_mode = Sync_Event (syncing_key, Left_Choice :: path, event_stack)
         }
       )
 
@@ -2140,7 +2216,7 @@ TODO:
           thread_key = thread_key,
           symbol_map = String_Map.empty,
           term_stack = [],
-          thread_mode = Run_Event (running_key, Right_Choice :: path, event_stack)
+          thread_mode = Sync_Event (syncing_key, Right_Choice :: path, event_stack)
         }
       )
 
@@ -2154,38 +2230,38 @@ TODO:
       (* Expectation: chan_key certainly exists in chan_map; raise exception otherwise *)
       val chan = Chan_Map.lookup (chan_map, chan_key)
 
-      val running_set = #running_set global_context 
+      val syncing_set = #syncing_set global_context 
 
-      val waiting_send = (thread_key, running_key, path, event_stack, msg)
-      val chan' = clean_chan running_set (chan, [waiting_send], [])
+      val waiting_send = (thread_key, syncing_key, path, event_stack, msg)
+      val chan' = clean_chan syncing_set (chan, [waiting_send], [])
       val (_, waiting_recvs) = chan'
 
 
-      val sync_context = (
+      val comm_context = (
         #send_completions_map global_context,
-        #new_send_sync_key global_context,
+        #new_send_comm_key global_context,
         #recv_completions_map global_context,
-        #new_recv_sync_key global_context
+        #new_recv_comm_key global_context
       )
 
-      val (new_threads, sync_context') =
+      val (new_threads, comm_context') =
       (List.foldl  
-        (fn (waiting_recv, (new_threads, sync_context)) =>
+        (fn (waiting_recv, (new_threads, comm_context)) =>
         (let
-          val (synched_threads, sync_context') = (
-            sync_send_recv
-            sync_context
+          val (commhed_threads, comm_context') = (
+            comm_send_recv
+            comm_context
             (waiting_send, waiting_recv)
           )
         in
-          (synched_threads @ new_threads, sync_context')
+          (commhed_threads @ new_threads, comm_context')
         end)
         )
-        ([], sync_context)
+        ([], comm_context)
         waiting_recvs
       )
 
-      val global_context' = set_sync_context (global_context, sync_context)
+      val global_context' = set_comm_context (global_context, comm_context)
       val chan_map' = Chan_Map.insert (chan_map, chan_key, chan')
       val global_context' = set_chan_map (global_context', chan_map')
 
@@ -2199,38 +2275,38 @@ TODO:
       (* Expectation: chan_key certainly exists in chan_map; raise exception otherwise *)
       val chan = Chan_Map.lookup (chan_map, chan_key)
 
-      val running_set = #running_set global_context 
+      val syncing_set = #syncing_set global_context 
 
-      val waiting_recv = (thread_key, running_key, path, event_stack)
-      val chan' = clean_chan running_set (chan, [], [waiting_recv])
+      val waiting_recv = (thread_key, syncing_key, path, event_stack)
+      val chan' = clean_chan syncing_set (chan, [], [waiting_recv])
       val (waiting_sends, _) = chan'
 
 
-      val sync_context = (
+      val comm_context = (
         #send_completions_map global_context,
-        #new_send_sync_key global_context,
+        #new_send_comm_key global_context,
         #recv_completions_map global_context,
-        #new_recv_sync_key global_context
+        #new_recv_comm_key global_context
       )
 
-      val (new_threads, sync_context') =
+      val (new_threads, comm_context') =
       (List.foldl  
-        (fn (waiting_send, (new_threads, sync_context)) =>
+        (fn (waiting_send, (new_threads, comm_context)) =>
         (let
-          val (synched_threads, sync_context') = (
-            sync_send_recv
-            sync_context
+          val (commhed_threads, comm_context') = (
+            comm_send_recv
+            comm_context
             (waiting_send, waiting_recv)
           )
         in
-          (synched_threads @ new_threads, sync_context')
+          (commhed_threads @ new_threads, comm_context')
         end)
         )
-        ([], sync_context)
+        ([], comm_context)
         waiting_sends
       )
 
-      val global_context' = set_sync_context (global_context, sync_context)
+      val global_context' = set_comm_context (global_context, comm_context)
       val chan_map' = Chan_Map.insert (chan_map, chan_key, chan')
       val global_context' = set_chan_map (global_context', chan_map')
 
@@ -2257,12 +2333,12 @@ TODO:
         SOME (threads @ new_threads, global_context')
       end) |
 
-      (* run event case *)
-      (Value (Event event, _), [], Run_Event (running_key, path, event_stack)) => (let
+      (* sync event case *)
+      (Value (Event event, _), [], Sync_Event (syncing_key, path, event_stack)) => (let
         val (new_threads, global_context') = (
-          run_event_step
+          sync_event_step
           global_context
-          (event, thread_key, running_key, path, event_stack)
+          (event, thread_key, syncing_key, path, event_stack)
         )
       in
         SOME (threads' @ new_threads, global_context')
@@ -2314,17 +2390,17 @@ TODO:
       new_thread_key = Thread_Key.inc (#thread_key thread_context),
       suspension_map = Thread_Map.empty,
 
-      new_running_key = Running_Key.zero, 
-      running_set = Running_Set.empty, 
+      new_syncing_key = Syncing_Key.zero, 
+      syncing_set = Syncing_Set.empty, 
 
       new_chan_key = Chan_Key.zero,
       chan_map = Chan_Map.empty,
 
-      new_send_sync_key = Send_Sync_Key.zero,
-      send_completions_map = Send_Sync_Map.empty,
+      new_send_comm_key = Send_Comm_Key.zero,
+      send_completions_map = Send_Comm_Map.empty,
 
-      new_recv_sync_key = Recv_Sync_Key.zero,
-      recv_completions_map = Recv_Sync_Map.empty,
+      new_recv_comm_key = Recv_Comm_Key.zero,
+      recv_completions_map = Recv_Comm_Map.empty,
 
       new_hole_key = Hole_Key.zero
     }
