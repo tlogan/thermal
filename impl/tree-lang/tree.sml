@@ -1944,7 +1944,9 @@ TODO:
   (thread_key, syncing_key, path) =
   (case path of
 
-    (* TODO: 
+    (*
+    **
+    ** TODO: 
     ** is it possible to use the (thread -> dependent path) map
     ** instead of traversing through the path to find dependencies?
     **
@@ -1955,6 +1957,11 @@ TODO:
     **
     ** In contrast, the coherent extension checks that a communication partner extends
     ** any previous communication partner of the same thread.
+    **
+    ** instead of putting the path of the partner in the SendComm/RecvComm,
+    ** only put the thread key, and keep a map of thread_key to longest communication path.
+    **
+    **
     *)
 
     Send_Comm
