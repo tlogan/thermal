@@ -1959,8 +1959,11 @@ TODO:
     ** any previous communication partner of the same thread.
     **
     ** instead of putting the path of the partner in the SendComm/RecvComm,
-    ** only put the thread key, and keep a map of thread_key to longest communication path.
+    ** only put the thread key, and completion references,
+    ** and keep a map of thread_key to longest communication path.
     **
+    ** completion should hold path along with dependency map.
+    ** path is used to check extension, dependency map is used for recursion on dependencies. 
     **
     *)
 
