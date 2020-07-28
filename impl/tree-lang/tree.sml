@@ -2316,9 +2316,10 @@ TODO:
     Send (chan_key, msg) =>
     (* TODO: check for coherent paths between send and receive
     ** in TE Haskell:
-    ** there is a thread -> path map that is created with
-    ** checks for coherence.
-    ** Additionally, there is a coherent predicate which does the same check after the fact.
+    ** there is a thread -> path map that is created with that checks for coherence.
+    ** and provides basis for next coherence check.
+    ** Additionally, there is a coherent predicate which does the same check by searching
+    ** through the whole path and dependencies at once.
     *)
     (let
       val chan_map = #chan_map global_context 
