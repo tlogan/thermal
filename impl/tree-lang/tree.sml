@@ -1943,6 +1943,20 @@ TODO:
   (commit_map : completion Thread_Map.map)
   (thread_key, syncing_key, path) =
   (case path of
+
+    (* TODO: 
+    ** is it possible to use the (thread -> dependent path) map
+    ** instead of traversing through the path to find dependencies?
+    **
+    ** seems so. Note that
+    **
+    ** The commit extension check checks that the a completed path
+    ** extends any communication partner of the same thread.
+    **
+    ** In contrast, the coherent extension checks that a communication partner extends
+    ** any previous communication partner of the same thread.
+    *)
+
     Send_Comm
     (
       recv_thread_key,
