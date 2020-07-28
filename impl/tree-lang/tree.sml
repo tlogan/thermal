@@ -2312,7 +2312,14 @@ TODO:
       ([left_thread, right_thread], global_context)
     end) |
 
+    
     Send (chan_key, msg) =>
+    (* TODO: check for coherent paths between send and receive
+    ** in TE Haskell:
+    ** there is a thread -> path map that is created with
+    ** checks for coherence.
+    ** Additionally, there is a coherent predicate which does the same check after the fact.
+    *)
     (let
       val chan_map = #chan_map global_context 
       (* Expectation: chan_key certainly exists in chan_map; raise exception otherwise *)
