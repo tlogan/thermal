@@ -225,6 +225,7 @@ struct
     completions_map : (completion list) Thread_Map.map,
     *)
 
+
     new_syncing_key : Syncing_Key.ord_key,
     syncing_set : Syncing_Set.set, 
 
