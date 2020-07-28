@@ -1963,7 +1963,10 @@ TODO:
     ** and keep a map of thread_key to longest communication path.
     **
     ** completion should hold path along with dependency map.
-    ** path is used to check extension, dependency map is used for recursion on dependencies. 
+    ** path is used to check extension,
+    ** dependency map is used for recursion on dependencies. 
+    ** communication dependency map (comm_dep_map) does not include self.
+    ** all paths are headed by a Send_Comm or Recv_Comm.
     **
     *)
 
