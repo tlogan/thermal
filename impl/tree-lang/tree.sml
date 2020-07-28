@@ -156,6 +156,7 @@ struct
     Send_Comm of (
       Thread_Key.ord_key *
       Syncing_Key.ord_key *
+      (* TODO: remove the following *)
       past_event list *
       Recv_Comm_Key.ord_key *
       Send_Comm_Key.ord_key
@@ -163,6 +164,7 @@ struct
     Recv_Comm of (
       Thread_Key.ord_key *
       Syncing_Key.ord_key *
+      (* TODO: remove the following *)
       past_event list *
       Send_Comm_Key.ord_key *
       Recv_Comm_Key.ord_key
@@ -170,7 +172,16 @@ struct
 
   datatype thread_mode =
     Exec_Effect of contin list | 
-    Sync_Event of Syncing_Key.ord_key * past_event list * contin list
+    Sync_Event of (
+      Syncing_Key.ord_key *
+      past_event list *
+      (*
+      TODO: add dependency map 
+      (* communication dependncy map: *)
+      (past_event list) Thread_Map.map *
+      *)
+      contin list
+    )
 
   type thread = (
     Thread_Key.ord_key *
@@ -209,12 +220,18 @@ struct
     new_thread_key : Thread_Key.ord_key,
     suspension_map : (contin list) Thread_Map.map,
 
+    (*
+    ** TODO: add thread -> completion list map **
+    completions_map : (completion list) Thread_Map.map,
+    *)
+
     new_syncing_key : Syncing_Key.ord_key,
     syncing_set : Syncing_Set.set, 
 
     new_chan_key : Chan_Key.ord_key,
     chan_map : channel Chan_Map.map,
 
+    (* TODO: remove send/recv_comm maps *)
     new_send_comm_key : Send_Comm_Key.ord_key,
     send_completions_map : (completion list) Send_Comm_Map.map,
 
@@ -1938,38 +1955,43 @@ TODO:
     (x :: xs, ys) => (x :: xs = ys) orelse extends (xs, ys)
   )
 
+
+
+  (*
+  **
+  ** TODO: find_commit_maps
+  ** is it possible to use the (thread -> dependent path) map
+  ** instead of traversing through the path to find dependencies?
+  **
+  ** seems so. Note that
+  **
+  ** The commit extension check checks that the a completed path
+  ** extends any communication partner of the same thread.
+  **
+  ** In contrast, the coherent extension checks that a communication partner extends
+  ** any previous communication partner of the same thread.
+  **
+  ** instead of putting the path of the partner in the SendComm/RecvComm,
+  ** only put the thread_key, and sync_key 
+  ** and keep a map of thread_key to longest communication path in Sync_Mode.
+  ** 
+  ** separate map of thread_key to completion list is stored in global context.
+  **
+  ** completion should hold path along with dependency map.
+  ** path is used to check extension,
+  ** dependency map is used for recursion on dependencies. 
+  ** communication dependency map (comm_dep_map) does not include self.
+  ** all paths are headed by a Send_Comm or Recv_Comm.
+  **
+  **
+  **
+  *)
+
   fun find_commit_maps
   (global_context : global_context)
   (commit_map : completion Thread_Map.map)
   (thread_key, syncing_key, path) =
   (case path of
-
-    (*
-    **
-    ** TODO: 
-    ** is it possible to use the (thread -> dependent path) map
-    ** instead of traversing through the path to find dependencies?
-    **
-    ** seems so. Note that
-    **
-    ** The commit extension check checks that the a completed path
-    ** extends any communication partner of the same thread.
-    **
-    ** In contrast, the coherent extension checks that a communication partner extends
-    ** any previous communication partner of the same thread.
-    **
-    ** instead of putting the path of the partner in the SendComm/RecvComm,
-    ** only put the thread key, and completion references,
-    ** and keep a map of thread_key to longest communication path.
-    **
-    ** completion should hold path along with dependency map.
-    ** path is used to check extension,
-    ** dependency map is used for recursion on dependencies. 
-    ** communication dependency map (comm_dep_map) does not include self.
-    ** all paths are headed by a Send_Comm or Recv_Comm.
-    **
-    *)
-
     Send_Comm
     (
       recv_thread_key,
