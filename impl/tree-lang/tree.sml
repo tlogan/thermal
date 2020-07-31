@@ -12,12 +12,6 @@ struct
   structure Chan_Key = Key_Fn (val tag = "chan")
   structure Chan_Map = RedBlackMapFn (Chan_Key)
 
-  structure Send_Comm_Key = Key_Fn (val tag = "comm_send")
-  structure Send_Comm_Map = RedBlackMapFn (Send_Comm_Key)
-
-  structure Recv_Comm_Key = Key_Fn (val tag = "comm_recv")
-  structure Recv_Comm_Map = RedBlackMapFn (Recv_Comm_Key)
-
   structure Hole_Key = Key_Fn (val tag = "_g")
 
   structure String_Map = RedBlackMapFn
@@ -568,12 +562,18 @@ struct
   }
 
 
+  (* **TODO** *)
   fun values_equal (v_a, v_b) =
   (
-    raise (Fail "values_equal not yet implemented");
+    raise (Fail "TODO: values_equal not yet implemented");
     true
   )
 
+  (* **TODO**
+  ** match values of pattern body symbols with values in function's symbol maps  
+  ** for mutual recursive references, create name rewriting map to use in comparison
+  *)
+  (*
   fun match_symbolic_term_insert symbol_map (pattern, symbolic_term) =
   (case (pattern, symbolic_term) of
     (Value (Blank, _), _) => SOME symbol_map |
@@ -748,6 +748,7 @@ TODO:
   else
     NONE
   )
+  *)
 
   fun match_value_insert (symbol_map, pat, value) = (case (pat, value) of
 
@@ -759,7 +760,7 @@ TODO:
 
     (Id (str, _), v) => (
       SOME (String_Map.insert (symbol_map, str, (NONE, v)))
-    )|
+    ) |
 
     (Intro_List (t, t', _), List (v :: vs)) =>
     (Option.mapPartial
@@ -775,16 +776,45 @@ TODO:
       (p_fields, v_fields)
     ) |
 
-    (
-      Intro_Func ([(Value (Blank, _), p_body)], _),
-      Func ([(Value (Blank, _), st_body)], _, _)
-    ) => (
-      (* function value's local stores are ignored; only syntax is matched; *)
-      (* it's up to the user to determine if syntax can actually be evaluated in alternate context *)
-      (* variables in pattern are specified by pattern_var syntax (sym f); *)
-      (* it may then be used in new context and evaluated with f () *) 
-      match_symbolic_term_insert symbol_map (p_body, st_body)
+(*
+
+    Intro_Rec of (
+      (string * (infix_option * term)) list *
+      int
     ) |
+
+    Intro_Mutual_Rec of (
+      (string * (infix_option * term)) list *
+      int
+    ) |
+
+    Select of (term * int) |
+
+    (* event *)
+    Intro_Send of (term * int) |
+    Intro_Recv of (term * int) |
+    Intro_Latch of (term * int) |
+    Intro_Choose of (term * int) |
+    Intro_Offer of (term * int) |
+    Intro_Abort of int |
+
+    (* effect *)
+    Intro_Return of (term * int) |
+    Intro_Sync of (term * int) |
+    Intro_Bind of (term * int) |
+    Intro_Exec of (term * int) |
+
+    (* number *)
+    Add_Num of (term * int) |
+    Sub_Num of (term * int) |
+    Mul_Num of (term * int) |
+    Div_Num of (term * int) |
+
+    (* value *)
+    Value of (value * int)
+ *)
+
+
 
 
     (Value (Num n, _), Num nv) =>
@@ -796,7 +826,7 @@ TODO:
 
     _ => NONE
 
-    (* **TODO**
+    (* **CURRENT TODO**
 
     (List ([], _), List ([], _)) => SOME symbol_map | 
 
@@ -855,6 +885,23 @@ TODO:
       
     ) |
 
+    *)
+
+    (* TODO: symbolic pattern matching
+    (
+      Intro_Func ([(Value (Blank, _), p_body)], _),
+      Func ([(Value (Blank, _), st_body)], _, _)
+    ) => (
+      (* **TODO**
+      ** match values of pattern body symbols with values in function's symbol maps  
+      ** for mutual recursive references, create name rewriting map to use in comparison
+      *)
+      (* Currently, function value's local stores are ignored; only syntax is matched; *)
+      (* it's up to the user to determine if syntax can actually be evaluated in alternate context *)
+      (* variables in pattern are specified by pattern_var syntax (sym f); *)
+      (* it may then be used in new context and evaluated with f () *) 
+      match_symbolic_term_insert symbol_map (p_body, st_body)
+    ) |
     *)
   )
 
