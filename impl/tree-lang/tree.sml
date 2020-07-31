@@ -819,43 +819,27 @@ TODO:
       )
     end) |
 
-(*
-
-    (* event *)
-    Intro_Send of (term * int) |
-    Intro_Recv of (term * int) |
-    Intro_Latch of (term * int) |
-    Intro_Choose of (term * int) |
-    Intro_Offer of (term * int) |
-    Intro_Abort of int |
-
-    (* effect *)
-    Intro_Return of (term * int) |
-    Intro_Sync of (term * int) |
-    Intro_Bind of (term * int) |
-    Intro_Exec of (term * int) |
-
-    (* number *)
-    Add_Num of (term * int) |
-    Sub_Num of (term * int) |
-    Mul_Num of (term * int) |
-    Div_Num of (term * int) |
-
-    (* value *)
-    Value of (value * int)
- *)
-
-
-    (Value (Num n, _), Num nv) =>
-    (if n = nv then
-      SOME symbol_map
-    else
-      NONE
-    ) |
-
     _ => NONE
 
     (* **CURRENT TODO**
+
+    ** Intro patterns **
+    ** (* event *)
+    ** Intro_Send of (term * int) |
+    ** Intro_Recv of (term * int) |
+    ** Intro_Latch of (term * int) |
+    ** Intro_Choose of (term * int) |
+    ** Intro_Offer of (term * int) |
+    ** Intro_Abort of int |
+
+    ** (* effect *)
+    ** Intro_Return of (term * int) |
+    ** Intro_Sync of (term * int) |
+    ** Intro_Bind of (term * int) |
+    ** Intro_Exec of (term * int) |
+
+    ** (* value *)
+    ** Value of (value * int)
 
     (List ([], _), List ([], _)) => SOME symbol_map | 
 
@@ -916,6 +900,14 @@ TODO:
         NONE
       
     ) |
+
+    (Value (pv, _), _) =>
+    (if values_equal (pv, v) then
+      SOME symbol_map
+    else
+      NONE
+    ) |
+
 
     *)
 
