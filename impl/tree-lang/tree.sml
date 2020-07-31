@@ -46,12 +46,11 @@ struct
     With of (term * term * int) |
 
     Intro_Rec of (
+      (* fields *)
       (string * (infix_option * term)) list *
-      int
-    ) |
-
-    Intro_Mutual_Rec of (
-      (string * (infix_option * term)) list *
+      (* contextualized *)
+      bool *
+      (*pos*)
       int
     ) |
 
@@ -275,11 +274,7 @@ struct
 
     With (t1, t2, pos) => "with " ^ (to_string t1) ^ "\n" ^ (to_string t2) |
 
-    Intro_Rec (fs, pos) => String.surround "" (
-      String.concatWith ",\n" (List.map from_field_to_string fs)
-    ) |
-
-    Intro_Mutual_Rec (fs, pos) => String.surround "mutual" (
+    Intro_Rec (fs, contextualized, pos) => String.surround "" (
       String.concatWith ",\n" (List.map from_field_to_string fs)
     ) |
 
@@ -639,16 +634,19 @@ struct
     ) |
 
 
-    (Intro_Mutual_Rec (p_fields, _), Intro_Mutual_Rec (st_fields, _)) =>
-    (
-      from_fields_match_symbolic_term_insert symbol_map (p_fields, st_fields)
-    ) |
-
 
     (Select (p, _), Select (st, _)) =>
     (
       match_symbolic_term_insert symbol_map (p, st)
     ) |
+
+(*
+    (Intro_Mutual_Rec (p_fields, _), Intro_Mutual_Rec (st_fields, _)) =>
+    (
+      from_fields_match_symbolic_term_insert symbol_map (p_fields, st_fields)
+    ) |
+*)
+
 
 (*
 TODO:
@@ -750,6 +748,41 @@ TODO:
   )
   *)
 
+
+  fun contextualize symbol_map fields =
+  (let
+    val mutual_map =
+    (List.foldl
+      (fn
+        ((k, (fix_op,  Intro_Func (lams, _))), mutual_map) => 
+        (
+          String_Map.insert (mutual_map, k, (fix_op, lams))
+        ) |
+
+        (_, mutual_map) => mutual_map
+      )
+      String_Map.empty
+      fields
+    )
+    
+    val fields' =
+    (List.map
+      (fn
+        (* embed symbol map mutual ids into ts' functions *)
+        (k, (fix_op, Intro_Func (lams, pos))) =>
+        (
+          (k, (fix_op, Value (Func (lams, symbol_map, mutual_map), ~1)))
+        ) |
+
+        (* otherwise *)
+        field => field 
+      )
+      fields 
+    )
+  in
+    fields'
+  end)
+
   fun match_value_insert (symbol_map, pat, value) = (case (pat, value) of
 
     (Assoc (pat', _), _) => (
@@ -770,25 +803,23 @@ TODO:
       (match_value_insert (symbol_map, t', List vs))
     ) |
 
-    (Intro_Rec (p_fields, _), Rec v_fields) => (
-      from_fields_match_value_insert
-      symbol_map
-      (p_fields, v_fields)
-    ) |
+    (Intro_Rec (p_fields, contextualized, _), Rec v_fields) =>
+    (let
+      val p_fields =
+      (if contextualized then
+        p_fields
+      else
+        contextualize symbol_map p_fields
+      )
+    in
+      (
+        from_fields_match_value_insert
+        symbol_map
+        (p_fields, v_fields)
+      )
+    end) |
 
 (*
-
-    Intro_Rec of (
-      (string * (infix_option * term)) list *
-      int
-    ) |
-
-    Intro_Mutual_Rec of (
-      (string * (infix_option * term)) list *
-      int
-    ) |
-
-    Select of (term * int) |
 
     (* event *)
     Intro_Send of (term * int) |
@@ -813,8 +844,6 @@ TODO:
     (* value *)
     Value of (value * int)
  *)
-
-
 
 
     (Value (Num n, _), Num nv) =>
@@ -859,7 +888,7 @@ TODO:
         NONE
     ) |
 
-    (Intro_Rec (p_fields, _), Rec_Intro (v_fields, _)) =>
+    (Intro_Rec (p_fields, contextualized, _), Rec_Intro (v_fields, _)) =>
     (case (p_fields, v_fields) of
       ([], []) => SOME symbol_map |
 
@@ -873,7 +902,10 @@ TODO:
         (case match of
           [(k, v)] => (Option.mapPartial
             (fn symbol_map' => match_value_insert (symbol_map', t, v))
-            (match_value_insert (symbol_map, Intro_Rec (ps, ~1), Rec_Intro (remainder, ~1)))
+            (match_value_insert
+              (symbol_map, Intro_Rec (ps, contextualized, ~1),
+              Rec_Intro (remainder, contextualized, ~1))
+            )
           ) |
 
           _ => NONE
@@ -1297,6 +1329,7 @@ TODO:
   end)
 
 
+
   fun eval_term_step global_context
   (
     t,
@@ -1425,43 +1458,15 @@ TODO:
       )
     end) |
 
-    Intro_Rec (fields, pos) =>
-    (let
+    Intro_Rec (fields, contextualized, pos) => (let
 
-      val mutual_map =
-      (List.foldl
-        (fn
-          ((k, (fix_op,  Intro_Func (lams, _))), mutual_map) => 
-          (
-            String_Map.insert (mutual_map, k, (fix_op, lams))
-          ) |
-
-          (_, mutual_map) => mutual_map
-        )
-        String_Map.empty
+      val fields =
+      (if contextualized then
         fields
+      else
+        contextualize symbol_map fields
       )
-      
-      (* embed mutual ids into ts' functions *)
-      val fields' =
-      (List.map
-        (fn
-          (k, (fix_op, Intro_Func (lams, pos))) => (
-            (k, (fix_op, Value (Func (lams, symbol_map, mutual_map), ~1)))
-          ) |
 
-          field => field 
-        )
-       fields 
-      )
-    in
-      SOME (
-        (Intro_Mutual_Rec (fields', pos), symbol_map, contin_stack),
-        global_context
-      )
-    end) |
-
-    Intro_Mutual_Rec (fields, pos) => (let
       val ts = (map (fn (k, (fix_op, t)) => t) fields)
 
       fun map_to_fields ts =
@@ -1472,7 +1477,7 @@ TODO:
     in
       SOME (reduce_list global_context (
         ts,
-        fn ts => Intro_Mutual_Rec (map_to_fields ts, pos),
+        fn ts => Intro_Rec (map_to_fields ts, true, pos),
         fn vs => Rec (map_to_fields vs),
         symbol_map, contin_stack
       ))

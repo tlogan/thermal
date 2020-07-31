@@ -96,8 +96,8 @@ term_nt:
   LOG term_nt (Log (term_nt, LOGleft)) |
   SYM term_nt (Sym (term_nt, SYMleft)) | 
 
-  field_nt (Intro_Rec ([field_nt], field_ntleft)) |
-  LPAREN fields_nt (Intro_Rec (fields_nt, LPARENleft)) |
+  field_nt (Intro_Rec ([field_nt], false, field_ntleft)) |
+  LPAREN fields_nt (Intro_Rec (fields_nt, false, LPARENleft)) |
 
   term_nt LSQ term_nt RSQ
     (Select (Intro_List (
