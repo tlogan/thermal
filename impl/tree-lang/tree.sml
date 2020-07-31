@@ -1867,45 +1867,6 @@ TODO:
   end)
 
 
-  (*
-  **
-  ** TODO: find_commit_maps
-  ** is it possible to use the (thread -> dependent path) map
-  ** instead of traversing through the path to find dependencies?
-  **
-  ** seems so. Note that
-  **
-  ** The commit extension check checks that the a completed path
-  ** extends any communication partner of the same thread.
-  **
-  ** alternate implementation:
-  ** maintain a longest communication partner map stored with the search thread,
-  ** instead of the communication path with for each communication.
-  **
-  ** maintain a global thread_key -> completion map,
-  ** instead of references to completions in the communuication past_event elements.
-  ** on each communication, check that the communicating thread's path
-  ** extends an existing communication path. 
-  **
-  ** In contrast, the coherent extension checks that a communication partner extends
-  ** any previous communication partner of the same thread.
-  **
-  ** instead of putting the path of the partner in the SendComm/RecvComm,
-  ** only put the thread_key, and sync_key 
-  ** and keep a map of thread_key to longest communication path in Sync_Mode.
-  ** 
-  ** separate map of thread_key to completion list is stored in global context.
-  **
-  ** completion should hold path along with dependency map.
-  ** path is used to check extension,
-  ** dependency map is used for recursion on dependencies. 
-  ** communication dependency map (comm_dep_map) does not include self.
-  ** all paths are headed by a Send_Comm or Recv_Comm.
-  **
-  **
-  **
-  *)
-
   fun find_commit_maps (global_context : global_context)
   (
     commit_map : completion Thread_Map.map,
