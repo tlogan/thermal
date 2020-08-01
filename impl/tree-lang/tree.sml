@@ -87,7 +87,7 @@ struct
       ((term * term) list) *
       ((infix_option * value) String_Map.map) *
       ((infix_option * ((term * term) list)) String_Map.map) 
-    ) (* Func (lams, symbol_map, mutual_map) *) |
+    ) |
 
     Rec of (string * (infix_option * value)) list |
 
@@ -557,7 +557,24 @@ struct
   }
 
 
-  (* **TODO** *)
+  (*  
+  **  symbolic pattern matching
+  **  match values of pattern body symbols with values in function's symbol maps  
+  **  for mutual recursive references, create name rewriting map to use in comparison
+  **  Currently, function value's local stores are ignored; only syntax is matched;
+  **  it's up to the user to determine if syntax can actually be evaluated in alternate context 
+  **  variables in pattern are specified by pattern_var syntax (sym f);
+  **  it may then be used in new context and evaluated with f () 
+  **
+  **  match function params to create name rewrite map
+  **  match function bodies with (sym f) symbol map
+  **  match values of looked up symbols  
+  **
+  **  if matching two mutual map symbols, update rewrite map
+  **  then compare looked up values
+  ** 
+  *)
+  (* CURRENT TODO *)
   fun match_value symbol_map (v_a, v_b) =
   (
     raise (Fail "TODO: match_value not yet implemented");
@@ -827,97 +844,59 @@ TODO:
       match_term symbol_map (t, Chan chan_key)
     ) |
 
+    (Intro_Latch (t, _), Event (Latch (event, lams, symbol_map, mutual_map))) =>
+    (
+      match_term symbol_map (t,
+        List [Event event, Func (lams, symbol_map, mutual_map)]
+      )
+    ) |
+
+    (Intro_Choose (t, _), Event (Choose (event_left, event_right))) =>
+    (
+      match_term symbol_map (t,
+        List [Event event_left, Event event_right]
+      )
+    ) |
+
+    (Intro_Offer (t, _), Event (Offer v)) =>
+    (
+      match_term symbol_map (t, v)
+    ) |
+
+    (Intro_Abort (_), Event Abort) =>
+    (
+      SOME symbol_map 
+    ) |
+
+    (Intro_Return (t, _), Effect (Return v)) =>
+    (
+      match_term symbol_map (t, v)
+    ) |
+
+    (Intro_Sync (t, _), Effect (Sync event)) =>
+    (
+      match_term symbol_map (t, Event event)
+    ) |
+
+    (Intro_Bind (t, _), Effect (Bind (effect, lams, symbol_map, mutual_map))) =>
+    (
+      match_term symbol_map (t,
+        List [Effect effect, Func (lams, symbol_map, mutual_map)]
+      )
+    ) |
+
+    (Intro_Exec (t, _), Effect (Exec effect)) =>
+    (
+      match_term symbol_map (t, Effect effect)
+    ) |
+
+    (Value (vp, _), _) =>
+    (
+      match_value symbol_map (vp, value)
+    ) |
+
     _ => NONE
 
-    (* **CURRENT TODO**
-
-    ** Intro patterns **
-    ** (* event *)
-    ** Intro_Latch of (term * int) |
-    ** Intro_Choose of (term * int) |
-    ** Intro_Offer of (term * int) |
-    ** Intro_Abort of int |
-
-    ** (* effect *)
-    ** Intro_Return of (term * int) |
-    ** Intro_Sync of (term * int) |
-    ** Intro_Bind of (term * int) |
-    ** Intro_Exec of (term * int) |
-
-    ** (* value *)
-    ** Value of (value * int)
-
-
-    (Intro_Event_Recv (t, _), Event_Recv_Intro (v, _)) =>
-      match_term symbol_map (t, v) |
-
-    (Func p_fnc, Func v_fnc) => (
-      if fnc_equal (p_fnc, v_fnc) then
-        SOME symbol_map
-      else
-        NONE
-    ) |
-
-    (String (str, _), String (strv, _)) => (
-      if str = strv then
-        SOME symbol_map
-      else
-        NONE
-    ) |
-
-    (Intro_Rec (p_fields, contextualized, _), Rec_Intro (v_fields, _)) =>
-    (case (p_fields, v_fields) of
-      ([], []) => SOME symbol_map |
-
-      ((pk, t) :: ps, _ :: _) =>
-      (let
-        val (match, remainder) = (List.partition  
-          (fn (k, v) => k = pk)
-          v_fields
-        )
-      in
-        (case match of
-          [(k, v)] => (Option.mapPartial
-            (fn symbol_map' => match_term (symbol_map', t, v))
-            (match_term
-              (symbol_map, Intro_Rec (ps, contextualized, ~1),
-              Rec_Intro (remainder, contextualized, ~1))
-            )
-          ) |
-
-          _ => NONE
-        )
-      end) |
-
-      _ =>
-        NONE
-      
-    ) |
-
-    (Value (pv, _), _) =>
-    (
-      match_value symbol_map (pv, v)
-    ) |
-
-
-    *)
-
-    (* TODO: symbolic pattern matching
-    (
-      Intro_Func ([(Value (Blank, _), p_body)], _),
-      Func ([(Value (Blank, _), st_body)], _, _)
-    ) => (
-      (* **TODO**
-      ** match values of pattern body symbols with values in function's symbol maps  
-      ** for mutual recursive references, create name rewriting map to use in comparison
-      *)
-      (* Currently, function value's local stores are ignored; only syntax is matched; *)
-      (* it's up to the user to determine if syntax can actually be evaluated in alternate context *)
-      (* variables in pattern are specified by pattern_var syntax (sym f); *)
-      (* it may then be used in new context and evaluated with f () *) 
-      match_symbolic_term_insert symbol_map (p_body, st_body)
-    ) |
-    *)
   )
 
   and from_fields_match_term symbol_map (p_fields, v_fields) =
