@@ -587,9 +587,35 @@ struct
       from_list_match_value symbol_map (ps, vs)
     ) |
 
+    (Func fp, Func fv) =>
+    (
+      from_func_match_value symbol_map (fp, fv)
+    ) |
+
     _ => NONE
 
   )
+
+  and from_func_match_value symbol_map
+  (
+    (p_lams, p_symbol_map, p_mutual_store),
+    (f_lams, f_symbol_map, f_mutual_store)
+  ) =
+  (case (p_lams, f_lams) of 
+    ([], []) => SOME symbol_map |
+    (p_lam :: p_lams', f_lam :: f_lams') =>
+    (
+      from_lam_match_value symbol_map (p_lam, f_lam)
+    ) |
+    _ => NONE
+  
+  )
+
+  and from_lam_match_value symbol_map (p_lam, f_lam) =
+  (let
+  in
+    raise Fail "TODO"
+  end)
 
   and from_list_match_value symbol_map (ps, vs) = 
   (case (ps, vs) of 
@@ -603,11 +629,6 @@ struct
   )
   (* **TODO**
 
-    Func of (
-      ((term * term) list) *
-      ((infix_option * value) String_Map.map) *
-      ((infix_option * ((term * term) list)) String_Map.map) 
-    ) |
 
     Rec of (string * (infix_option * value)) list |
 
