@@ -819,13 +819,17 @@ TODO:
       )
     end) |
 
+    (Intro_Send (t, _), Event (Send (chan_key, msg))) =>
+    (
+      match_value_insert (symbol_map, t, List [Chan chan_key, msg])
+    ) |
+
     _ => NONE
 
     (* **CURRENT TODO**
 
     ** Intro patterns **
     ** (* event *)
-    ** Intro_Send of (term * int) |
     ** Intro_Recv of (term * int) |
     ** Intro_Latch of (term * int) |
     ** Intro_Choose of (term * int) |
@@ -841,19 +845,6 @@ TODO:
     ** (* value *)
     ** Value of (value * int)
 
-    (List ([], _), List ([], _)) => SOME symbol_map | 
-
-    (List (t :: ts, _), List (v :: vs, _)) =>
-      (Option.mapPartial
-        (fn symbol_map' =>
-          match_value_insert (symbol_map', t, v)
-        )
-        (match_value_insert (symbol_map, List (ts, ~1), List (vs, ~1)))
-      ) |
-
-
-    (Intro_Event_Send (t, _), Event_Send_Intro (v, _)) =>
-      match_value_insert (symbol_map, t, v) |
 
     (Intro_Event_Recv (t, _), Event_Recv_Intro (v, _)) =>
       match_value_insert (symbol_map, t, v) |
