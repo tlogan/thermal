@@ -818,6 +818,11 @@ TODO:
       (match_term symbol_map (t', List vs))
     ) |
 
+    (Intro_Func (lams, pos), _) =>
+    (
+      match_value symbol_map (Func (lams, symbol_map, String_Map.empty), value)
+    ) |
+
     (Intro_Rec (p_fields, contextualized, _), Rec v_fields) =>
     (let
       val p_fields =
