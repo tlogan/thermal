@@ -558,10 +558,10 @@ struct
 
 
   (* **TODO** *)
-  fun values_equal (v_a, v_b) =
+  fun match_value symbol_map (v_a, v_b) =
   (
-    raise (Fail "TODO: values_equal not yet implemented");
-    true
+    raise (Fail "TODO: match_value not yet implemented");
+    SOME symbol_map
   )
 
   (* **TODO**
@@ -676,10 +676,8 @@ TODO:
 
 
     (Value p_v, Value st_v) =>
-    (if values_equal (p_v, st_v) then
-      SOME symbol_map
-    else
-      NONE
+    (
+      match_value symbol_map (p_v, st_v)
     ) |
 
     (Add_Num (p, _), Add_Num (st, _)) => (
@@ -783,10 +781,10 @@ TODO:
     fields'
   end)
 
-  fun match_value_insert (symbol_map, pat, value) = (case (pat, value) of
+  fun match_term symbol_map (pat, value) = (case (pat, value) of
 
     (Assoc (pat', _), _) => (
-      match_value_insert (symbol_map, pat', value)
+      match_term symbol_map (pat', value)
     ) |
 
     (Value (Blank, _), _) => SOME symbol_map |
@@ -798,9 +796,9 @@ TODO:
     (Intro_List (t, t', _), List (v :: vs)) =>
     (Option.mapPartial
       (fn symbol_map' =>
-        match_value_insert (symbol_map', t, v)
+        match_term symbol_map' (t, v)
       )
-      (match_value_insert (symbol_map, t', List vs))
+      (match_term symbol_map (t', List vs))
     ) |
 
     (Intro_Rec (p_fields, contextualized, _), Rec v_fields) =>
@@ -813,7 +811,7 @@ TODO:
       )
     in
       (
-        from_fields_match_value_insert
+        from_fields_match_term
         symbol_map
         (p_fields, v_fields)
       )
@@ -821,7 +819,12 @@ TODO:
 
     (Intro_Send (t, _), Event (Send (chan_key, msg))) =>
     (
-      match_value_insert (symbol_map, t, List [Chan chan_key, msg])
+      match_term symbol_map (t, List [Chan chan_key, msg])
+    ) |
+
+    (Intro_Recv (t, _), Event (Recv chan_key)) =>
+    (
+      match_term symbol_map (t, Chan chan_key)
     ) |
 
     _ => NONE
@@ -830,7 +833,6 @@ TODO:
 
     ** Intro patterns **
     ** (* event *)
-    ** Intro_Recv of (term * int) |
     ** Intro_Latch of (term * int) |
     ** Intro_Choose of (term * int) |
     ** Intro_Offer of (term * int) |
@@ -847,7 +849,7 @@ TODO:
 
 
     (Intro_Event_Recv (t, _), Event_Recv_Intro (v, _)) =>
-      match_value_insert (symbol_map, t, v) |
+      match_term symbol_map (t, v) |
 
     (Func p_fnc, Func v_fnc) => (
       if fnc_equal (p_fnc, v_fnc) then
@@ -876,8 +878,8 @@ TODO:
       in
         (case match of
           [(k, v)] => (Option.mapPartial
-            (fn symbol_map' => match_value_insert (symbol_map', t, v))
-            (match_value_insert
+            (fn symbol_map' => match_term (symbol_map', t, v))
+            (match_term
               (symbol_map, Intro_Rec (ps, contextualized, ~1),
               Rec_Intro (remainder, contextualized, ~1))
             )
@@ -893,10 +895,8 @@ TODO:
     ) |
 
     (Value (pv, _), _) =>
-    (if values_equal (pv, v) then
-      SOME symbol_map
-    else
-      NONE
+    (
+      match_value symbol_map (pv, v)
     ) |
 
 
@@ -920,7 +920,7 @@ TODO:
     *)
   )
 
-  and from_fields_match_value_insert symbol_map (p_fields, v_fields) =
+  and from_fields_match_term symbol_map (p_fields, v_fields) =
   (case p_fields of
     [] => SOME symbol_map |
     (pname, (pfix_op, p)) :: pfs =>
@@ -935,24 +935,24 @@ TODO:
         v_fields
       )
 
-      fun match_term key_matches =
+      fun match_terms key_matches =
       (case key_matches of
         [] => NONE |
         [(vname,(vfix_op, v))] => (Option.mapPartial
           (fn symbol_map' =>
             SOME (String_Map.insert (symbol_map', vname, (vfix_op, v)))
           )
-          (match_value_insert (symbol_map, p, v))
+          (match_term symbol_map (p, v))
         ) |
-        _ :: key_matches' => match_term key_matches'
+        _ :: key_matches' => match_terms key_matches'
       )
 
-      val symbol_map_op = match_term key_matches
+      val symbol_map_op = match_terms key_matches
 
     in
       (Option.mapPartial
         (fn symbol_map' =>
-          from_fields_match_value_insert symbol_map' (pfs, vfs)
+          from_fields_match_term symbol_map' (pfs, vfs)
         )
         symbol_map_op
       )
@@ -1001,7 +1001,7 @@ TODO:
     fun match_first lams = (case lams of
       [] => NONE |
       (p, t) :: lams' =>
-      (case (match_value_insert (symbol_map''', p, result)) of
+      (case (match_term symbol_map''' (p, result)) of
         NONE => match_first lams' |
         SOME symbol_map'''' => (
           SOME (t, symbol_map'''')
