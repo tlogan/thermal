@@ -575,11 +575,57 @@ struct
   ** 
   *)
   (* CURRENT TODO *)
-  fun match_value symbol_map (v_a, v_b) =
-  (
-    raise (Fail "TODO: match_value not yet implemented");
-    SOME symbol_map
+  fun match_value symbol_map (p, v) =
+  (case (p, v) of 
+    (Blank, _) =>
+    (
+      SOME symbol_map
+    ) |
+
+    (List ps, List vs) =>
+    (
+      from_list_match_value symbol_map (ps, vs)
+    ) |
+
+    _ => NONE
+
   )
+
+  and from_list_match_value symbol_map (ps, vs) = 
+  (case (ps, vs) of 
+    ([], []) => SOME symbol_map |
+    (p :: ps', v :: vs') =>
+    (Option.mapPartial
+      (fn symbol_map => from_list_match_value symbol_map (ps', vs'))
+      (match_value symbol_map (p, v))
+    ) |
+    _ => NONE
+  )
+  (* **TODO**
+
+    Func of (
+      ((term * term) list) *
+      ((infix_option * value) String_Map.map) *
+      ((infix_option * ((term * term) list)) String_Map.map) 
+    ) |
+
+    Rec of (string * (infix_option * value)) list |
+
+
+    Event of event |
+
+    Effect of effect |
+  
+    String of string |
+
+    Num of string |
+
+    Chan of Chan_Key.ord_key |
+
+    Thread of Thread_Key.ord_key |
+
+    Error of string
+  *)
 
   (* **TODO**
   ** match values of pattern body symbols with values in function's symbol maps  
