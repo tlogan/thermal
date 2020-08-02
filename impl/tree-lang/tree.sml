@@ -29,6 +29,9 @@ struct
 
   datatype term = 
     Sym of (term * int) |
+    (* TODO: add Reflect term that matches symbolic pattern to a thunk;
+    ** similar to case pattern match
+    *)
     Id of (string * int) |
     Assoc of (term * int) |
     Log of (term * int) |
@@ -556,8 +559,93 @@ struct
     new_hole_key = new_hole_key
   }
 
+  fun find_rewrites (p_param : term, f_param : term) : (string String_Map.map) option =
+  (case (p_param, f_param) of
+    (* terms must be syntactically identical except for IDs *)
+    (* param cannot be or contain a function *)
+    _ => raise (Fail "TODO") 
+  )
 
-  (*  
+
+
+  fun values_equal (p, v) =
+  (case (p, v) of 
+    (Blank, _) => true |
+
+    (List ps, List vs) => lists_equal (ps, vs) |
+
+    (Func fp, Func fv) => funcs_equal (fp, fv) |
+
+    (* **TODO**
+    ** Rec of (string * (infix_option * value)) list |
+    ** Event of event |
+    ** Effect of effect |
+    ** String of string |
+    ** Num of string |
+    ** Chan of Chan_Key.ord_key |
+    ** Thread of Thread_Key.ord_key |
+    ** Error of string
+    *)
+    _ => false 
+
+  )
+
+  and funcs_equal
+  (
+    (p_lams, p_symbol_map, p_mutual_store),
+    (f_lams, f_symbol_map, f_mutual_store)
+  ) =
+  (case (p_lams, f_lams) of 
+    ([], []) => true |
+    (p_lam :: p_lams', f_lam :: f_lams') =>
+    (
+      lams_equal (
+        (p_lam, p_symbol_map, p_mutual_store),
+        (f_lam, f_symbol_map, f_mutual_store)
+      ) andalso
+      funcs_equal (
+        (p_lams', p_symbol_map, p_mutual_store),
+        (f_lams', f_symbol_map, f_mutual_store)
+      )
+    ) |
+    _ => false 
+  
+  )
+
+  and lams_equal
+  (
+    (p_lam, p_symbol_map, p_mutual_store),
+    (f_lam, f_symbol_map, f_mutual_store)
+  ) = 
+  (let
+    val (p_param, p_body) = p_lam
+    val (f_param, f_body) = f_lam
+
+    val rewrite_map_op : (string String_Map.map) option =
+    find_rewrites (p_param, f_param)
+
+    (* CURRENT TODO *)
+    (* TODO: use rewrites check equality of body terms *)
+  in
+    raise Fail "TODO"
+  end)
+
+
+  and lists_equal (ps, vs) = 
+  (case (ps, vs) of 
+    ([], []) => true |
+    (p :: ps', v :: vs') =>
+    (
+      values_equal (p, v) andalso
+      lists_equal (ps', vs')
+    ) |
+    _ => false
+  )
+
+  (* **TODO**
+  **  match values of pattern body symbols with values in function's symbol maps  
+  **  for mutual recursive references, create name rewriting map to use in comparison
+  **
   **  symbolic pattern matching
   **  match values of pattern body symbols with values in function's symbol maps  
   **  for mutual recursive references, create name rewriting map to use in comparison
@@ -573,84 +661,6 @@ struct
   **  if matching two mutual map symbols, update rewrite map
   **  then compare looked up values
   ** 
-  *)
-  (* CURRENT TODO *)
-  fun match_value symbol_map (p, v) =
-  (case (p, v) of 
-    (Blank, _) =>
-    (
-      SOME symbol_map
-    ) |
-
-    (List ps, List vs) =>
-    (
-      from_list_match_value symbol_map (ps, vs)
-    ) |
-
-    (Func fp, Func fv) =>
-    (
-      from_func_match_value symbol_map (fp, fv)
-    ) |
-
-    _ => NONE
-
-  )
-
-  and from_func_match_value symbol_map
-  (
-    (p_lams, p_symbol_map, p_mutual_store),
-    (f_lams, f_symbol_map, f_mutual_store)
-  ) =
-  (case (p_lams, f_lams) of 
-    ([], []) => SOME symbol_map |
-    (p_lam :: p_lams', f_lam :: f_lams') =>
-    (
-      from_lam_match_value symbol_map (p_lam, f_lam)
-    ) |
-    _ => NONE
-  
-  )
-
-  and from_lam_match_value symbol_map (p_lam, f_lam) =
-  (let
-  in
-    raise Fail "TODO"
-  end)
-
-  and from_list_match_value symbol_map (ps, vs) = 
-  (case (ps, vs) of 
-    ([], []) => SOME symbol_map |
-    (p :: ps', v :: vs') =>
-    (Option.mapPartial
-      (fn symbol_map => from_list_match_value symbol_map (ps', vs'))
-      (match_value symbol_map (p, v))
-    ) |
-    _ => NONE
-  )
-  (* **TODO**
-
-
-    Rec of (string * (infix_option * value)) list |
-
-
-    Event of event |
-
-    Effect of effect |
-  
-    String of string |
-
-    Num of string |
-
-    Chan of Chan_Key.ord_key |
-
-    Thread of Thread_Key.ord_key |
-
-    Error of string
-  *)
-
-  (* **TODO**
-  ** match values of pattern body symbols with values in function's symbol maps  
-  ** for mutual recursive references, create name rewriting map to use in comparison
   *)
   (*
   fun match_symbolic_term_insert symbol_map (pattern, symbolic_term) =
@@ -761,7 +771,7 @@ TODO:
 
     (Value p_v, Value st_v) =>
     (
-      match_value symbol_map (p_v, st_v)
+      values_equal (p_v, st_v)
     ) |
 
     (Add_Num (p, _), Add_Num (st, _)) => (
@@ -885,11 +895,6 @@ TODO:
       (match_term symbol_map (t', List vs))
     ) |
 
-    (Intro_Func (lams, pos), _) =>
-    (
-      match_value symbol_map (Func (lams, symbol_map, String_Map.empty), value)
-    ) |
-
     (Intro_Rec (p_fields, contextualized, _), Rec v_fields) =>
     (let
       val p_fields =
@@ -963,8 +968,10 @@ TODO:
     ) |
 
     (Value (vp, _), _) =>
-    (
-      match_value symbol_map (vp, value)
+    (if values_equal (vp, value) then
+      SOME symbol_map
+    else 
+      NONE
     ) |
 
     _ => NONE
