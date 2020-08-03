@@ -648,18 +648,40 @@ struct
       loop (fields_a, fields_b)
     end) |
 
-    (* **CURRENT TODO**
-    ** Rec of (string * (infix_option * value)) list |
-    ** Event of event |
-    ** Effect of effect |
-    ** String of string |
-    ** Num of string |
-    ** Chan of Chan_Key.ord_key |
-    ** Thread of Thread_Key.ord_key |
-    ** Error of string
-    *)
+    (Event event_a, Event event_b) =>
+    events_equal (event_a, event_b) |
+
+    (Effect effect_a, Effect effect_b) =>
+    effects_equal (effect_a, effect_b) |
+
+    (String str_a, String str_b) =>
+    str_a = str_b |
+
+    (Num num_a, Num num_b) =>
+    num_a = num_b |
+
+    (Chan key_a, Chan key_b) =>
+    key_a = key_b |
+
+    (Thread key_a, Thread key_b) =>
+    key_a = key_b |
+
+    (Error str_a, Error str_b) =>
+    str_a = str_b |
+
     _ => false 
 
+  )
+
+  and events_equal (event_a, event_b) =
+  (
+    (* CURRENT TODO *)
+    raise (Fail "TOO")
+  )
+
+  and effects_equal (effect_a, effect_b) =
+  (
+    raise (Fail "TOO")
   )
 
   and funcs_equal rewrite_map
