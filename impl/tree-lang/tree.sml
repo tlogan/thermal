@@ -30,8 +30,15 @@ struct
   datatype term = 
     Sym of (string * int) |
     (* CURRENT TODO: add Reflect term that matches symbolic pattern to a thunk;
-    ** similar to case pattern match
+    **
+    ** Reflect of (term * ((term * term) list) * int) |
+    **
+    ** Reflect:
+    ** first arg should be a term that evaluates to a thunk function to be interpreted symbolically.
+    ** second arg should be lams, where the first lam is matched symbolically with the first arg.
+    ** 
     *)
+
     Id of (string * int) |
     Assoc of (term * int) |
     Log of (term * int) |
