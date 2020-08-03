@@ -649,10 +649,10 @@ struct
     end) |
 
     (Event event_a, Event event_b) =>
-    events_equal (event_a, event_b) |
+    events_equal rewrite_map (event_a, event_b) |
 
     (Effect effect_a, Effect effect_b) =>
-    effects_equal (effect_a, effect_b) |
+    effects_equal rewrite_map (effect_a, effect_b) |
 
     (String str_a, String str_b) =>
     str_a = str_b |
@@ -673,13 +673,47 @@ struct
 
   )
 
-  and events_equal (event_a, event_b) =
-  (
+  and events_equal rewrite_map (event_a, event_b) =
+  (case (event_a, event_b) of
+    (Offer v_a, Offer v_b) =>
+    (
+      values_equal rewrite_map (v_a, v_b)
+    ) |
+
+    (Abort, Abort) =>
+    (
+      true
+    ) |
+
+    (Alloc_Chan, Alloc_Chan) =>
+    (
+      true 
+    ) |
+
+    (Send (key_a, v_a), Send (key_b, v_b)) =>
+    (
+      key_a = key_b andalso values_equal rewrite_map (v_a, v_b) 
+    ) |
+
+    (Recv key_a, Recv key_b) =>
+    (
+      key_a = key_b 
+    ) |
+
+    _ => false
     (* CURRENT TODO *)
-    raise (Fail "TOO")
+    (*
+    ** Latch of (
+    **   event *
+    **   ((term * term) list) *
+    **   ((infix_option * value) String_Map.map) *
+    **   ((infix_option * (term * term) list) String_Map.map)
+    ** ) |
+    ** Choose of event * event
+    *)
   )
 
-  and effects_equal (effect_a, effect_b) =
+  and effects_equal rewrite_map (effect_a, effect_b) =
   (
     raise (Fail "TOO")
   )
