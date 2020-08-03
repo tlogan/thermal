@@ -28,7 +28,7 @@ struct
 
 
   datatype term = 
-    Sym of (term * int) |
+    Sym of (string * int) |
     (* TODO: add Reflect term that matches symbolic pattern to a thunk;
     ** similar to case pattern match
     *)
@@ -259,7 +259,7 @@ struct
     Assoc (t, pos) => "(" ^ (to_string t) ^ ")" |
 
     Log (t, pos) => "log " ^  (to_string t) |
-    Sym (t, pos) => "sym " ^ (to_string t) |
+    Sym (str, pos) => "sym " ^ str |
 
     Intro_List (t1, t2, pos) => (
       (to_string t1) ^ ", " ^ (to_string t2)
@@ -640,11 +640,66 @@ struct
 
   and symbolic_equal rewrite_map
   (
-    (p_body, p_symbol_map, p_mutual_store),
-    (f_body, f_symbol_map, f_mutual_store)
+    (a, symbol_map_a, mutual_store_a),
+    (b, symbol_map_b, mutual_store_b)
   ) =
-  (
-    raise (Fail "TODO")
+  (case (a, b) of
+    
+    _ => raise (Fail "TODO")
+    (*
+    ** Sym of (string * int) |
+    ** (* TODO: Reflect *)
+    ** Id of (string * int) |
+    ** Assoc of (term * int) |
+    ** Log of (term * int) |
+
+    ** Intro_List of (term * term * int) |
+
+    ** Intro_Func of (
+    **   ((term * term) list) *
+    **   int
+    ** ) |
+
+    ** App of (term * term * int) |
+
+    ** Compo of (term * term * int) |
+    ** With of (term * term * int) |
+
+    ** Intro_Rec of (
+    **   (* fields *)
+    **   (string * (infix_option * term)) list *
+    **   (* contextualized *)
+    **   bool *
+    **   (*pos*)
+    **   int
+    ** ) |
+
+    ** Select of (term * int) |
+
+    ** (* event *)
+    ** Intro_Send of (term * int) |
+    ** Intro_Recv of (term * int) |
+    ** Intro_Latch of (term * int) |
+    ** Intro_Choose of (term * int) |
+    ** Intro_Offer of (term * int) |
+    ** Intro_Abort of int |
+
+    ** (* effect *)
+    ** Intro_Return of (term * int) |
+    ** Intro_Sync of (term * int) |
+    ** Intro_Bind of (term * int) |
+    ** Intro_Exec of (term * int) |
+
+    ** (* number *)
+    ** Add_Num of (term * int) |
+    ** Sub_Num of (term * int) |
+    ** Mul_Num of (term * int) |
+    ** Div_Num of (term * int) |
+
+    ** (* value *)
+    ** Value of (value * int)
+
+    *)
   )
 
 
@@ -684,7 +739,7 @@ struct
   (case (pattern, symbolic_term) of
     (Value (Blank, _), _) => SOME symbol_map |
 
-    (Sym (Id (id, _), _), _) => (let
+    (Sym (id, _), _) => (let
       val mutual_map = String_Map.empty
       val thunk = Func (
         [(Value (Blank, ~1), symbolic_term)],

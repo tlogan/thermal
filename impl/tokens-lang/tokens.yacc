@@ -94,7 +94,7 @@ term_nt:
   PIPE term_nt term_nt (App (term_nt2, term_nt1, PIPEleft)) |
 
   LOG term_nt (Log (term_nt, LOGleft)) |
-  SYM term_nt (Sym (term_nt, SYMleft)) | 
+  SYM ID (Sym (ID, SYMleft)) | 
 
   field_nt (Intro_Rec ([field_nt], false, field_ntleft)) |
   LPAREN fields_nt (Intro_Rec (fields_nt, false, LPARENleft)) |
