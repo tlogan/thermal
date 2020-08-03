@@ -29,7 +29,7 @@ struct
 
   datatype term = 
     Sym of (string * int) |
-    (* TODO: add Reflect term that matches symbolic pattern to a thunk;
+    (* CURRENT TODO: add Reflect term that matches symbolic pattern to a thunk;
     ** similar to case pattern match
     *)
     Id of (string * int) |
@@ -700,22 +700,59 @@ struct
       key_a = key_b 
     ) |
 
+    (
+      Latch (event_a, lams_a, symbol_map_a, mutual_map_a),
+      Latch (event_b, lams_b, symbol_map_b, mutual_map_b)
+    ) =>
+    (
+      events_equal rewrite_map (event_a, event_b) andalso
+      funcs_equal rewrite_map
+      (
+        (lams_a, symbol_map_a, mutual_map_a),
+        (lams_b, symbol_map_b, mutual_map_b)
+      )
+    ) |
+
+    (Choose (a1, a2), Choose (b1, b2)) =>
+    (
+      events_equal rewrite_map (a1, b1) andalso
+      events_equal rewrite_map (a2, b2)
+    ) |
+
     _ => false
-    (* CURRENT TODO *)
-    (*
-    ** Latch of (
-    **   event *
-    **   ((term * term) list) *
-    **   ((infix_option * value) String_Map.map) *
-    **   ((infix_option * (term * term) list) String_Map.map)
-    ** ) |
-    ** Choose of event * event
-    *)
   )
 
   and effects_equal rewrite_map (effect_a, effect_b) =
-  (
-    raise (Fail "TOO")
+  (case (effect_a, effect_b) of
+    (Return v_a, Return v_b) =>
+    (
+      values_equal rewrite_map (v_a, v_b)
+    ) |
+
+    (
+      Bind (effect_a, lams_a, symbol_map_a, mutual_map_a),
+      Bind (effect_b, lams_b, symbol_map_b, mutual_map_b)
+    ) =>
+    (
+      effects_equal rewrite_map (effect_a, effect_b) andalso
+      funcs_equal rewrite_map
+      (
+        (lams_a, symbol_map_a, mutual_map_a),
+        (lams_b, symbol_map_b, mutual_map_b)
+      )
+    ) |
+
+    (Exec effect_a, Exec effect_b) =>
+    (
+      effects_equal rewrite_map (effect_a, effect_b)
+    ) |
+
+    (Sync event_a, Sync event_b) =>
+    (
+      events_equal rewrite_map (event_a, event_b)
+    ) |
+
+    _ => false
   )
 
   and funcs_equal rewrite_map
