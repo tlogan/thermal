@@ -629,7 +629,7 @@ struct
 
     (Func fp, Func fv) => funcs_equal rewrite_map (fp, fv) |
 
-    (* **TODO**
+    (* **CURRENT TODO**
     ** Rec of (string * (infix_option * value)) list |
     ** Event of event |
     ** Effect of effect |
@@ -856,36 +856,145 @@ struct
       loop (fields_a, fields_b) 
     end) |
 
-    _ => raise (Fail "TODO")
-    (*
+    (Select (a, _), Select (b, _)) =>
+    (
+      symbolic_equal rewrite_map
+      (
+        (a, symbol_map_a),
+        (b, symbol_map_b)
+      )      
+    ) |
+
+    (Intro_Send (a, _), Intro_Send (b, _)) =>
+    (
+      symbolic_equal rewrite_map
+      (
+        (a, symbol_map_a),
+        (b, symbol_map_b)
+      )      
+    ) |
+
+    (Intro_Recv (a, _), Intro_Recv (b, _)) =>
+    (
+      symbolic_equal rewrite_map
+      (
+        (a, symbol_map_a),
+        (b, symbol_map_b)
+      )      
+    ) |
+
+    (Intro_Latch (a, _), Intro_Latch (b, _)) =>
+    (
+      symbolic_equal rewrite_map
+      (
+        (a, symbol_map_a),
+        (b, symbol_map_b)
+      )      
+    ) |
+
+    (Intro_Choose (a, _), Intro_Choose (b, _)) =>
+    (
+      symbolic_equal rewrite_map
+      (
+        (a, symbol_map_a),
+        (b, symbol_map_b)
+      )      
+    ) |
+
+    (Intro_Offer (a, _), Intro_Offer (b, _)) =>
+    (
+      symbolic_equal rewrite_map
+      (
+        (a, symbol_map_a),
+        (b, symbol_map_b)
+      )      
+    ) |
+
+    (Intro_Abort _, Intro_Abort _) =>
+    (
+      true
+    ) |
+
+    (Intro_Return (a, _), Intro_Return (b, _)) =>
+    (
+      symbolic_equal rewrite_map
+      (
+        (a, symbol_map_a),
+        (b, symbol_map_b)
+      )      
+    ) |
+
+    (Intro_Sync (a, _), Intro_Sync (b, _)) =>
+    (
+      symbolic_equal rewrite_map
+      (
+        (a, symbol_map_a),
+        (b, symbol_map_b)
+      )      
+    ) |
+
+    (Intro_Bind (a, _), Intro_Bind (b, _)) =>
+    (
+      symbolic_equal rewrite_map
+      (
+        (a, symbol_map_a),
+        (b, symbol_map_b)
+      )      
+    ) |
+
+    (Intro_Exec (a, _), Intro_Exec (b, _)) =>
+    (
+      symbolic_equal rewrite_map
+      (
+        (a, symbol_map_a),
+        (b, symbol_map_b)
+      )      
+    ) |
+
+    (Add_Num (a, _), Add_Num (b, _)) =>
+    (
+      symbolic_equal rewrite_map
+      (
+        (a, symbol_map_a),
+        (b, symbol_map_b)
+      )      
+    ) |
+
+    (Sub_Num (a, _), Sub_Num (b, _)) =>
+    (
+      symbolic_equal rewrite_map
+      (
+        (a, symbol_map_a),
+        (b, symbol_map_b)
+      )      
+    ) |
+
+    (Mul_Num (a, _), Mul_Num (b, _)) =>
+    (
+      symbolic_equal rewrite_map
+      (
+        (a, symbol_map_a),
+        (b, symbol_map_b)
+      )      
+    ) |
 
 
-    ** Select of (term * int) |
+    (Div_Num (a, _), Div_Num (b, _)) =>
+    (
+      symbolic_equal rewrite_map
+      (
+        (a, symbol_map_a),
+        (b, symbol_map_b)
+      )      
+    ) |
 
-    ** (* event *)
-    ** Intro_Send of (term * int) |
-    ** Intro_Recv of (term * int) |
-    ** Intro_Latch of (term * int) |
-    ** Intro_Choose of (term * int) |
-    ** Intro_Offer of (term * int) |
-    ** Intro_Abort of int |
+    (Value (v_a, _), Value (v_b, _)) =>
+    (
+      values_equal rewrite_map (v_a, v_b)
+    ) |
 
-    ** (* effect *)
-    ** Intro_Return of (term * int) |
-    ** Intro_Sync of (term * int) |
-    ** Intro_Bind of (term * int) |
-    ** Intro_Exec of (term * int) |
+    _ => false 
 
-    ** (* number *)
-    ** Add_Num of (term * int) |
-    ** Sub_Num of (term * int) |
-    ** Mul_Num of (term * int) |
-    ** Div_Num of (term * int) |
-
-    ** (* value *)
-    ** Value of (value * int)
-
-    *)
   )
 
 
