@@ -567,6 +567,43 @@ struct
   )
 
 
+  fun contextualize symbol_map fields =
+  (let
+    val mutual_map =
+    (List.foldl
+      (fn
+        ((k, (fix_op,  Intro_Func (lams, _))), mutual_map) => 
+        (
+          String_Map.insert (mutual_map, k, (fix_op, lams))
+        ) |
+
+        (_, mutual_map) => mutual_map
+      )
+      String_Map.empty
+      fields
+    )
+
+    (* OOGA TODO: fold mutual_map into symbol_map *)
+    
+    val fields' =
+    (List.map
+      (fn
+        (* embed symbol map mutual ids into ts' functions *)
+        (k, (fix_op, Intro_Func (lams, pos))) =>
+        (
+          (k, (fix_op, Value (Func (lams, symbol_map, mutual_map), ~1)))
+        ) |
+
+        (* otherwise *)
+        field => field 
+      )
+      fields 
+    )
+  in
+    fields'
+  end)
+
+
 
   fun values_equal rewrite_map (p, v) =
   (case (p, v) of 
@@ -702,6 +739,7 @@ struct
       )
       
     ) |
+
     (Intro_Func (lams_a, _), Intro_Func (lams_b, _)) =>
     (
       funcs_equal rewrite_map
@@ -711,22 +749,72 @@ struct
       ) 
     ) |
 
+    (App (a1, a2, _), App (b1, b2, _)) =>
+    (
+      symbolic_equal rewrite_map
+      (
+        (a1, symbol_map_a, mutual_store_a),
+        (b1, symbol_map_b, mutual_store_b)
+      ) andalso
+
+      symbolic_equal rewrite_map
+      (
+        (a2, symbol_map_a, mutual_store_a),
+        (b2, symbol_map_b, mutual_store_b)
+      )
+      
+    ) |
+
+    (Compo (a1, a2, _), Compo (b1, b2, _)) =>
+    (
+      symbolic_equal rewrite_map
+      (
+        (a1, symbol_map_a, mutual_store_a),
+        (b1, symbol_map_b, mutual_store_b)
+      ) andalso
+
+      symbolic_equal rewrite_map
+      (
+        (a2, symbol_map_a, mutual_store_a),
+        (b2, symbol_map_b, mutual_store_b)
+      )
+      
+    ) |
+
+    (With (a1, a2, _), With (b1, b2, _)) =>
+    (
+      symbolic_equal rewrite_map
+      (
+        (a1, symbol_map_a, mutual_store_a),
+        (b1, symbol_map_b, mutual_store_b)
+      ) andalso
+
+      symbolic_equal rewrite_map
+      (
+        (a2, symbol_map_a, mutual_store_a),
+        (b2, symbol_map_b, mutual_store_b)
+      )
+      
+    ) |
+
+    (
+      Intro_Rec (fields_a, contextualized_a, _),
+      Intro_Rec (fields_b, contextualized_b, _)
+    ) =>
+    (let
+      val fields_a = (if contextualized_a then
+        fields_a
+      else
+        (* TODO: how do we use the mutual map? combine with symbol_map? *)
+        contextualize symbol_map_a fields_a
+      )
+    in
+      raise (Fail "TODO")
+    end) |
+
     _ => raise (Fail "TODO")
     (*
 
-    ** App of (term * term * int) |
-
-    ** Compo of (term * term * int) |
-    ** With of (term * term * int) |
-
-    ** Intro_Rec of (
-    **   (* fields *)
-    **   (string * (infix_option * term)) list *
-    **   (* contextualized *)
-    **   bool *
-    **   (*pos*)
-    **   int
-    ** ) |
 
     ** Select of (term * int) |
 
@@ -967,39 +1055,6 @@ TODO:
   *)
 
 
-  fun contextualize symbol_map fields =
-  (let
-    val mutual_map =
-    (List.foldl
-      (fn
-        ((k, (fix_op,  Intro_Func (lams, _))), mutual_map) => 
-        (
-          String_Map.insert (mutual_map, k, (fix_op, lams))
-        ) |
-
-        (_, mutual_map) => mutual_map
-      )
-      String_Map.empty
-      fields
-    )
-    
-    val fields' =
-    (List.map
-      (fn
-        (* embed symbol map mutual ids into ts' functions *)
-        (k, (fix_op, Intro_Func (lams, pos))) =>
-        (
-          (k, (fix_op, Value (Func (lams, symbol_map, mutual_map), ~1)))
-        ) |
-
-        (* otherwise *)
-        field => field 
-      )
-      fields 
-    )
-  in
-    fields'
-  end)
 
   fun match_term symbol_map (pat, value) = (case (pat, value) of
 
