@@ -624,11 +624,28 @@ struct
     val rewrite_map_op : (string String_Map.map) option =
     find_rewrites (p_param, f_param)
 
-    (* CURRENT TODO *)
-    (* TODO: use rewrites check equality of body terms *)
+    val equal =
+    (case rewrite_map_op of
+      NONE => false |
+      SOME rewrite_map =>
+        symbolic_equal rewrite_map
+        (
+          (p_body, p_symbol_map, p_mutual_store),
+          (f_body, f_symbol_map, f_mutual_store)
+        )
+    )
   in
-    raise Fail "TODO"
+    equal
   end)
+
+  and symbolic_equal rewrite_map
+  (
+    (p_body, p_symbol_map, p_mutual_store),
+    (f_body, f_symbol_map, f_mutual_store)
+  ) =
+  (
+    raise (Fail "TODO")
+  )
 
 
   and lists_equal (ps, vs) = 
