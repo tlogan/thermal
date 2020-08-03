@@ -583,8 +583,6 @@ struct
       fields
     )
 
-    (* OOGA TODO: fold mutual_map into symbol_map *)
-    
     val fields' =
     (List.map
       (fn
@@ -603,6 +601,24 @@ struct
     fields'
   end)
 
+  fun embed_mutual_map (symbol_map, mutual_map) =
+  (let
+    (* embed mutual_map within self's functions *)
+    val fnc_store = (String_Map.map
+      (fn (fix_op, lams) =>
+        (fix_op, Func (lams, symbol_map, mutual_map))
+      )
+      mutual_map
+    )
+
+    val symbol_map' = (
+      String_Map.unionWith
+      (fn (_, b) => b)
+      (symbol_map, fnc_store)
+    )
+  in
+    symbol_map'
+  end)
 
 
   fun values_equal rewrite_map (p, v) =
@@ -661,14 +677,18 @@ struct
     val rewrite_map_op : (string String_Map.map) option =
     find_rewrites rewrite_map (p_param, f_param)
 
+
+    val p_symbol_map = embed_mutual_map (p_symbol_map, p_mutual_store)
+    val f_symbol_map = embed_mutual_map (f_symbol_map, f_mutual_store)
+
     val equal =
     (case rewrite_map_op of
       NONE => false |
       SOME rewrite_map =>
         symbolic_equal rewrite_map
         (
-          (p_body, p_symbol_map, p_mutual_store),
-          (f_body, f_symbol_map, f_mutual_store)
+          (p_body, p_symbol_map),
+          (f_body, f_symbol_map)
         )
     )
   in
@@ -677,8 +697,8 @@ struct
 
   and symbolic_equal rewrite_map
   (
-    (a, symbol_map_a, mutual_store_a),
-    (b, symbol_map_b, mutual_store_b)
+    (a, symbol_map_a),
+    (b, symbol_map_b)
   ) =
   (case (a, b) of
     
@@ -692,8 +712,8 @@ struct
     (
       symbolic_equal rewrite_map
       (
-        (a, symbol_map_a, mutual_store_a),
-        (b, symbol_map_b, mutual_store_b)
+        (a, symbol_map_a),
+        (b, symbol_map_b)
       )
     ) |
 
@@ -701,8 +721,8 @@ struct
     (
       symbolic_equal rewrite_map
       (
-        (a, symbol_map_a, mutual_store_a),
-        (b, symbol_map_b, mutual_store_b)
+        (a, symbol_map_a),
+        (b, symbol_map_b)
       )
     ) |
 
@@ -710,8 +730,8 @@ struct
     (
       symbolic_equal rewrite_map
       (
-        (a, symbol_map_a, mutual_store_a),
-        (b, symbol_map_b, mutual_store_b)
+        (a, symbol_map_a),
+        (b, symbol_map_b)
       )
     ) |
 
@@ -719,8 +739,8 @@ struct
     (
       symbolic_equal rewrite_map
       (
-        (a, symbol_map_a, mutual_store_a),
-        (b, symbol_map_b, mutual_store_b)
+        (a, symbol_map_a),
+        (b, symbol_map_b)
       )
     ) |
 
@@ -728,14 +748,14 @@ struct
     (
       symbolic_equal rewrite_map
       (
-        (a1, symbol_map_a, mutual_store_a),
-        (b1, symbol_map_b, mutual_store_b)
+        (a1, symbol_map_a),
+        (b1, symbol_map_b)
       ) andalso
 
       symbolic_equal rewrite_map
       (
-        (a2, symbol_map_a, mutual_store_a),
-        (b2, symbol_map_b, mutual_store_b)
+        (a2, symbol_map_a),
+        (b2, symbol_map_b)
       )
       
     ) |
@@ -744,8 +764,8 @@ struct
     (
       funcs_equal rewrite_map
       (
-        (lams_a, symbol_map_a, mutual_store_a),
-        (lams_b, symbol_map_b, mutual_store_b)
+        (lams_a, symbol_map_a, String_Map.empty),
+        (lams_b, symbol_map_b, String_Map.empty)
       ) 
     ) |
 
@@ -753,14 +773,14 @@ struct
     (
       symbolic_equal rewrite_map
       (
-        (a1, symbol_map_a, mutual_store_a),
-        (b1, symbol_map_b, mutual_store_b)
+        (a1, symbol_map_a),
+        (b1, symbol_map_b)
       ) andalso
 
       symbolic_equal rewrite_map
       (
-        (a2, symbol_map_a, mutual_store_a),
-        (b2, symbol_map_b, mutual_store_b)
+        (a2, symbol_map_a),
+        (b2, symbol_map_b)
       )
       
     ) |
@@ -769,14 +789,14 @@ struct
     (
       symbolic_equal rewrite_map
       (
-        (a1, symbol_map_a, mutual_store_a),
-        (b1, symbol_map_b, mutual_store_b)
+        (a1, symbol_map_a),
+        (b1, symbol_map_b)
       ) andalso
 
       symbolic_equal rewrite_map
       (
-        (a2, symbol_map_a, mutual_store_a),
-        (b2, symbol_map_b, mutual_store_b)
+        (a2, symbol_map_a),
+        (b2, symbol_map_b)
       )
       
     ) |
@@ -785,14 +805,14 @@ struct
     (
       symbolic_equal rewrite_map
       (
-        (a1, symbol_map_a, mutual_store_a),
-        (b1, symbol_map_b, mutual_store_b)
+        (a1, symbol_map_a),
+        (b1, symbol_map_b)
       ) andalso
 
       symbolic_equal rewrite_map
       (
-        (a2, symbol_map_a, mutual_store_a),
-        (b2, symbol_map_b, mutual_store_b)
+        (a2, symbol_map_a),
+        (b2, symbol_map_b)
       )
       
     ) |
@@ -805,11 +825,35 @@ struct
       val fields_a = (if contextualized_a then
         fields_a
       else
-        (* TODO: how do we use the mutual map? combine with symbol_map? *)
         contextualize symbol_map_a fields_a
       )
+
+      val fields_b = (if contextualized_b then
+        fields_b
+      else
+        contextualize symbol_map_b fields_b
+      )
+
+      fun loop (aa : (string * (infix_option * term)) list, bb : (string * (infix_option * term)) list) =
+      (case (aa, bb) of
+        ([], []) => true |
+
+        (a :: aa', b :: bb') =>
+        (let
+          val (str_a, (fix_a, a')) = a
+          val (str_b, (fix_b, b')) = b
+        in
+          str_a = str_b andalso
+          (fix_a = fix_b) andalso
+          symbolic_equal rewrite_map ((a', symbol_map_a), (b', symbol_map_b)) andalso
+          loop (aa', bb')
+        end) |
+
+        _ => false
+      )
+      
     in
-      raise (Fail "TODO")
+      loop (fields_a, fields_b) 
     end) |
 
     _ => raise (Fail "TODO")
@@ -1223,19 +1267,8 @@ TODO:
       _ => symbol_map'
     )
 
-    (* embed mutual_map within self's functions *)
-    val fnc_store = (String_Map.map
-      (fn (fix_op, lams) =>
-        (fix_op, Func (lams, symbol_map'', mutual_map))
-      )
-      mutual_map
-    )
+    val symbol_map''' = embed_mutual_map (symbol_map'', mutual_map)
 
-    val symbol_map''' = (
-      String_Map.unionWith
-      (fn (_, b) => b)
-      (symbol_map'', fnc_store)
-    )
 
     fun match_first lams = (case lams of
       [] => NONE |
