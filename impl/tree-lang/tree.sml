@@ -629,6 +629,25 @@ struct
 
     (Func fp, Func fv) => funcs_equal rewrite_map (fp, fv) |
 
+
+    (Rec fields_a, Rec fields_b) =>
+    (let
+      fun loop (aa, bb) =
+      (case (aa, bb) of
+        ([], []) => true |
+        ((str_a, (fix_a, a)) :: aa, (str_b, (fix_b, b)) :: bb) =>
+        (
+          str_a = str_b andalso
+          fix_a = fix_b andalso
+          values_equal rewrite_map (a, b) andalso
+          loop (aa, bb)
+        ) |
+        _ => false
+      )
+    in
+      loop (fields_a, fields_b)
+    end) |
+
     (* **CURRENT TODO**
     ** Rec of (string * (infix_option * value)) list |
     ** Event of event |
