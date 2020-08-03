@@ -559,7 +559,7 @@ struct
     new_hole_key = new_hole_key
   }
 
-  fun find_rewrites (p_param : term, f_param : term) : (string String_Map.map) option =
+  fun find_rewrites rewrite_map (p_param : term, f_param : term) : (string String_Map.map) option =
   (case (p_param, f_param) of
     (* terms must be syntactically identical except for IDs *)
     (* param cannot be or contain a function *)
@@ -568,13 +568,13 @@ struct
 
 
 
-  fun values_equal (p, v) =
+  fun values_equal rewrite_map (p, v) =
   (case (p, v) of 
     (Blank, _) => true |
 
-    (List ps, List vs) => lists_equal (ps, vs) |
+    (List ps, List vs) => lists_equal rewrite_map (ps, vs) |
 
-    (Func fp, Func fv) => funcs_equal (fp, fv) |
+    (Func fp, Func fv) => funcs_equal rewrite_map (fp, fv) |
 
     (* **TODO**
     ** Rec of (string * (infix_option * value)) list |
@@ -590,7 +590,7 @@ struct
 
   )
 
-  and funcs_equal
+  and funcs_equal rewrite_map
   (
     (p_lams, p_symbol_map, p_mutual_store),
     (f_lams, f_symbol_map, f_mutual_store)
@@ -599,11 +599,11 @@ struct
     ([], []) => true |
     (p_lam :: p_lams', f_lam :: f_lams') =>
     (
-      lams_equal (
+      lams_equal rewrite_map (
         (p_lam, p_symbol_map, p_mutual_store),
         (f_lam, f_symbol_map, f_mutual_store)
       ) andalso
-      funcs_equal (
+      funcs_equal rewrite_map (
         (p_lams', p_symbol_map, p_mutual_store),
         (f_lams', f_symbol_map, f_mutual_store)
       )
@@ -612,7 +612,7 @@ struct
   
   )
 
-  and lams_equal
+  and lams_equal rewrite_map
   (
     (p_lam, p_symbol_map, p_mutual_store),
     (f_lam, f_symbol_map, f_mutual_store)
@@ -622,7 +622,7 @@ struct
     val (f_param, f_body) = f_lam
 
     val rewrite_map_op : (string String_Map.map) option =
-    find_rewrites (p_param, f_param)
+    find_rewrites rewrite_map (p_param, f_param)
 
     val equal =
     (case rewrite_map_op of
@@ -645,20 +645,74 @@ struct
   ) =
   (case (a, b) of
     
+    (Id (str_a, _), Id (str_b, _)) =>
+    (case String_Map.find (rewrite_map, str_a) of
+      SOME (str_b') => str_b = str_b' |
+      NONE => false
+    ) |
+
+    (Assoc (a, _), _) =>
+    (
+      symbolic_equal rewrite_map
+      (
+        (a, symbol_map_a, mutual_store_a),
+        (b, symbol_map_b, mutual_store_b)
+      )
+    ) |
+
+    (_, Assoc (b, _)) =>
+    (
+      symbolic_equal rewrite_map
+      (
+        (a, symbol_map_a, mutual_store_a),
+        (b, symbol_map_b, mutual_store_b)
+      )
+    ) |
+
+    (Log (a, _), _) =>
+    (
+      symbolic_equal rewrite_map
+      (
+        (a, symbol_map_a, mutual_store_a),
+        (b, symbol_map_b, mutual_store_b)
+      )
+    ) |
+
+    (_, Log (b, _)) =>
+    (
+      symbolic_equal rewrite_map
+      (
+        (a, symbol_map_a, mutual_store_a),
+        (b, symbol_map_b, mutual_store_b)
+      )
+    ) |
+
+    (Intro_List (a1, a2, _), Intro_List (b1, b2, _)) =>
+    (
+      symbolic_equal rewrite_map
+      (
+        (a1, symbol_map_a, mutual_store_a),
+        (b1, symbol_map_b, mutual_store_b)
+      ) andalso
+
+      symbolic_equal rewrite_map
+      (
+        (a2, symbol_map_a, mutual_store_a),
+        (b2, symbol_map_b, mutual_store_b)
+      )
+      
+    ) |
+    (Intro_Func (lams_a, _), Intro_Func (lams_b, _)) =>
+    (
+      funcs_equal rewrite_map
+      (
+        (lams_a, symbol_map_a, mutual_store_a),
+        (lams_b, symbol_map_b, mutual_store_b)
+      ) 
+    ) |
+
     _ => raise (Fail "TODO")
     (*
-    ** Sym of (string * int) |
-    ** (* TODO: Reflect *)
-    ** Id of (string * int) |
-    ** Assoc of (term * int) |
-    ** Log of (term * int) |
-
-    ** Intro_List of (term * term * int) |
-
-    ** Intro_Func of (
-    **   ((term * term) list) *
-    **   int
-    ** ) |
 
     ** App of (term * term * int) |
 
@@ -703,13 +757,13 @@ struct
   )
 
 
-  and lists_equal (ps, vs) = 
+  and lists_equal rewrite_map (ps, vs) = 
   (case (ps, vs) of 
     ([], []) => true |
     (p :: ps', v :: vs') =>
     (
-      values_equal (p, v) andalso
-      lists_equal (ps', vs')
+      values_equal rewrite_map (p, v) andalso
+      lists_equal rewrite_map (ps', vs')
     ) |
     _ => false
   )
@@ -1040,7 +1094,7 @@ TODO:
     ) |
 
     (Value (vp, _), _) =>
-    (if values_equal (vp, value) then
+    (if values_equal String_Map.empty (vp, value) then
       SOME symbol_map
     else 
       NONE
