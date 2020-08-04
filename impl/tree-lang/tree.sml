@@ -1535,6 +1535,145 @@ TODO:
     )
   end)
 
+(*
+**    SOME (reduce_single global_context (
+**      t, fn t =>  Reflect (t, lams, pos),
+**      (fn
+**        Func ([(Value (Blank, _), body)], fnc_store, mutual_map) =>
+          (let
+**          fun match_first lams = (case lams of
+**            [] => NONE |
+**            (p, t) :: lams' =>
+**            (case (symbolic_match symbol_map (p, body)) of
+**              NONE => match_first lams' |
+**              SOME symbol_map' => (
+**                SOME (t, symbol_map')
+**              )
+**            )
+**          )
+**        in
+**          
+**          raise (Fail "TODO: match body to lams")
+**
+**        end) |
+**        _ => Error "reflecting on non-thunk"
+**      ),
+**      symbol_map,
+**      contin_stack
+**    )) |
+*)
+
+  fun reflect global_context
+  (
+    t, lams, pos,
+    symbol_map,
+    contin_stack
+  ) =
+  (case t of
+    Id (id, _) =>
+    (case (String_Map.find (symbol_map, id)) of
+      SOME (_, v) =>
+      (
+        (
+          Reflect (Value (v, ~1), lams, pos), 
+          symbol_map,
+          contin_stack
+        ),
+        global_context 
+      ) |
+
+      _ =>
+      (
+        (
+          Value (Error ("reflect variable " ^ id ^ " cannot be resolved"), ~1),
+          symbol_map,
+          contin_stack
+        ),
+        global_context
+      )
+
+    ) |
+
+    (*
+    ** CURRENT TODO: which symbol map does lams pattern use? **
+    Value (Func ([(Value (Blank, _), body)], fnc_symbol_map, mutual_map), _) =>
+    (let
+
+      fun match_first lams = (case lams of
+        [] => NONE |
+        (p, t) :: lams' =>
+        (case (symbolic_match ((p, symbol_map), (body, fnc_symbol_map))) of
+          NONE => match_first lams' |
+          SOME symbol_map' => (
+            SOME (t, symbol_map')
+          )
+        )
+      )
+
+      val (t', symbol_map') =
+      (case (match_first lams) of
+        NONE =>
+        (
+          Value (Error (
+            "result - " ^
+            (value_to_string result) ^
+            " - does not match continuation hole pattern"
+          ), ~1),
+          symbol_map
+        ) |
+
+        SOME (t', symbol_map') =>
+        (t', symbol_map')
+      )
+    in
+      (
+        (
+          t',
+          symbol_map',
+          contin_stack
+        ),
+        global_context
+      )
+    end) |
+    *)
+
+    Value (v, pos) =>
+    (
+      (
+        Value (Error ("reflection of non-thunk: " ^ (value_to_string v)), pos),
+        symbol_map,
+        contin_stack
+      ),
+      global_context 
+    ) |
+
+    _ =>
+    (let
+      val new_hole_key = #new_hole_key global_context
+      val contin =
+      (
+        Contin_Norm,
+        [( hole new_hole_key, Reflect (hole new_hole_key, lams, pos) )],
+        symbol_map,
+        String_Map.empty 
+      )
+
+      val global_context' = set_new_hole_key (global_context, Hole_Key.inc new_hole_key)
+    in
+      (
+        (
+          t,
+          symbol_map,
+          contin :: contin_stack
+        ),
+        global_context
+      )
+    end)
+  )
+
+
+
+
 
   fun apply global_context
   (
@@ -2047,26 +2186,14 @@ TODO:
       contin_stack
     )) |
 
-    (* CURRENT TODO: add Reflect term that matches symbolic pattern to a thunk;
-    **
-    ** Reflect:
-    ** first arg should be a term that evaluates to a thunk function to be interpreted symbolically.
-    ** second arg should be lams, where the first lam is matched symbolically with the first arg.
-    ** 
-    *)
-    Reflect (t, lams, pos) =>
-    SOME (reduce_single global_context (
-      t, fn t =>  Reflect (t, lams, pos),
-      (fn
-        Func ([(Value (Blank, _), body)], fnc_store, mutual_map) => (
-          raise (Fail "TODO: match body to lams")
 
-        ) |
-        _ => Error "reflecting on non-thunk"
-      ),
+    Reflect (t, lams, pos) =>
+    SOME (reflect global_context (
+      t, lams, pos,
       symbol_map,
       contin_stack
     )) |
+
 
     Sym (_, pos) =>
     SOME (
