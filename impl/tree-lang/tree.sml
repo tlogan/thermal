@@ -2030,9 +2030,6 @@ TODO:
       contin_stack
     )) |
 
-    Reflect (t, lams, _) =>
-    (
-      raise (Fail "CURRENT TODO")
     (* CURRENT TODO: add Reflect term that matches symbolic pattern to a thunk;
     **
     ** Reflect:
@@ -2040,7 +2037,19 @@ TODO:
     ** second arg should be lams, where the first lam is matched symbolically with the first arg.
     ** 
     *)
-    ) |
+    Reflect (t, lams, pos) =>
+    SOME (reduce_single global_context (
+      t, fn t =>  Reflect (t, lams, pos),
+      (fn
+        Func ([(Value (Blank, _), body)], fnc_store, mutual_map) => (
+          raise (Fail "TODO: match body to lams")
+
+        ) |
+        _ => Error "reflecting on non-thunk"
+      ),
+      symbol_map,
+      contin_stack
+    )) |
 
     Sym (_, pos) =>
     SOME (
