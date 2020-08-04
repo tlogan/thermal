@@ -620,7 +620,7 @@ struct
   end)
 
 
-  fun values_equal rewrite_map (p, v) =
+  fun values_equal rewrite_map (p : value, v : value) =
   (case (p, v) of 
     (Blank, _) => true |
 
@@ -814,10 +814,27 @@ struct
   (case (a, b) of
     
     (Id (str_a, _), Id (str_b, _)) =>
-    (case String_Map.find (rewrite_map, str_a) of
-      SOME (str_b') => str_b = str_b' |
-      NONE => false
-    ) |
+    (let
+      val a_result_op = String_Map.find (symbol_map_a, str_a)
+      val b_result_op = String_Map.find (symbol_map_b, str_b)
+    in
+      (case (a_result_op, b_result_op) of 
+        (SOME (fix_a, v_a : value), SOME (fix_b, v_b : value)) =>
+        (let
+          val rewrite_map' = String_Map.insert (rewrite_map, str_a, str_b)
+        in
+          fix_a = fix_b andalso
+          (values_equal rewrite_map' (v_a, v_b))
+        end) |
+        (SOME _, NONE) => false |
+        (NONE, SOME _) => false |
+        (NONE, NONE) => 
+        (case String_Map.find (rewrite_map, str_a) of
+          SOME (str_b') => str_b = str_b' |
+          NONE => false
+        )
+      )
+    end) |
 
     (Assoc (a, _), _) =>
     (
