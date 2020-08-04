@@ -62,6 +62,7 @@ symbol=[\-\^\\=+!@$%&*<>/{}|?~:']|"["|"]";
 
 <INITIAL>"case" => (CASE (!linenum, inccol 1));
 
+<INITIAL>"reflect" => (REFLECT (!linenum, inccol 1));
 <INITIAL>"log" => (LOG (!linenum, inccol 1));
 <INITIAL>"sym" => (SYM (!linenum, inccol 1));
 

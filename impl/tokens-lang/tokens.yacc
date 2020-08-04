@@ -10,7 +10,7 @@ open Tree
   DEF |
   HASH |
   FATARROW | COLON | DOT | LSQ | RSQ | CASE |
-  LOG | SYM |
+  LOG | SYM | REFLECT |
   ADD | SUB | MUL | DIV |
   ADDW | SUBW | MULW | DIVSW | DIVUW | REMSW | REMUW | 
   ADDF | SUBF | MULF | DIVF | 
@@ -45,7 +45,7 @@ open Tree
 
 %right HASH WITH PIPE
 
-%right LOG SYM
+%right LOG SYM REFLECT
 
 %right FATARROW CASE COLON DEF
 
@@ -95,6 +95,8 @@ term_nt:
 
   LOG term_nt (Log (term_nt, LOGleft)) |
   SYM ID (Sym (ID, SYMleft)) | 
+  REFLECT term_nt LPAREN lams_nt (Reflect (term_nt, lams_nt, REFLECTleft)) | 
+  REFLECT term_nt lam_nt (Reflect (term_nt, [lam_nt], REFLECTleft)) | 
 
   field_nt (Intro_Rec ([field_nt], false, field_ntleft)) |
   LPAREN fields_nt (Intro_Rec (fields_nt, false, LPARENleft)) |
