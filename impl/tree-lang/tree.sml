@@ -558,12 +558,94 @@ struct
     new_hole_key = new_hole_key
   }
 
-  fun find_rewrites rewrite_map (p_param : term, f_param : term) : (string String_Map.map) option =
-  (case (p_param, f_param) of
-    (* terms must be syntactically identical except for IDs *)
-    (* param cannot be or contain a function *)
-    (* CURRENT TODO *)
-    _ => raise (Fail "TODO") 
+  (* CURRENT TODO *)
+  (* terms must be intros/patterns *)
+  (* terms must be syntactically identical except for IDs *)
+  (* param cannot be or contain a function *)
+  fun find_rewrites rewrite_map (a : term, b : term) : (string String_Map.map) option =
+  (case (a, b) of
+
+    (Id (str_a, _), Id (str_b, _)) =>
+    (
+      SOME (String_Map.insert (rewrite_map, str_a, str_b))
+    ) |
+
+    (Assoc (a, _), _) =>
+    (
+      find_rewrites rewrite_map (a, b)
+    ) |
+
+    (_, Assoc (b, _)) =>
+    (
+      find_rewrites rewrite_map (a, b)
+    ) |
+
+    (Log (a, _), _) =>
+    (
+      find_rewrites rewrite_map (a, b)
+    ) |
+
+    (_, Log (b, _)) =>
+    (
+      find_rewrites rewrite_map (a, b)
+    ) |
+
+    (Intro_List (a1, a2, _), Intro_List (b1, b2, _)) =>
+    (
+      Option.mapPartial
+      (fn rewrite_map' =>
+        (find_rewrites rewrite_map (a2, b2))
+      )
+      (find_rewrites rewrite_map (a1, b1))
+    ) |
+
+    _ => NONE 
+    (*
+
+    Intro_Func of (
+      ((term * term) list) *
+      int
+    ) |
+
+    App of (term * term * int) |
+
+    Compo of (term * term * int) |
+    With of (term * term * int) |
+
+    Intro_Rec of (
+      (* fields *)
+      (string * (infix_option * term)) list *
+      (* contextualized *)
+      bool *
+      (*pos*)
+      int
+    ) |
+
+    Select of (term * int) |
+
+    (* event *)
+    Intro_Send of (term * int) |
+    Intro_Recv of (term * int) |
+    Intro_Latch of (term * int) |
+    Intro_Choose of (term * int) |
+    Intro_Offer of (term * int) |
+    Intro_Abort of int |
+
+    (* effect *)
+    Intro_Return of (term * int) |
+    Intro_Sync of (term * int) |
+    Intro_Bind of (term * int) |
+    Intro_Exec of (term * int) |
+
+    (* number *)
+    Add_Num of (term * int) |
+    Sub_Num of (term * int) |
+    Mul_Num of (term * int) |
+    Div_Num of (term * int) |
+
+    (* value *)
+    Value of (value * int)
+    *)
   )
 
 
