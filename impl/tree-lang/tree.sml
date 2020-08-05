@@ -72,6 +72,8 @@ struct
     Intro_Bind of (term * int) |
     Intro_Exec of (term * int) |
 
+    (* CURRENT TODO: add Intros for num, string, alloc_chan *)
+
     (* number *)
     Add_Num of (term * int) |
     Sub_Num of (term * int) |
@@ -365,7 +367,7 @@ struct
     String.concatWith "\n" (map contin_to_string stack)
   ))
 
-  and contin_to_string cont = "CONTIN TODO"
+  and contin_to_string cont = "TODO"
 
 
 
@@ -557,92 +559,6 @@ struct
  
     new_hole_key = new_hole_key
   }
-
-  (* CURRENT TODO *)
-  (* terms must be intros/patterns *)
-  (* terms must be syntactically identical except for IDs *)
-  (* terms cannot be or contain a function *)
-  fun find_rewrites rewrite_map (a : term, b : term) : (string String_Map.map) option =
-  (case (a, b) of
-
-    (Id (str_a, _), Id (str_b, _)) =>
-    (
-      SOME (String_Map.insert (rewrite_map, str_a, str_b))
-    ) |
-
-    (Assoc (a, _), _) =>
-    (
-      find_rewrites rewrite_map (a, b)
-    ) |
-
-    (_, Assoc (b, _)) =>
-    (
-      find_rewrites rewrite_map (a, b)
-    ) |
-
-    (Log (a, _), _) =>
-    (
-      find_rewrites rewrite_map (a, b)
-    ) |
-
-    (_, Log (b, _)) =>
-    (
-      find_rewrites rewrite_map (a, b)
-    ) |
-
-    (Intro_List (a1, a2, _), Intro_List (b1, b2, _)) =>
-    (
-      Option.mapPartial
-      (fn rewrite_map' =>
-        (find_rewrites rewrite_map (a2, b2))
-      )
-      (find_rewrites rewrite_map (a1, b1))
-    ) |
-
-
-    _ => NONE 
-    (*
-
-    App of (term * term * int) |
-
-    Compo of (term * term * int) |
-    With of (term * term * int) |
-
-    Intro_Rec of (
-      (* fields *)
-      (string * (infix_option * term)) list *
-      (* contextualized *)
-      bool *
-      (*pos*)
-      int
-    ) |
-
-    Select of (term * int) |
-
-    (* event *)
-    Intro_Send of (term * int) |
-    Intro_Recv of (term * int) |
-    Intro_Latch of (term * int) |
-    Intro_Choose of (term * int) |
-    Intro_Offer of (term * int) |
-    Intro_Abort of int |
-
-    (* effect *)
-    Intro_Return of (term * int) |
-    Intro_Sync of (term * int) |
-    Intro_Bind of (term * int) |
-    Intro_Exec of (term * int) |
-
-    (* number *)
-    Add_Num of (term * int) |
-    Sub_Num of (term * int) |
-    Mul_Num of (term * int) |
-    Div_Num of (term * int) |
-
-    (* value *)
-    Value of (value * int)
-    *)
-  )
 
 
   fun contextualize symbol_map fields =
@@ -1223,6 +1139,177 @@ struct
       lists_equal rewrite_map (ps', vs')
     ) |
     _ => false
+  )
+
+
+  (* terms must be intros/patterns *)
+  (* terms must be syntactically identical except for IDs *)
+  (* terms cannot be or contain a function *)
+  and find_rewrites rewrite_map (a : term, b : term) : (string String_Map.map) option =
+  (case (a, b) of
+
+    (Id (str_a, _), Id (str_b, _)) =>
+    (
+      SOME (String_Map.insert (rewrite_map, str_a, str_b))
+    ) |
+
+    (Assoc (a, _), _) =>
+    (
+      find_rewrites rewrite_map (a, b)
+    ) |
+
+    (_, Assoc (b, _)) =>
+    (
+      find_rewrites rewrite_map (a, b)
+    ) |
+
+    (Log (a, _), _) =>
+    (
+      find_rewrites rewrite_map (a, b)
+    ) |
+
+    (_, Log (b, _)) =>
+    (
+      find_rewrites rewrite_map (a, b)
+    ) |
+
+    (Intro_List (a1, a2, _), Intro_List (b1, b2, _)) =>
+    (
+      Option.mapPartial
+      (fn rewrite_map' =>
+        (find_rewrites rewrite_map (a2, b2))
+      )
+      (find_rewrites rewrite_map (a1, b1))
+    ) |
+
+    (App (a1, a2, _), App (b1, b2, _)) =>
+    (
+      Option.mapPartial
+      (fn rewrite_map' =>
+        (find_rewrites rewrite_map (a2, b2))
+      )
+      (find_rewrites rewrite_map (a1, b1))
+    ) |
+
+    (Compo (a1, a2, _), Compo (b1, b2, _)) =>
+    (
+      Option.mapPartial
+      (fn rewrite_map' =>
+        (find_rewrites rewrite_map (a2, b2))
+      )
+      (find_rewrites rewrite_map (a1, b1))
+    ) |
+
+    (With (a1, a2, _), With (b1, b2, _)) =>
+    (
+      Option.mapPartial
+      (fn rewrite_map' =>
+        (find_rewrites rewrite_map (a2, b2))
+      )
+      (find_rewrites rewrite_map (a1, b1))
+    ) |
+
+    (
+      Intro_Rec (fields_a, _, _),
+      Intro_Rec (fields_b, _, _)
+    ) =>
+    (let
+      fun loop rewrite_map (aa, bb) =
+      (case (aa, bb) of
+        ([], []) => SOME rewrite_map |
+        ((str_a, (fix_a, a)) :: aa', (str_b, (fix_b, b)) :: bb') =>
+        (if (str_a = str_b) andalso fix_a = fix_b then 
+          (Option.mapPartial
+            (fn rewrite_map' =>
+              loop rewrite_map' (aa', bb')
+            )
+            (find_rewrites rewrite_map (a, b))
+          )
+        else 
+          NONE
+        ) |
+        _ => NONE
+
+      )
+    in
+      loop rewrite_map (fields_a, fields_b)
+    end) |
+
+    (Select (a, _), Select (b, _)) =>
+    (
+      find_rewrites rewrite_map (a, b)
+    ) |
+
+    (Intro_Send (a, _), Intro_Send (b, _)) =>
+    (
+      find_rewrites rewrite_map (a, b)
+    ) |
+
+    (Intro_Recv (a, _), Intro_Recv (b, _)) =>
+    (
+      find_rewrites rewrite_map (a, b)
+    ) |
+
+    (Intro_Latch (a, _), Intro_Latch (b, _)) =>
+    (
+      find_rewrites rewrite_map (a, b)
+    ) |
+
+    (Intro_Choose (a, _), Intro_Choose (b, _)) =>
+    (
+      find_rewrites rewrite_map (a, b)
+    ) |
+
+    (Intro_Offer (a, _), Intro_Offer (b, _)) =>
+    (
+      find_rewrites rewrite_map (a, b)
+    ) |
+
+    (Intro_Abort  _, Intro_Abort _) =>
+    (
+      SOME rewrite_map
+    ) |
+
+    (Intro_Return (a, _), Intro_Return (b, _)) =>
+    (
+      find_rewrites rewrite_map (a, b)
+    ) |
+
+    (Intro_Sync (a, _), Intro_Sync (b, _)) =>
+    (
+      find_rewrites rewrite_map (a, b)
+    ) |
+
+    (Intro_Bind (a, _), Intro_Bind (b, _)) =>
+    (
+      find_rewrites rewrite_map (a, b)
+    ) |
+
+    (Intro_Exec (a, _), Intro_Exec (b, _)) =>
+    (
+      find_rewrites rewrite_map (a, b)
+    ) |
+
+    (Value (Num a, _), Value (Num b, _)) =>
+    (if values_equal rewrite_map (Num a, Num b) then
+      SOME rewrite_map
+    else
+      NONE
+    ) |
+
+    (Value (String a, _), Value (String b, _)) =>
+    (if values_equal rewrite_map (String a, String b) then
+      SOME rewrite_map
+    else
+      NONE
+    ) |
+
+    (Value (Blank, _), Value (Blank, _)) =>
+    (
+      SOME rewrite_map
+    ) |
+
+    _ => NONE 
   )
 
   fun symbolic_match ((pattern, symbol_map), (symbolic_term, target_symbol_map)) =
