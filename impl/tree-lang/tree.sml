@@ -1146,31 +1146,6 @@ struct
     _ => false
   )
 
-  (* **TODO**
-  **  match values of pattern body symbols with values in function's symbol maps  
-  **  for mutual recursive references, create name rewriting map to use in comparison
-  **
-  **  symbolic pattern matching
-  **  match values of pattern body symbols with values in function's symbol maps  
-  **  for mutual recursive references, create name rewriting map to use in comparison
-  **  Currently, function value's local stores are ignored; only syntax is matched;
-  **  it's up to the user to determine if syntax can actually be evaluated in alternate context 
-  **  variables in pattern are specified by pattern_var syntax (sym f);
-  **  it may then be used in new context and evaluated with f () 
-  **
-  **  match function params to create name rewrite map
-  **  match function bodies with (sym f) symbol map
-  **  match values of looked up symbols  
-  **
-  **  if matching two mutual map symbols, update rewrite map
-  **  then compare looked up values
-  ** 
-  **
-  ** CURRENT TODO: which symbol map does lams pattern use? **
-  ** match with both symbol maps,
-  ** place the thunk's symbol map and place within sym thunk
-  ** update context's symbol_map with thunk names. 
-  *)
   fun symbolic_match ((pattern, symbol_map), (symbolic_term, target_symbol_map)) =
   (case (pattern, symbolic_term) of
     (Value (Blank, _), _) => SOME symbol_map |
@@ -1336,220 +1311,90 @@ struct
       loop symbol_map (p_fields, t_fields) 
     end) |
 
-    _ => NONE
-  )
-    (*
+    (Select (p, _), Select (t, _)) =>
+    (
+      symbolic_match ((p, symbol_map), (t, target_symbol_map))
+    ) |
 
-    **Intro_Rec of (
-    **  (* fields *)
-    **  (string * (infix_option * term)) list *
-    **  (* contextualized *)
-    **  bool *
-    **  (*pos*)
-    **  int) |
+    (Intro_Send (p, _), Intro_Send (t, _)) =>
+    (
+      symbolic_match ((p, symbol_map), (t, target_symbol_map))
+    ) |
 
-    **Select of (term * int) |
+    (Intro_Recv (p, _), Intro_Recv (t, _)) =>
+    (
+      symbolic_match ((p, symbol_map), (t, target_symbol_map))
+    ) |
 
-    **(* event *)
-    **Intro_Send of (term * int) |
-    **Intro_Recv of (term * int) |
-    **Intro_Latch of (term * int) |
-    **Intro_Choose of (term * int) |
-    **Intro_Offer of (term * int) |
-    **Intro_Abort of int |
+    (Intro_Latch (p, _), Intro_Latch (t, _)) =>
+    (
+      symbolic_match ((p, symbol_map), (t, target_symbol_map))
+    ) |
 
-    **(* effect *)
-    **Intro_Return of (term * int) |
-    **Intro_Sync of (term * int) |
-    **Intro_Bind of (term * int) |
-    **Intro_Exec of (term * int) |
+    (Intro_Choose (p, _), Intro_Choose (t, _)) =>
+    (
+      symbolic_match ((p, symbol_map), (t, target_symbol_map))
+    ) |
 
-    **(* number *)
-    **Add_Num of (term * int) |
-    **Sub_Num of (term * int) |
-    **Mul_Num of (term * int) |
-    **Div_Num of (term * int) |
+    (Intro_Offer (p, _), Intro_Offer (t, _)) =>
+    (
+      symbolic_match ((p, symbol_map), (t, target_symbol_map))
+    ) |
 
-    **(* value *)
-    **Value of (value * int)
-    *)
-  (*
-  fun match_symbolic_term_insert symbol_map (pattern, symbolic_term) =
-  (case (pattern, symbolic_term) of
-    (Value (Blank, _), _) => SOME symbol_map |
+    (Intro_Abort _, Intro_Abort _) =>
+    (
+      SOME symbol_map 
+    ) |
 
-    (Sym (id, _), _) => (let
-      val mutual_map = String_Map.empty
-      val thunk = Func (
-        [(Value (Blank, ~1), symbolic_term)],
-        symbol_map, mutual_map
-      )
-    in
-      SOME (String_Map.insert (symbol_map, id, (NONE, thunk)))
-    end) |
+    (Intro_Return (p, _), Intro_Return (t, _)) =>
+    (
+      symbolic_match ((p, symbol_map), (t, target_symbol_map))
+    ) |
 
-    (Id (p_id, _), Id (st_id, _)) =>
-    (if p_id = st_id then
+    (Intro_Sync (p, _), Intro_Sync (t, _)) =>
+    (
+      symbolic_match ((p, symbol_map), (t, target_symbol_map))
+    ) |
+
+    (Intro_Bind (p, _), Intro_Bind (t, _)) =>
+    (
+      symbolic_match ((p, symbol_map), (t, target_symbol_map))
+    ) |
+
+    (Intro_Exec (p, _), Intro_Exec (t, _)) =>
+    (
+      symbolic_match ((p, symbol_map), (t, target_symbol_map))
+    ) |
+
+    (Add_Num (p, _), Add_Num (t, _)) =>
+    (
+      symbolic_match ((p, symbol_map), (t, target_symbol_map))
+    ) |
+
+    (Sub_Num (p, _), Sub_Num (t, _)) =>
+    (
+      symbolic_match ((p, symbol_map), (t, target_symbol_map))
+    ) |
+
+    (Mul_Num (p, _), Mul_Num (t, _)) =>
+    (
+      symbolic_match ((p, symbol_map), (t, target_symbol_map))
+    ) |
+
+    (Div_Num (p, _), Div_Num (t, _)) =>
+    (
+      symbolic_match ((p, symbol_map), (t, target_symbol_map))
+    ) |
+
+    (Value (v_p, _), Value (v_t, _)) =>
+    (if values_equal String_Map.empty (v_p, v_t) then
       SOME symbol_map
     else
       NONE
     ) |
 
-    (Assoc (p, _), Assoc (st, _)) =>
-      match_symbolic_term_insert symbol_map (p, st) |
-
-    (Log (p, _), Log (st, _)) =>
-      match_symbolic_term_insert symbol_map (p, st) |
-
-    (Intro_List (p1, p2, _), Intro_List (st1, st2, _)) => (
-      (Option.mapPartial
-        (fn symbol_map' =>
-          match_symbolic_term_insert symbol_map' (p2, st2)
-        )
-        (match_symbolic_term_insert symbol_map (p1, st1))
-      )
-    ) |
-
-    (Intro_Func (p_lams, _), Intro_Func (st_lams, _)) =>
-      from_lams_match_symbolic_term_insert symbol_map (p_lams, st_lams) |
-
-    (App (p1, p2, _), App (st1, st2, _)) =>
-    (Option.mapPartial
-      (fn symbol_map' =>
-        match_symbolic_term_insert symbol_map' (p2, st2)
-      )
-      (match_symbolic_term_insert symbol_map (p1, st1))
-    ) |
-
-    (Compo (p1, p2, _), Compo (st1, st2, _)) => (
-      (Option.mapPartial
-        (fn symbol_map' =>
-          match_symbolic_term_insert symbol_map' (p2, st2)
-        )
-        (match_symbolic_term_insert symbol_map (p1, st1))
-      )
-    ) |
-
-    (With (p1, p2, _), With (st1, st2, _)) =>
-    (Option.mapPartial
-      (fn symbol_map' =>
-        match_symbolic_term_insert symbol_map' (p2, st2)
-      )
-      (match_symbolic_term_insert symbol_map (p1, st1))
-    ) |
-
-
-
-    (Select (p, _), Select (st, _)) =>
-    (
-      match_symbolic_term_insert symbol_map (p, st)
-    ) |
-
-(*
-    (Intro_Mutual_Rec (p_fields, _), Intro_Mutual_Rec (st_fields, _)) =>
-    (
-      from_fields_match_symbolic_term_insert symbol_map (p_fields, st_fields)
-    ) |
-*)
-
-
-(*
-TODO:
-    (Event p_transactions, Event st_transactions) =>
-      match_symbolic_transactions_insert symbol_map (p_transactions, st_transactions) |
-*)
-
-(*
-**    (List (ps, _), Value (List (sts, _))) =>
-**    (if (List.length ps = List.length sts) then
-**      (List.foldl
-**        (fn ((p, st), symbol_map_op) => 
-**          (Option.mapPartial
-**            (fn symbol_map' =>
-**              match_symbolic_term_insert symbol_map' (p, st)
-**            )
-**            symbol_map_op
-**          )
-**        )
-**        (SOME symbol_map)
-**        (ListPair.zip (ps, sts))
-**      )
-**    else
-**      NONE
-**    ) |
-*)
-
-
-    (Value p_v, Value st_v) =>
-    (
-      values_equal (p_v, st_v)
-    ) |
-
-    (Add_Num (p, _), Add_Num (st, _)) => (
-      match_symbolic_term_insert symbol_map (p, st)
-    ) |
-
-    (Sub_Num (p, _), Sub_Num (st, _)) => (
-      match_symbolic_term_insert symbol_map (p, st)
-    ) |
-
-    (Mul_Num (p, _), Mul_Num (st, _)) => (
-      match_symbolic_term_insert symbol_map (p, st)
-    ) |
-
-    (Div_Num (p, _), Div_Num (st, _)) => (
-      match_symbolic_term_insert symbol_map (p, st)
-    ) |
-
-    _ => raise (Fail "match_symbolic_term_insert case not yet implemented")
-
+    _ => NONE
   )
-
-  and from_lams_match_symbolic_term_insert symbol_map (p_lams, st_lams) = 
-  (if (List.length p_lams = List.length st_lams) then
-    (List.foldl
-      (fn (((p1, p2), (st1, st2)), symbol_map_op) =>
-        (Option.mapPartial
-          (fn symbol_map' =>
-            (Option.mapPartial
-              (fn symbol_map' =>
-                match_symbolic_term_insert symbol_map' (p2, st2)
-              )
-              (match_symbolic_term_insert symbol_map (p1, st1))
-            )
-          )
-          symbol_map_op
-        )
-      )
-      (SOME symbol_map)
-      (ListPair.zip (p_lams, st_lams))
-    )
-  else
-    NONE
-  )
-
-  and from_fields_match_symbolic_term_insert symbol_map (p_fields, st_fields) =
-  (if (List.length p_fields = List.length st_fields) then
-    (List.foldl
-      (fn (((p_key, (p_fop, p)), (st_key, (st_fop, st))), symbol_map_op) =>
-        (if p_key = st_key andalso p_fop = st_fop then
-          (Option.mapPartial
-            (fn symbol_map' =>
-              match_symbolic_term_insert symbol_map (p, st)
-            )
-            symbol_map_op
-          )
-        else 
-          NONE
-        )
-      )
-      (SOME symbol_map)
-      (ListPair.zip (p_fields, st_fields))
-    )
-  else
-    NONE
-  )
-  *)
 
 
 
