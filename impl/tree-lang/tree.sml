@@ -72,8 +72,6 @@ struct
     Intro_Bind of (term * int) |
     Intro_Exec of (term * int) |
 
-    (* CURRENT TODO: add Intros for num, string, alloc_chan *)
-
     (* number *)
     Add_Num of (term * int) |
     Sub_Num of (term * int) |
@@ -1290,23 +1288,14 @@ struct
       find_rewrites rewrite_map (a, b)
     ) |
 
-    (Value (Num a, _), Value (Num b, _)) =>
-    (if values_equal rewrite_map (Num a, Num b) then
+    (Value (Func _, _), _ ) => NONE |
+    (_, Value (Func _, _)) => NONE |
+
+    (Value (v_a, _), Value (v_b, _)) =>
+    (if values_equal rewrite_map (v_a, v_b) then
       SOME rewrite_map
     else
       NONE
-    ) |
-
-    (Value (String a, _), Value (String b, _)) =>
-    (if values_equal rewrite_map (String a, String b) then
-      SOME rewrite_map
-    else
-      NONE
-    ) |
-
-    (Value (Blank, _), Value (Blank, _)) =>
-    (
-      SOME rewrite_map
     ) |
 
     _ => NONE 
