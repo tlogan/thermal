@@ -1250,14 +1250,95 @@ struct
       if eq then SOME symbol_map else NONE
     end) |
 
+    (
+      Intro_Func (p_lams, _),
+      Value (Func (t_lams, target_symbol_map, target_mutual_map), _)
+    ) =>
+    (let
+      val eq =
+      funcs_equal String_Map.empty
+      (
+        (p_lams, symbol_map, String_Map.empty),
+        (t_lams, target_symbol_map, target_mutual_map)
+      )
+    in
+      if eq then SOME symbol_map else NONE
+    end) |
+
+    (App (p1, p2, _), App (t1, t2, _)) => (
+      (Option.mapPartial
+        (fn symbol_map' =>
+          symbolic_match ((p2, symbol_map'), (t2, target_symbol_map))
+        )
+        (symbolic_match ((p1, symbol_map), (t1, target_symbol_map)))
+      )
+    ) |
+
+    (Compo (p1, p2, _), Compo (t1, t2, _)) => (
+      (Option.mapPartial
+        (fn symbol_map' =>
+          symbolic_match ((p2, symbol_map'), (t2, target_symbol_map))
+        )
+        (symbolic_match ((p1, symbol_map), (t1, target_symbol_map)))
+      )
+    ) |
+
+    (With (p1, p2, _), With (t1, t2, _)) => (
+      (Option.mapPartial
+        (fn symbol_map' =>
+          symbolic_match ((p2, symbol_map'), (t2, target_symbol_map))
+        )
+        (symbolic_match ((p1, symbol_map), (t1, target_symbol_map)))
+      )
+    ) |
+
+    (
+      Intro_Rec (p_fields, p_contextualized, _),
+      Intro_Rec (t_fields, t_contextualized, _)
+    ) =>
+    (let
+      val p_fields = (if p_contextualized then
+        p_fields
+      else
+        contextualize symbol_map p_fields
+      )
+
+      val t_fields = (if t_contextualized then
+        t_fields
+      else
+        contextualize target_symbol_map t_fields
+      )
+
+      fun loop symbol_map (aa : (string * (infix_option * term)) list, bb : (string * (infix_option * term)) list) =
+      (case (aa, bb) of
+        ([], []) => NONE |
+
+        (a :: aa', b :: bb') =>
+        (let
+          val (str_a, (fix_a, a')) = a
+          val (str_b, (fix_b, b')) = b
+        in
+          (if (str_a = str_b andalso (fix_a = fix_b)) then
+            Option.mapPartial
+            (fn symbol_map' =>
+              loop symbol_map' (aa', bb')  
+            )
+            (symbolic_match ((a', symbol_map), (b', target_symbol_map)))
+          else
+            NONE
+          )
+        end) |
+
+        _ => NONE 
+      )
+      
+    in
+      loop symbol_map (p_fields, t_fields) 
+    end) |
+
     _ => NONE
   )
     (*
-
-    **App of (term * term * int) |
-
-    **Compo of (term * term * int) |
-    **With of (term * term * int) |
 
     **Intro_Rec of (
     **  (* fields *)
