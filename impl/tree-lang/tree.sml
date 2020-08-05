@@ -1156,7 +1156,68 @@ struct
   **  if matching two mutual map symbols, update rewrite map
   **  then compare looked up values
   ** 
+  **
+  ** CURRENT TODO: which symbol map does lams pattern use? **
+  ** match with both symbol maps,
+  ** place the thunk's symbol map and place within sym thunk
+  ** update context's symbol_map with thunk names. 
   *)
+  fun symbolic_match ((pattern, symbol_map), (symbolic_term, fnc_symbol_map)) =
+  (
+    NONE
+  )
+    (*
+    **Sym of (string * int) |
+    **Reflect of (term * ((term * term) list) * int) |
+
+    **Id of (string * int) |
+    **Assoc of (term * int) |
+    **Log of (term * int) |
+
+    **Intro_List of (term * term * int) |
+
+    **Intro_Func of (
+    **  ((term * term) list) *
+    **  int) |
+
+    **App of (term * term * int) |
+
+    **Compo of (term * term * int) |
+    **With of (term * term * int) |
+
+    **Intro_Rec of (
+    **  (* fields *)
+    **  (string * (infix_option * term)) list *
+    **  (* contextualized *)
+    **  bool *
+    **  (*pos*)
+    **  int) |
+
+    **Select of (term * int) |
+
+    **(* event *)
+    **Intro_Send of (term * int) |
+    **Intro_Recv of (term * int) |
+    **Intro_Latch of (term * int) |
+    **Intro_Choose of (term * int) |
+    **Intro_Offer of (term * int) |
+    **Intro_Abort of int |
+
+    **(* effect *)
+    **Intro_Return of (term * int) |
+    **Intro_Sync of (term * int) |
+    **Intro_Bind of (term * int) |
+    **Intro_Exec of (term * int) |
+
+    **(* number *)
+    **Add_Num of (term * int) |
+    **Sub_Num of (term * int) |
+    **Mul_Num of (term * int) |
+    **Div_Num of (term * int) |
+
+    **(* value *)
+    **Value of (value * int)
+    *)
   (*
   fun match_symbolic_term_insert symbol_map (pattern, symbolic_term) =
   (case (pattern, symbolic_term) of
@@ -1482,7 +1543,6 @@ TODO:
 
   fun hole k = Id (Hole_Key.to_string k, ~1)
 
-
   fun continue (result, contin) =
   (let
     val (cmode, lams, symbol_map', mutual_map) = contin
@@ -1594,10 +1654,10 @@ TODO:
 
     ) |
 
-    (*
-    ** CURRENT TODO: which symbol map does lams pattern use? **
     Value (Func ([(Value (Blank, _), body)], fnc_symbol_map, mutual_map), _) =>
     (let
+
+      val fnc_symbol_map = embed_mutual_map (fnc_symbol_map, mutual_map)
 
       fun match_first lams = (case lams of
         [] => NONE |
@@ -1615,9 +1675,7 @@ TODO:
         NONE =>
         (
           Value (Error (
-            "result - " ^
-            (value_to_string result) ^
-            " - does not match continuation hole pattern"
+            "thunk body - " ^ (to_string body) ^ " - does not match reflection pattern"
           ), ~1),
           symbol_map
         ) |
@@ -1635,7 +1693,6 @@ TODO:
         global_context
       )
     end) |
-    *)
 
     Value (v, pos) =>
     (
