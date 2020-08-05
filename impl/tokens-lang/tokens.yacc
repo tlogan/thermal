@@ -131,7 +131,7 @@ term_nt:
 
   OFFER (Intro_Func ([(Id ("_param", ~1), Intro_Offer (Id ("_param", ~1), OFFERleft))], OFFERleft)) |
 
-  ABORT (Intro_Abort ABORTleft) |
+  ABORT (Value (Event Abort, ABORTleft)) |
 
   SYNC (Intro_Func ([(Id ("_param", ~1), Intro_Sync (Id ("_param", ~1), SYNCleft))], SYNCleft)) |
 

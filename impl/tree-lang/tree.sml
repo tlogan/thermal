@@ -64,7 +64,6 @@ struct
     Intro_Latch of (term * int) |
     Intro_Choose of (term * int) |
     Intro_Offer of (term * int) |
-    Intro_Abort of int |
 
     (* effect *)
     Intro_Return of (term * int) |
@@ -1013,10 +1012,6 @@ struct
       )      
     ) |
 
-    (Intro_Abort _, Intro_Abort _) =>
-    (
-      true
-    ) |
 
     (Intro_Return (a, _), Intro_Return (b, _)) =>
     (
@@ -1263,11 +1258,6 @@ struct
       find_rewrites rewrite_map (a, b)
     ) |
 
-    (Intro_Abort  _, Intro_Abort _) =>
-    (
-      SOME rewrite_map
-    ) |
-
     (Intro_Return (a, _), Intro_Return (b, _)) =>
     (
       find_rewrites rewrite_map (a, b)
@@ -1496,10 +1486,6 @@ struct
       symbolic_match ((p, symbol_map), (t, target_symbol_map))
     ) |
 
-    (Intro_Abort _, Intro_Abort _) =>
-    (
-      SOME symbol_map 
-    ) |
 
     (Intro_Return (p, _), Intro_Return (t, _)) =>
     (
@@ -1618,10 +1604,6 @@ struct
       match_term symbol_map (t, v)
     ) |
 
-    (Intro_Abort (_), Event Abort) =>
-    (
-      SOME symbol_map 
-    ) |
 
     (Intro_Return (t, _), Effect (Return v)) =>
     (
@@ -2440,16 +2422,6 @@ struct
       symbol_map,
       contin_stack
     )) |
-
-    Intro_Abort pos =>
-    SOME (
-      (
-        Value (Event Abort, pos),
-        symbol_map,
-        contin_stack
-      ),
-      global_context
-    ) |
 
     Intro_Sync (t, pos) =>
     SOME (reduce_single global_context (
