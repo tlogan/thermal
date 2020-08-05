@@ -562,6 +562,7 @@ struct
   (case (p_param, f_param) of
     (* terms must be syntactically identical except for IDs *)
     (* param cannot be or contain a function *)
+    (* CURRENT TODO *)
     _ => raise (Fail "TODO") 
   )
 
@@ -1594,34 +1595,6 @@ struct
       (t_body, symbol_map'''')
     )
   end)
-
-(*
-**    SOME (reduce_single global_context (
-**      t, fn t =>  Reflect (t, lams, pos),
-**      (fn
-**        Func ([(Value (Blank, _), body)], fnc_store, mutual_map) =>
-          (let
-**          fun match_first lams = (case lams of
-**            [] => NONE |
-**            (p, t) :: lams' =>
-**            (case (symbolic_match symbol_map (p, body)) of
-**              NONE => match_first lams' |
-**              SOME symbol_map' => (
-**                SOME (t, symbol_map')
-**              )
-**            )
-**          )
-**        in
-**          
-**          raise (Fail "TODO: match body to lams")
-**
-**        end) |
-**        _ => Error "reflecting on non-thunk"
-**      ),
-**      symbol_map,
-**      contin_stack
-**    )) |
-*)
 
   fun reflect global_context
   (
