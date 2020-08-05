@@ -561,7 +561,7 @@ struct
   (* CURRENT TODO *)
   (* terms must be intros/patterns *)
   (* terms must be syntactically identical except for IDs *)
-  (* param cannot be or contain a function *)
+  (* terms cannot be or contain a function *)
   fun find_rewrites rewrite_map (a : term, b : term) : (string String_Map.map) option =
   (case (a, b) of
 
@@ -599,13 +599,9 @@ struct
       (find_rewrites rewrite_map (a1, b1))
     ) |
 
+
     _ => NONE 
     (*
-
-    Intro_Func of (
-      ((term * term) list) *
-      int
-    ) |
 
     App of (term * term * int) |
 
