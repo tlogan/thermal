@@ -1238,13 +1238,21 @@ struct
       )
     ) |
 
+    (Intro_Func (p_lams, _), Intro_Func (t_lams, _)) =>
+    (let
+      val eq =
+      funcs_equal String_Map.empty
+      (
+        (p_lams, symbol_map, String_Map.empty),
+        (t_lams, target_symbol_map, String_Map.empty)
+      )
+    in
+      if eq then SOME symbol_map else NONE
+    end) |
+
     _ => NONE
   )
     (*
-
-    **Intro_Func of (
-    **  ((term * term) list) *
-    **  int) |
 
     **App of (term * term * int) |
 
