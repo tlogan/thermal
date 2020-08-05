@@ -814,27 +814,9 @@ struct
   (case (a, b) of
     
     (Id (str_a, _), Id (str_b, _)) =>
-    (let
-      val a_result_op = String_Map.find (symbol_map_a, str_a)
-      val b_result_op = String_Map.find (symbol_map_b, str_b)
-    in
-      (case (a_result_op, b_result_op) of 
-        (SOME (fix_a, v_a : value), SOME (fix_b, v_b : value)) =>
-        (let
-          val rewrite_map' = String_Map.insert (rewrite_map, str_a, str_b)
-        in
-          fix_a = fix_b andalso
-          (values_equal rewrite_map' (v_a, v_b))
-        end) |
-        (SOME _, NONE) => false |
-        (NONE, SOME _) => false |
-        (NONE, NONE) => 
-        (case String_Map.find (rewrite_map, str_a) of
-          SOME (str_b') => str_b = str_b' |
-          NONE => false
-        )
-      )
-    end) |
+    (
+      ids_rep_equal rewrite_map ((str_a, symbol_map_a), (str_b, symbol_map_b))
+    ) |
 
     (Assoc (a, _), _) =>
     (
@@ -1125,6 +1107,33 @@ struct
 
   )
 
+  and ids_rep_equal rewrite_map
+  (
+    (str_a, symbol_map_a),
+    (str_b, symbol_map_b)
+  ) =
+  (let
+    val a_result_op = String_Map.find (symbol_map_a, str_a)
+    val b_result_op = String_Map.find (symbol_map_b, str_b)
+  in
+    (case (a_result_op, b_result_op) of 
+      (SOME (fix_a, v_a : value), SOME (fix_b, v_b : value)) =>
+      (let
+        val rewrite_map' = String_Map.insert (rewrite_map, str_a, str_b)
+      in
+        fix_a = fix_b andalso
+        (values_equal rewrite_map' (v_a, v_b))
+      end) |
+      (SOME _, NONE) => false |
+      (NONE, SOME _) => false |
+      (NONE, NONE) => 
+      (case String_Map.find (rewrite_map, str_a) of
+        SOME (str_b') => str_b = str_b' |
+        NONE => false
+      )
+    )
+  end)
+
 
   and lists_equal rewrite_map (ps, vs) = 
   (case (ps, vs) of 
@@ -1163,14 +1172,31 @@ struct
   ** update context's symbol_map with thunk names. 
   *)
   fun symbolic_match ((pattern, symbol_map), (symbolic_term, fnc_symbol_map)) =
-  (
-    NONE
+  (case (pattern, symbolic_term) of
+    (Value (Blank, _), _) => SOME symbol_map |
+
+    (Sym (id, _), _) =>
+    (let
+      val thunk = Func (
+        [(Value (Blank, ~1), symbolic_term)],
+        fnc_symbol_map,
+        String_Map.empty
+      )
+    in
+      SOME (String_Map.insert (symbol_map, id, (NONE, thunk)))
+    end) |
+
+    (Id (p_id, _), Id (st_id, _)) =>
+    (let
+      val eq = ids_rep_equal String_Map.empty ((p_id, symbol_map), (st_id, fnc_symbol_map))
+    in
+      if eq then SOME symbol_map else NONE
+    end) |
+
+    _ => NONE
   )
     (*
-    **Sym of (string * int) |
-    **Reflect of (term * ((term * term) list) * int) |
 
-    **Id of (string * int) |
     **Assoc of (term * int) |
     **Log of (term * int) |
 
