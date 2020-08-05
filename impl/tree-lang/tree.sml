@@ -1171,7 +1171,7 @@ struct
   ** place the thunk's symbol map and place within sym thunk
   ** update context's symbol_map with thunk names. 
   *)
-  fun symbolic_match ((pattern, symbol_map), (symbolic_term, fnc_symbol_map)) =
+  fun symbolic_match ((pattern, symbol_map), (symbolic_term, target_symbol_map)) =
   (case (pattern, symbolic_term) of
     (Value (Blank, _), _) => SOME symbol_map |
 
@@ -1179,7 +1179,7 @@ struct
     (let
       val thunk = Func (
         [(Value (Blank, ~1), symbolic_term)],
-        fnc_symbol_map,
+        target_symbol_map,
         String_Map.empty
       )
     in
@@ -1188,19 +1188,59 @@ struct
 
     (Id (p_id, _), Id (st_id, _)) =>
     (let
-      val eq = ids_rep_equal String_Map.empty ((p_id, symbol_map), (st_id, fnc_symbol_map))
+      val eq = ids_rep_equal String_Map.empty ((p_id, symbol_map), (st_id, target_symbol_map))
     in
       if eq then SOME symbol_map else NONE
     end) |
 
+    (Assoc (p, _), _) =>
+    (
+      symbolic_match
+      (
+        (p, symbol_map),
+        (symbolic_term, target_symbol_map)
+      )
+    ) |
+
+    (_, Assoc (target, _)) =>
+    (
+      symbolic_match 
+      (
+        (pattern, symbol_map),
+        (target, target_symbol_map)
+      )
+    ) |
+
+    (Log (p, _), _) =>
+    (
+      symbolic_match
+      (
+        (p, symbol_map),
+        (symbolic_term, target_symbol_map)
+      )
+    ) |
+
+    (_, Log (target, _)) =>
+    (
+      symbolic_match
+      (
+        (pattern, symbol_map),
+        (target, target_symbol_map)
+      )
+    ) |
+
+    (Intro_List (p1, p2, _), Intro_List (t1, t2, _)) => (
+      (Option.mapPartial
+        (fn symbol_map' =>
+          symbolic_match ((p2, symbol_map'), (t2, target_symbol_map))
+        )
+        (symbolic_match ((p1, symbol_map), (t1, target_symbol_map)))
+      )
+    ) |
+
     _ => NONE
   )
     (*
-
-    **Assoc of (term * int) |
-    **Log of (term * int) |
-
-    **Intro_List of (term * term * int) |
 
     **Intro_Func of (
     **  ((term * term) list) *
