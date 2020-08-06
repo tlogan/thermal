@@ -364,33 +364,47 @@ struct
 
   and from_event_to_string evt =
   (case evt of  
-    _ => raise (Fail "(TODO)")
-    (*
+    Offer v => "(offer_value " ^ (from_value_to_string v) ^ ")" |
+    Abort => "abort" |
     Alloc_Chan => "alloc_chan" |
-
-    Send (k, msg) => String.surround "send_value " (
+    Send (k, msg) =>
+    surround "send_value " (
       (Chan_Key.to_string k) ^ (from_value_to_string msg)
     ) |
 
-    Recv k => String.surround "recv_value " (
+    Recv k =>
+    surround "recv_value " (
       (Chan_Key.to_string k)
     ) |
-    *)
+
+    Latch (event, lams, _, _) =>
+    surround "latch_value" (
+      (from_event_to_string event) ^ "\n" ^
+      (surround ""
+        (String.concatWith "\n" (List.map (fn t => (from_lam_to_string t)) lams))
+      )
+    ) |
+
+    Choose (event1, event2) =>
+    surround "choose_value" (
+      (from_event_to_string event1) ^ "\n" ^
+      (from_event_to_string event2)
+    )
   )
 
   and from_effect_to_string effect =
   (case effect of  
-    _ => raise (Fail "(TODO)")
+    Return v => "(return_value " ^ (from_value_to_string v) ^ ")" |
+    Bind (effect, lams, _, _) =>
+    surround "bind_value" (
+      (from_effect_to_string effect) ^ "\n" ^
+      (surround ""
+        (String.concatWith "\n" (List.map (fn t => (from_lam_to_string t)) lams))
+      )
+    ) |
+    Exec effect => "(exec " ^ (from_effect_to_string effect) ^ ")" |
+    Sync event => "(sync " ^ (from_event_to_string event) ^ ")"
   )
-
-
-  and stack_to_string stack = (String.surround "stack" (
-    String.concatWith "\n" (map contin_to_string stack)
-  ))
-
-  and contin_to_string cont = "TODO"
-
-
 
 
   fun num_add (n1, n2) = (let
