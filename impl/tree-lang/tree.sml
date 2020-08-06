@@ -318,6 +318,8 @@ struct
   and from_value_to_string v =
   (case v of
 
+    Blank => "()" |
+
     List (vs: value list) => surround "list_value" ( 
       String.concatWith "\n" (List.map (fn v => ("# " ^ (from_value_to_string v))) vs)
     ) |
@@ -331,9 +333,22 @@ struct
       (List.map from_field_value_to_string fs)
     ) |
 
-    _ => raise (Fail "NOT YET IMPLEMENTED")
+    Event event => from_event_to_string event |
+
+    Effect effect => from_effect_to_string effect |
+
+    String str => str |
+
+    Num num_str => num_str |
+
+    Chan key => "(chan " ^ (Chan_Key.to_string key) ^ ")" |
+
+    Thread key => "(thread " ^ (Thread_Key.to_string key) ^ ")" |
+
+    Error str => "(error " ^ str ^ ")"
 
   )
+
 
   and from_field_value_to_string (name, (fix_op, v)) = String.surround "" (
     "def "  ^ name ^ (from_infix_option_to_string fix_op) ^ " : " ^ (from_value_to_string v)
@@ -347,8 +362,10 @@ struct
     "def "  ^ name ^ (from_infix_option_to_string fix_op) ^ " : " ^ (to_string t)
   )
 
-  and event_value_to_string evt = (case evt of  
-
+  and from_event_to_string evt =
+  (case evt of  
+    _ => raise (Fail "(TODO)")
+    (*
     Alloc_Chan => "alloc_chan" |
 
     Send (k, msg) => String.surround "send_value " (
@@ -358,9 +375,12 @@ struct
     Recv k => String.surround "recv_value " (
       (Chan_Key.to_string k)
     ) |
+    *)
+  )
 
-    _ => raise (Fail "(NOT IMPLE: event_value_to_string)")
-
+  and from_effect_to_string effect =
+  (case effect of  
+    _ => raise (Fail "(TODO)")
   )
 
 
