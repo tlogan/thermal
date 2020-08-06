@@ -254,24 +254,38 @@ struct
 
   fun to_string t = (case t of
 
-    Assoc (t, pos) => "(" ^ (to_string t) ^ ")" |
+    Sym (str, _) =>
+    (
+      "(sym " ^ str ^ ")"
+    ) |
 
-    Log (t, pos) => "log " ^  (to_string t) |
-    Sym (str, pos) => "sym " ^ str |
+    Reflect (t, lams, _) =>
+    surround "reflect" (
+      (to_string t) ^ "\n" ^
+      (surround "" (
+        (String.concatWith "\n" (List.map (fn t => (from_lam_to_string t)) lams))
+      ))
+    ) |
+
+    Id (id, _) => id |
+
+    Assoc (t, _) => "(" ^ (to_string t) ^ ")" |
+    
+    Log (t, _) => "log " ^  (to_string t) |
 
     Intro_List (t1, t2, pos) => (
-      (to_string t1) ^ ", " ^ (to_string t2)
+      "(# " ^ (to_string t1) ^ " " ^ (to_string t2) ^ ")"
     ) |
 
     Intro_Func (lams, pos) => String.surround "" (
       String.concatWith "\n" (List.map (fn t => (from_lam_to_string t)) lams)
     ) |
 
-    Compo (t1, t2, pos) => "(compo " ^ (to_string t1) ^ " " ^ (to_string t2) ^")"|
-
     App (t1, t2, pos) => surround "apply" (
       (to_string t1) ^ " " ^ (to_string t2)
     ) |
+
+    Compo (t1, t2, pos) => "compo " ^ (to_string t1) ^ " " ^ (to_string t2) |
 
     With (t1, t2, pos) => "with " ^ (to_string t1) ^ "\n" ^ (to_string t2) |
 
@@ -279,50 +293,40 @@ struct
       String.concatWith ",\n" (List.map from_field_to_string fs)
     ) |
 
-    Select (t, pos) => "select " ^ (to_string t) |
+    Select (t, _) => "select " ^ (to_string t) |
 
-    Value (v, pos) => value_to_string v |
+    Intro_Send (t, _) => "send " ^ (to_string t) |
+    Intro_Recv (t, _) => "recv " ^ (to_string t) |
+    Intro_Latch (t, _) => "latch " ^ (to_string t) |
+    Intro_Choose (t, _) => "choose " ^ (to_string t) |
+    Intro_Offer (t, _) => "offer " ^ (to_string t) |
 
-    _ => "(NOT YET IMPLEMENTED)"
+    Intro_Return (t, _) => "return " ^ (to_string t) |
+    Intro_Sync (t, _) => "sync " ^ (to_string t) |
+    Intro_Bind (t, _) => "bind " ^ (to_string t) |
+    Intro_Exec (t, _) => "exec " ^ (to_string t) |
 
-    (*
-    Sync (t, pos) => "sync " ^ (to_string t) |
+    Add_Num (t, _) => "add " ^ (to_string t) |
+    Sub_Num (t, _) => "sub " ^ (to_string t) |
+    Mul_Num (t, _) => "mul " ^ (to_string t) |
+    Div_Num (t, _) => "div " ^ (to_string t) |
 
-    Exec (t, pos) => "exec " ^ (to_string t) |
-
-    Id (name, pos) => name |
-
-    String (str, pos) => str |
-
-    Chan k => "chan_" ^ (Chan_Key.to_string k) |
-
-    Thread k => "thread_" ^ (Chan_Key.to_string k) |
-
-    Add_Num (t, pos) => "add " ^ (to_string t) |
-
-    Sub_Num (t, pos) => "sub " ^ (to_string t) |
-
-    Mul_Num (t, pos) => "mul " ^ (to_string t) |
-
-    Div_Num (t, pos) => "div " ^ (to_string t) |
-
-    Error msg => "(ERROR: " ^ msg ^ ")"
-    *)
+    Value (v, _) => from_value_to_string v
 
   )
 
-  and value_to_string v =
+  and from_value_to_string v =
   (case v of
 
-    List (vs: value list) => surround "" ( 
-      String.concatWith "\n" (List.map (fn v => ("# " ^ (value_to_string v))) vs)
+    List (vs: value list) => surround "list_value" ( 
+      String.concatWith "\n" (List.map (fn v => ("# " ^ (from_value_to_string v))) vs)
     ) |
 
-    Func (lams, fnc_store, mutual_map) => String.surround "val" (
+    Func (lams, fnc_store, mutual_map) => String.surround "func_value" (
       String.concatWith "\n" (List.map (fn t => (from_lam_to_string t)) lams)
     ) |
 
-    Rec fs => String.surround "val" (
+    Rec fs => String.surround "rec_value" (
       String.concatWith ",\n"
       (List.map from_field_value_to_string fs)
     ) |
@@ -332,7 +336,7 @@ struct
   )
 
   and from_field_value_to_string (name, (fix_op, v)) = String.surround "" (
-    "def "  ^ name ^ (from_infix_option_to_string fix_op) ^ " : " ^ (value_to_string v)
+    "def "  ^ name ^ (from_infix_option_to_string fix_op) ^ " : " ^ (from_value_to_string v)
   )
 
   and from_lam_to_string (t1, t2) = String.surround "" (
@@ -348,7 +352,7 @@ struct
     Alloc_Chan => "alloc_chan" |
 
     Send (k, msg) => String.surround "send_value " (
-      (Chan_Key.to_string k) ^ (value_to_string msg)
+      (Chan_Key.to_string k) ^ (from_value_to_string msg)
     ) |
 
     Recv k => String.surround "recv_value " (
@@ -1721,7 +1725,7 @@ struct
       (
         Value (Error (
           "result - " ^
-          (value_to_string result) ^
+          (from_value_to_string result) ^
           " - does not match continuation hole pattern"
         ), ~1),
         symbol_map'''
@@ -1806,7 +1810,7 @@ struct
     Value (v, pos) =>
     (
       (
-        Value (Error ("reflection of non-thunk: " ^ (value_to_string v)), pos),
+        Value (Error ("reflection of non-thunk: " ^ (from_value_to_string v)), pos),
         symbol_map,
         contin_stack
       ),
@@ -1885,7 +1889,7 @@ struct
     Value (v, pos) =>
     (
       (
-        Value (Error ("application of non-function: " ^ (value_to_string v)), pos),
+        Value (Error ("application of non-function: " ^ (from_value_to_string v)), pos),
         symbol_map,
         contin_stack
       ),
@@ -2156,7 +2160,7 @@ struct
       t',
       fn t => Log (t, pos),
       fn v => (
-        print ((value_to_string v) ^ "\n");
+        print ((from_value_to_string v) ^ "\n");
         v
       ),
       symbol_map,
