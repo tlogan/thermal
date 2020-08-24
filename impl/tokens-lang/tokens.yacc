@@ -8,7 +8,7 @@ open Tree
 
   WITH | PIPE | COMPO | SELECT |
   DEF |
-  HASH |
+  BAR |
   FATARROW | COLON | DOT | LSQ | RSQ | CASE |
   LOG | SYM | REFLECT |
   ADD | SUB | MUL | DIV |
@@ -43,7 +43,7 @@ open Tree
 %eop EOF
 %noshift EOF
 
-%right HASH WITH PIPE
+%right BAR WITH PIPE
 
 %right LOG SYM REFLECT
 
@@ -82,8 +82,8 @@ term_nt:
 
   LPAREN term_nt RPAREN (Assoc (term_nt, LPARENleft)) |
 
-  HASH term_nt term_nt (Intro_List (term_nt1, term_nt2, HASHleft)) |
-  HASH term_nt (Intro_List (term_nt, Value (Blank, HASHright), HASHleft)) |
+  BAR term_nt term_nt (Intro_List (term_nt1, term_nt2, BARleft)) |
+  BAR term_nt (Intro_List (term_nt, Value (Blank, BARright), BARleft)) |
 
   lam_nt (Intro_Func ([lam_nt], lam_ntleft)) |
   LPAREN lams_nt (Intro_Func (lams_nt, lams_ntleft)) |

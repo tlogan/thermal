@@ -82,6 +82,7 @@ struct
 
   and value =
     Blank |
+
     List of value list |
 
     Func of (

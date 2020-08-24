@@ -53,7 +53,7 @@ symbol=[\-\^\\=+!@$%&*<>/{}|?~:']|"["|"]";
 <INITIAL>"with" => (WITH (!linenum, inccol 1));
 <INITIAL>"pipe" => (PIPE (!linenum, inccol 1));
 <INITIAL>":" => (COLON (!linenum, inccol 1));
-<INITIAL>"#" => (HASH (!linenum, inccol 1));
+<INITIAL>"|" => (BAR (!linenum, inccol 1));
 <INITIAL>"=>" => (FATARROW (!linenum, inccol 1));
 <INITIAL>"[" => (LSQ (!linenum, inccol 1));
 <INITIAL>"]" => (RSQ (!linenum, inccol 1));
