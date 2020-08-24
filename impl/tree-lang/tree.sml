@@ -3121,6 +3121,18 @@ struct
         SOME (threads' @ new_threads, global_context')
       end) |
 
+
+      (*
+      ** TODO **
+      ** create action mode
+      ** chill : 'a -> 'a action
+      ** react : 'a action -> ('a -> 'b action) -> 'b action
+      **
+      ** trigger : 'a action * 'a -> unit effect
+      ** extract : 'a action -> 'a effect
+      **
+      *)
+
       (* eval term case *)
       _ =>
       (let
