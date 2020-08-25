@@ -3121,7 +3121,6 @@ struct
         SOME (threads' @ new_threads, global_context')
       end) |
 
-
       (*
       ** TODO **
       ** create reaction mode
@@ -3129,12 +3128,26 @@ struct
       ** chill : 'a -> 'a reaction
       ** react : 'a loc -> ('a -> 'b reaction) -> 'b reaction
       **
-      ** change : diff * 'a loc * 'a -> diff 
-      ** conserve : diff 
+      ** adjust : adjustment * 'a loc * 'a -> adjustment 
+      ** conserve : adjustment 
       **
-      ** trigger : diff -> unit effect
+      ** propagate : adjustment -> unit effect
       ** extract : 'a loc -> 'a effect
       **
+      *)
+      (*
+      ** TODO **
+      (Value (Adju event, _), [], Propa_Adju react_thread) =>
+      (let
+        val (new_threads, global_context') =
+        (
+          sync_event_step
+          global_context
+          (event, thread_key, search_thread)
+        )
+      in
+        SOME (threads' @ new_threads, global_context')
+      end) |
       *)
 
       (* eval term case *)
