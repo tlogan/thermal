@@ -3124,12 +3124,16 @@ struct
 
       (*
       ** TODO **
-      ** create action mode
-      ** chill : 'a -> 'a action
-      ** react : 'a action -> ('a -> 'b action) -> 'b action
+      ** create reaction mode
       **
-      ** trigger : 'a action * 'a -> unit effect
-      ** extract : 'a action -> 'a effect
+      ** chill : 'a -> 'a reaction
+      ** react : 'a loc -> ('a -> 'b reaction) -> 'b reaction
+      **
+      ** change : diff * 'a loc * 'a -> diff 
+      ** conserve : diff 
+      **
+      ** trigger : diff -> unit effect
+      ** extract : 'a loc -> 'a effect
       **
       *)
 
