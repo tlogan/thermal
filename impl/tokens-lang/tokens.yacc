@@ -21,7 +21,7 @@ open Tree
   CHANGE | COMBINE |
 
   SYNC | BIND | RETURN | SPAWN | 
-  ALLOC_LOC | KNOCK |
+  INSTALL_REACTION | KNOCK |
   CHILL | REACT |
   LPAREN | RPAREN | LANG | RANG | LRPAREN | 
   INFIXL | INFIXR | DIGIT of int |
@@ -54,7 +54,7 @@ open Tree
 
 %right FATARROW CASE COLON DEF
 
-%left ALLOC_CHAN SEND RECV LATCH CHOOSE OFFER ABORT SPAWN ALLOC_LOC KNOCK SYNC ADD SUB MUL DIV SELECT EQUAL CHANGE COMBINE CHILL REACT
+%left ALLOC_CHAN SEND RECV LATCH CHOOSE OFFER ABORT SPAWN INSTALL_REACTION KNOCK SYNC ADD SUB MUL DIV SELECT EQUAL CHANGE COMBINE CHILL REACT
 
 %nonassoc INFIXL INFIXR DIGIT
 
@@ -148,8 +148,8 @@ term_nt:
   COMBINE (Intro_Func ([(Id ("_param", ~1), Intro_Combine (Id ("_param", ~1), COMBINEleft))], COMBINEleft)) |
 
 
-  ALLOC_LOC (Intro_Func (
-    [(Id ("_param", ~1), Intro_Alloc_Loc (Id ("_param", ~1), ALLOC_LOCleft))], ALLOC_LOCleft
+  INSTALL_REACTION (Intro_Func (
+    [(Id ("_param", ~1), Intro_Install_Reaction (Id ("_param", ~1), INSTALL_REACTIONleft))], INSTALL_REACTIONleft
   )) |
 
 

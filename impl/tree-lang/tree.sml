@@ -13,8 +13,8 @@ struct
   structure Chan_Map = RedBlackMapFn (Chan_Key)
 
 
-  structure Loc_Key = Key_Fn (val tag = "loc")
-  structure Loc_Map = RedBlackMapFn (Loc_Key)
+  structure Reaction_Key = Key_Fn (val tag = "loc")
+  structure Reaction_Map = RedBlackMapFn (Reaction_Key)
 
   structure Hole_Key = Key_Fn (val tag = "_g")
 
@@ -82,7 +82,7 @@ struct
     Intro_Bind of (term * int) |
     Intro_Sync of (term * int) |
     Intro_Spawn of (term * int) |
-    Intro_Alloc_Loc of (term * int) |
+    Intro_Install_Reaction of (term * int) |
     Intro_Knock of (term * int) |
 
 
@@ -134,13 +134,13 @@ struct
     ) |
     Spawn of effect |
     Sync of event |
-    Alloc_Loc of reaction | 
+    Install_Reaction of reaction | 
     Knock of adjustment
 
   and reaction =
     Chill of value |
     React of (
-      Loc_Key.ord_key * 
+      Reaction_Key.ord_key * 
       ((term * term) list) *
       ((infix_option * value) String_Map.map) *
       ((infix_option * (term * term) list) String_Map.map)
@@ -161,7 +161,7 @@ struct
     Choose of event * event
 
   and adjustment =
-    Change of Loc_Key.ord_key * value |
+    Change of Reaction_Key.ord_key * value |
     Combine of adjustment * adjustment
 
   datatype contin_mode =
@@ -2521,12 +2521,10 @@ struct
       contin_stack
     )) |
 
-
-
     (** **TODO** 
     ** evaluate to special mode operations
     (* effect *)
-    Intro_Alloc_Loc of (term * int) |
+    Intro_Install_Reaction of (term * int) |
     Intro_Knock of (term * int) |
 
     (* adjustment *)
@@ -2669,18 +2667,19 @@ struct
       val global_context' = set_new_syncing_key (global_context, Syncing_Key.inc new_syncing_key) 
     in
       ([new_thread], global_context')
-    end)
+    end) |
 
     (**
     **TODO **
-    ** allocate a propagation trace **
-    ** rename Loc to Propogation or something similar **
-    Alloc_Loc _ => |
-
-    ** spawn into Adjustment mode **
-    Knock adjustment =>
+    ** install a chain **
     *)
-    
+    Install_Reaction _ => ([], global_context) |
+
+    (*
+    ** TODO **
+    ** spawn into Adjustment mode **
+    *)
+    Knock adjustment => ([], global_context)
 
   )
 
