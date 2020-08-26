@@ -18,6 +18,7 @@ open Tree
   ALLOC_MEM | SIZE | SLICE | SET | GET |
   ALLOC_CHAN | SEND | RECV | LATCH | CHOOSE | OFFER | ABORT |
   SYNC | BIND | RETURN | SPAWN | 
+  ALLOC_LOC | PROPAGATE |
   LPAREN | RPAREN | LANG | RANG | LRPAREN | 
   INFIXL | INFIXR | DIGIT of int |
 
@@ -136,6 +137,17 @@ term_nt:
   SYNC (Intro_Func ([(Id ("_param", ~1), Intro_Sync (Id ("_param", ~1), SYNCleft))], SYNCleft)) |
 
   SPAWN (Intro_Func ([(Id ("_param", ~1), Intro_Spawn (Id ("_param", ~1), SPAWNleft))], SPAWNleft)) |
+
+
+  ALLOC_LOC (Intro_Func (
+    [(Id ("_param", ~1), Intro_Alloc_Loc (Id ("_param", ~1), ALLOC_LOCleft))], ALLOC_LOCleft
+  )) |
+
+
+  PROPAGATE (Intro_Func (
+    [(Id ("_param", ~1), Intro_Propagate (Id ("_param", ~1), PROPAGATEleft))], PROPAGATEleft
+  )) |
+
 
   LRPAREN (Value (Blank, LRPARENleft)) | 
 

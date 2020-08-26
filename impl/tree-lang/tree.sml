@@ -71,9 +71,11 @@ struct
 
     (* effect *)
     Intro_Return of (term * int) |
-    Intro_Sync of (term * int) |
     Intro_Bind of (term * int) |
+    Intro_Sync of (term * int) |
     Intro_Spawn of (term * int) |
+    Intro_Alloc_Loc of (term * int) |
+    Intro_Propagate of (term * int) |
 
     (* number *)
     Add_Num of (term * int) |

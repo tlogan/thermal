@@ -112,6 +112,10 @@ symbol=[\-\^\\=+!@$%&*<>/{}|?~:']|"["|"]";
 <INITIAL>"return" => (RETURN (!linenum, inccol 1));
 
 
+<INITIAL>"alloc_loc" => (ALLOC_LOC (!linenum, inccol 1));
+<INITIAL>"propagate" => (PROPAGATE (!linenum, inccol 1));
+
+
 <INITIAL>"(" => (LPAREN (!linenum, inccol 1));
 <INITIAL>")" => (RPAREN (!linenum, inccol 1));
 <INITIAL>"<|" => (LANG (!linenum, inccol 1));
