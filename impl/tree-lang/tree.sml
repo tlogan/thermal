@@ -123,7 +123,17 @@ struct
     ) |
     Spawn of effect |
     Sync of event |
+    Alloc_Loc of reaction | 
     Propagate of adjustment
+
+  and reaction =
+    Chill of value |
+    React of (
+      Loc_Key.ord_key * 
+      ((term * term) list) *
+      ((infix_option * value) String_Map.map) *
+      ((infix_option * (term * term) list) String_Map.map)
+    )
 
   and event =
     Offer of value |
