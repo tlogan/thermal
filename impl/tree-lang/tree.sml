@@ -12,6 +12,10 @@ struct
   structure Chan_Key = Key_Fn (val tag = "chan")
   structure Chan_Map = RedBlackMapFn (Chan_Key)
 
+
+  structure Loc_Key = Key_Fn (val tag = "loc")
+  structure Loc_Map = RedBlackMapFn (Loc_Key)
+
   structure Hole_Key = Key_Fn (val tag = "_g")
 
   structure String_Map = RedBlackMapFn
@@ -69,7 +73,7 @@ struct
     Intro_Return of (term * int) |
     Intro_Sync of (term * int) |
     Intro_Bind of (term * int) |
-    Intro_Exec of (term * int) |
+    Intro_Spawn of (term * int) |
 
     (* number *)
     Add_Num of (term * int) |
@@ -93,6 +97,7 @@ struct
 
     Rec of (string * (infix_option * value)) list |
 
+    Adjustment of adjustment |
 
     Event of event |
 
@@ -116,8 +121,9 @@ struct
       ((infix_option * value) String_Map.map) *
       ((infix_option * (term * term) list) String_Map.map)
     ) |
-    Exec of effect |
-    Sync of event 
+    Spawn of effect |
+    Sync of event |
+    Propagate of adjustment
 
   and event =
     Offer of value |
@@ -132,6 +138,10 @@ struct
       ((infix_option * (term * term) list) String_Map.map)
     ) |
     Choose of event * event
+
+  and adjustment =
+    Change of Loc_Key.ord_key * value |
+    Combine of adjustment * adjustment
 
   datatype contin_mode =
     Contin_With |
@@ -170,7 +180,7 @@ struct
   )
 
   datatype thread_mode =
-    Exec_Effect of contin list | 
+    Spawn_Effect of contin list | 
     Sync_Event of search_thread
 
   type thread = (
@@ -305,7 +315,7 @@ struct
     Intro_Return (t, _) => "return " ^ (to_string t) |
     Intro_Sync (t, _) => "sync " ^ (to_string t) |
     Intro_Bind (t, _) => "bind " ^ (to_string t) |
-    Intro_Exec (t, _) => "exec " ^ (to_string t) |
+    Intro_Spawn (t, _) => "exec " ^ (to_string t) |
 
     Add_Num (t, _) => "add " ^ (to_string t) |
     Sub_Num (t, _) => "sub " ^ (to_string t) |
@@ -403,7 +413,7 @@ struct
         (String.concatWith "\n" (List.map (fn t => (from_lam_to_string t)) lams))
       )
     ) |
-    Exec effect => "(exec " ^ (from_effect_to_string effect) ^ ")" |
+    Spawn effect => "(exec " ^ (from_effect_to_string effect) ^ ")" |
     Sync event => "(sync " ^ (from_event_to_string event) ^ ")"
   )
 
@@ -772,7 +782,7 @@ struct
       )
     ) |
 
-    (Exec effect_a, Exec effect_b) =>
+    (Spawn effect_a, Spawn effect_b) =>
     (
       effects_equal rewrite_map (effect_a, effect_b)
     ) |
@@ -1079,7 +1089,7 @@ struct
       )      
     ) |
 
-    (Intro_Exec (a, _), Intro_Exec (b, _)) =>
+    (Intro_Spawn (a, _), Intro_Spawn (b, _)) =>
     (
       symbolic_equal rewrite_map
       (
@@ -1312,7 +1322,7 @@ struct
       find_rewrites rewrite_map (a, b)
     ) |
 
-    (Intro_Exec (a, _), Intro_Exec (b, _)) =>
+    (Intro_Spawn (a, _), Intro_Spawn (b, _)) =>
     (
       find_rewrites rewrite_map (a, b)
     ) |
@@ -1541,7 +1551,7 @@ struct
       symbolic_match ((p, symbol_map), (t, target_symbol_map))
     ) |
 
-    (Intro_Exec (p, _), Intro_Exec (t, _)) =>
+    (Intro_Spawn (p, _), Intro_Spawn (t, _)) =>
     (
       symbolic_match ((p, symbol_map), (t, target_symbol_map))
     ) |
@@ -1661,7 +1671,7 @@ struct
       )
     ) |
 
-    (Intro_Exec (t, _), Effect (Exec effect)) =>
+    (Intro_Spawn (t, _), Effect (Spawn effect)) =>
     (
       match_term symbol_map (t, Effect effect)
     ) |
@@ -2473,11 +2483,11 @@ struct
       contin_stack
     )) |
 
-    Intro_Exec (t, pos) =>
+    Intro_Spawn (t, pos) =>
     SOME (reduce_single global_context (
-      t, fn t => Intro_Exec (t, pos),
+      t, fn t => Intro_Spawn (t, pos),
       (fn
-        Effect effect => Effect (Exec effect) |
+        Effect effect => Effect (Spawn effect) |
         _ => Error "intro_exec without effect"
       ),
       symbol_map,
@@ -2519,7 +2529,7 @@ struct
             thread_key = thread_key,
             symbol_map = String_Map.empty,
             term_stack = [],
-            thread_mode = Exec_Effect effect_stack
+            thread_mode = Spawn_Effect effect_stack
           }
         )
       in
@@ -2537,7 +2547,7 @@ struct
             thread_key = thread_key,
             symbol_map = symbol_map',
             term_stack = [],
-            thread_mode = Exec_Effect effect_stack
+            thread_mode = Spawn_Effect effect_stack
           }
         )
       in
@@ -2554,7 +2564,7 @@ struct
           thread_key = thread_key,
           symbol_map = String_Map.empty,
           term_stack = [],
-          thread_mode = Exec_Effect
+          thread_mode = Spawn_Effect
           (
             (Contin_Bind, lams, fnc_store, mutual_map) ::
             effect_stack
@@ -2565,7 +2575,7 @@ struct
       ([new_thread], global_context)
     end) |
 
-    Exec effect' => (let
+    Spawn effect' => (let
       val parent_thread = 
       (
         Value (Effect (Return Blank), ~1),
@@ -2573,7 +2583,7 @@ struct
           thread_key = thread_key,
           symbol_map = String_Map.empty,
           term_stack = [],
-          thread_mode = Exec_Effect effect_stack
+          thread_mode = Spawn_Effect effect_stack
         }
       )
 
@@ -2585,7 +2595,7 @@ struct
           thread_key = new_thread_key,
           symbol_map = String_Map.empty,
           term_stack = [],
-          thread_mode = Exec_Effect [] 
+          thread_mode = Spawn_Effect [] 
         }
       )
 
@@ -2877,7 +2887,7 @@ struct
                   thread_key = thread_key,
                   symbol_map = String_Map.empty,
                   term_stack = [],
-                  thread_mode = Exec_Effect effect_stack 
+                  thread_mode = Spawn_Effect effect_stack 
                 }
               )
             in
@@ -3096,7 +3106,7 @@ struct
     (t, thread_context as {thread_key, symbol_map, term_stack, thread_mode}) :: threads' =>
     (case (t, term_stack, thread_mode) of
       (* exec effect case *)
-      (Value (Effect effect, _), [], Exec_Effect effect_stack) =>
+      (Value (Effect effect, _), [], Spawn_Effect effect_stack) =>
       (let
         val (new_threads, global_context') = (
           exec_effect_step
@@ -3128,8 +3138,8 @@ struct
       ** chill : 'a -> 'a reaction
       ** react : 'a loc -> ('a -> 'b reaction) -> 'b reaction
       **
-      ** adjust : adjustment * 'a loc * 'a -> adjustment 
-      ** conserve : adjustment 
+      ** change : 'a loc * 'a -> adjustment 
+      ** combine : adjustment * adjustment -> adjustment
       **
       ** propagate : adjustment -> unit effect
       ** extract : 'a loc -> 'a effect
@@ -3137,13 +3147,13 @@ struct
       *)
       (*
       ** TODO **
-      (Value (Adju event, _), [], Propa_Adju react_thread) =>
+      (Value (Adju adjustment, _), [], Propa_Adju react_thread) =>
       (let
         val (new_threads, global_context') =
         (
-          sync_event_step
+          propagate_adustment_step
           global_context
-          (event, thread_key, search_thread)
+          (adjustment, thread_key, react_thread)
         )
       in
         SOME (threads' @ new_threads, global_context')
@@ -3187,7 +3197,7 @@ struct
       thread_key = Thread_Key.zero,
       symbol_map = String_Map.empty, 
       term_stack = [],
-      thread_mode = Exec_Effect [] 
+      thread_mode = Spawn_Effect [] 
     }
 
     val thread = (t, thread_context)
