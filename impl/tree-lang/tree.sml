@@ -344,6 +344,25 @@ struct
     Intro_Bind (t, _) => "bind " ^ (to_string t) |
     Intro_Spawn (t, _) => "exec " ^ (to_string t) |
 
+    (** CURRENT TODO **)
+    Intro_Install_Reaction (t, _) => raise (Fail "TODO") |
+
+    (** TODO **)
+    Intro_Knock (t, pos) => raise (Fail "TODO") |
+
+    (* TODO *)
+    Intro_Change (t, pos) => raise (Fail "TODO") |
+
+    (* TODO *)
+    Intro_Combine (t, pos) => raise (Fail "TODO") |
+
+    (* TODO *)
+    Intro_Chill (t, pos) => raise (Fail "TODO") |
+
+    (* TODO *)
+    Intro_React (t, pos) => raise (Fail "TODO") |
+    
+
     Add_Num (t, _) => "add " ^ (to_string t) |
     Sub_Num (t, _) => "sub " ^ (to_string t) |
     Mul_Num (t, _) => "mul " ^ (to_string t) |
@@ -372,6 +391,9 @@ struct
     ) |
 
     Event event => from_event_to_string event |
+
+    (* TODO *)
+    Adjustment adjustment => raise (Fail "TODO: Adjustment") |
 
     Effect effect => from_effect_to_string effect |
 
@@ -441,7 +463,13 @@ struct
       )
     ) |
     Spawn effect => "(exec " ^ (from_effect_to_string effect) ^ ")" |
-    Sync event => "(sync " ^ (from_event_to_string event) ^ ")"
+    Sync event => "(sync " ^ (from_event_to_string event) ^ ")" |
+
+    (* TODO *)
+    Install_Reaction reaction => raise (Fail "TODO: Install_Reaction") |
+
+    (* TODO *)
+    Knock adjustment => raise (Fail "TODO: Knock")
   )
 
 
@@ -2521,22 +2549,24 @@ struct
       contin_stack
     )) |
 
-    (** **CURRENT TODO** 
-    ** evaluate to special mode operations
     (* effect *)
-    Intro_Install_Reaction of (term * int) |
-    Intro_Knock of (term * int) |
+    (** CURRENT TODO **)
+    Intro_Install_Reaction (t, pos) => NONE |
 
-    (* adjustment *)
-    Intro_Change of (term * int) |
-    Intro_Combine of (term * int) |
+    (** TODO **)
+    Intro_Knock (t, pos) => NONE |
 
-    (* reaction *)
-    Intro_Chill of (term * int) |
-    Intro_React of (term * int) |
+    (* TODO *)
+    Intro_Change (t, pos) => NONE |
 
-    **)
+    (* TODO *)
+    Intro_Combine (t, pos) => NONE |
 
+    (* TODO *)
+    Intro_Chill (t, pos) => NONE |
+
+    (* TODO *)
+    Intro_React (t, pos) => NONE |
 
     Intro_Return (t, pos) =>
     SOME (reduce_single global_context (
