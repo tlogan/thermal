@@ -2515,6 +2515,28 @@ struct
       contin_stack
     )) |
 
+
+
+    (** **TODO** 
+    ** evaluate to special mode operations
+
+    Intro_Alloc_Loc of (term * int) |
+    Intro_Propagate of (term * int) |
+
+    (* adjustment *)
+    Intro_Change of (term * int) |
+    Intro_Combine of (term * int) |
+
+    (* reaction *)
+    Intro_Chill of (term * int) |
+    Intro_React of (term * int) |
+
+    **)
+
+
+
+
+
     Intro_Return (t, pos) =>
     SOME (reduce_single global_context (
       t, fn t => Intro_Return (t, pos),
