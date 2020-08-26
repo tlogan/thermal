@@ -116,7 +116,7 @@ symbol=[\-\^\\=+!@$%&*<>/{}|?~:']|"["|"]";
 <INITIAL>"return" => (RETURN (!linenum, inccol 1));
 
 
-<INITIAL>"install_reaction" => (INSTALL_REACTION (!linenum, inccol 1));
+<INITIAL>"install_domino" => (INSTALL_DOMINO (!linenum, inccol 1));
 <INITIAL>"knock" => (KNOCK (!linenum, inccol 1));
 
 

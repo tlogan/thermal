@@ -13,8 +13,8 @@ struct
   structure Chan_Map = RedBlackMapFn (Chan_Key)
 
 
-  structure Reaction_Key = Key_Fn (val tag = "loc")
-  structure Reaction_Map = RedBlackMapFn (Reaction_Key)
+  structure Domino_Key = Key_Fn (val tag = "domino")
+  structure Domino_Map = RedBlackMapFn (Domino_Key)
 
   structure Hole_Key = Key_Fn (val tag = "_g")
 
@@ -82,7 +82,7 @@ struct
     Intro_Bind of (term * int) |
     Intro_Sync of (term * int) |
     Intro_Spawn of (term * int) |
-    Intro_Install_Reaction of (term * int) |
+    Intro_Install_Domino of (term * int) |
     Intro_Knock of (term * int) |
 
 
@@ -107,6 +107,10 @@ struct
     ) |
 
     Rec of (string * (infix_option * value)) list |
+
+    Reaction of reaction |
+
+    Domino of Domino_Key.ord_key |
 
     Adjustment of adjustment |
 
@@ -134,13 +138,13 @@ struct
     ) |
     Spawn of effect |
     Sync of event |
-    Install_Reaction of reaction | 
+    Install_Domino of reaction | 
     Knock of adjustment
 
   and reaction =
     Chill of value |
     React of (
-      Reaction_Key.ord_key * 
+      Domino_Key.ord_key * 
       ((term * term) list) *
       ((infix_option * value) String_Map.map) *
       ((infix_option * (term * term) list) String_Map.map)
@@ -161,7 +165,7 @@ struct
     Choose of event * event
 
   and adjustment =
-    Change of Reaction_Key.ord_key * value |
+    Change of Domino_Key.ord_key * value |
     Combine of adjustment * adjustment
 
   datatype contin_mode =
@@ -345,7 +349,7 @@ struct
     Intro_Spawn (t, _) => "exec " ^ (to_string t) |
 
     (** CURRENT TODO **)
-    Intro_Install_Reaction (t, _) => raise (Fail "TODO") |
+    Intro_Install_Domino (t, _) => raise (Fail "TODO") |
 
     (** TODO **)
     Intro_Knock (t, pos) => raise (Fail "TODO") |
@@ -391,6 +395,12 @@ struct
     ) |
 
     Event event => from_event_to_string event |
+
+    (* TODO *)
+    Reaction reaction => raise (Fail "TODO: Reaction") |
+
+    (* TODO *)
+    Domino key => raise (Fail "TODO: domino") |
 
     (* TODO *)
     Adjustment adjustment => raise (Fail "TODO: Adjustment") |
@@ -466,7 +476,7 @@ struct
     Sync event => "(sync " ^ (from_event_to_string event) ^ ")" |
 
     (* TODO *)
-    Install_Reaction reaction => raise (Fail "TODO: Install_Reaction") |
+    Install_Domino reaction => raise (Fail "TODO: Install_Domino") |
 
     (* TODO *)
     Knock adjustment => raise (Fail "TODO: Knock")
@@ -2551,7 +2561,16 @@ struct
 
     (* effect *)
     (** CURRENT TODO **)
-    Intro_Install_Reaction (t, pos) => NONE |
+    Intro_Install_Domino (t, pos) =>
+    SOME (reduce_single global_context (
+      t, fn t => Intro_Install_Domino (t, pos),
+      (fn
+        Reaction reaction => Effect (Install_Domino reaction) |
+        _ => Error "intro_install_reaction without reaction"
+      ),
+      symbol_map,
+      contin_stack
+    )) |
 
     (** TODO **)
     Intro_Knock (t, pos) => NONE |
@@ -2703,7 +2722,7 @@ struct
     **TODO **
     ** install a chain **
     *)
-    Install_Reaction _ => ([], global_context) |
+    Install_Domino _ => ([], global_context) |
 
     (*
     ** TODO **
