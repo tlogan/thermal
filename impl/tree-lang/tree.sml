@@ -2521,7 +2521,7 @@ struct
       contin_stack
     )) |
 
-    (** **TODO** 
+    (** **CURRENT TODO** 
     ** evaluate to special mode operations
     (* effect *)
     Intro_Install_Reaction of (term * int) |
