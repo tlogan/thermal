@@ -69,6 +69,14 @@ struct
     Intro_Choose of (term * int) |
     Intro_Offer of (term * int) |
 
+    (* adjustment *)
+    Intro_Change of (term * int) |
+    Intro_Combine of (term * int) |
+
+    (* reaction *)
+    Intro_Chill of (term * int) |
+    Intro_React of (term * int) |
+
     (* effect *)
     Intro_Return of (term * int) |
     Intro_Bind of (term * int) |
@@ -76,6 +84,7 @@ struct
     Intro_Spawn of (term * int) |
     Intro_Alloc_Loc of (term * int) |
     Intro_Propagate of (term * int) |
+
 
     (* number *)
     Add_Num of (term * int) |

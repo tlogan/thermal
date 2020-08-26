@@ -17,8 +17,12 @@ open Tree
   EQUAL | 
   ALLOC_MEM | SIZE | SLICE | SET | GET |
   ALLOC_CHAN | SEND | RECV | LATCH | CHOOSE | OFFER | ABORT |
+
+  CHANGE | COMBINE |
+
   SYNC | BIND | RETURN | SPAWN | 
   ALLOC_LOC | PROPAGATE |
+  CHILL | REACT |
   LPAREN | RPAREN | LANG | RANG | LRPAREN | 
   INFIXL | INFIXR | DIGIT of int |
 
@@ -50,7 +54,8 @@ open Tree
 
 %right FATARROW CASE COLON DEF
 
-%left ALLOC_CHAN SEND RECV LATCH CHOOSE OFFER ABORT SPAWN SYNC ADD SUB MUL DIV SELECT EQUAL
+%left ALLOC_CHAN SEND RECV LATCH CHOOSE OFFER ABORT SPAWN ALLOC_LOC PROPAGATE SYNC ADD SUB MUL DIV SELECT EQUAL CHANGE COMBINE CHILL REACT
+
 %nonassoc INFIXL INFIXR DIGIT
 
 %left LPAREN LANG
@@ -138,6 +143,10 @@ term_nt:
 
   SPAWN (Intro_Func ([(Id ("_param", ~1), Intro_Spawn (Id ("_param", ~1), SPAWNleft))], SPAWNleft)) |
 
+  CHANGE (Intro_Func ([(Id ("_param", ~1), Intro_Change (Id ("_param", ~1), CHANGEleft))], CHANGEleft)) |
+
+  COMBINE (Intro_Func ([(Id ("_param", ~1), Intro_Combine (Id ("_param", ~1), COMBINEleft))], COMBINEleft)) |
+
 
   ALLOC_LOC (Intro_Func (
     [(Id ("_param", ~1), Intro_Alloc_Loc (Id ("_param", ~1), ALLOC_LOCleft))], ALLOC_LOCleft
@@ -147,6 +156,11 @@ term_nt:
   PROPAGATE (Intro_Func (
     [(Id ("_param", ~1), Intro_Propagate (Id ("_param", ~1), PROPAGATEleft))], PROPAGATEleft
   )) |
+
+
+  CHILL (Intro_Func ([(Id ("_param", ~1), Intro_Chill (Id ("_param", ~1), CHILLleft))], CHILLleft)) |
+
+  REACT (Intro_Func ([(Id ("_param", ~1), Intro_React (Id ("_param", ~1), REACTleft))], REACTleft)) |
 
 
   LRPAREN (Value (Blank, LRPARENleft)) | 

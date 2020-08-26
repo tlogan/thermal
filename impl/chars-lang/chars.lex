@@ -106,6 +106,10 @@ symbol=[\-\^\\=+!@$%&*<>/{}|?~:']|"["|"]";
 <INITIAL>"abort" => (ABORT (!linenum, inccol 1));
 
 
+<INITIAL>"change" => (CHANGE (!linenum, inccol 1));
+<INITIAL>"combine" => (COMBINE (!linenum, inccol 1));
+
+
 <INITIAL>"sync" => (SYNC (!linenum, inccol 1));
 <INITIAL>"spawn" => (SPAWN (!linenum, inccol 1));
 <INITIAL>"bind" => (BIND (!linenum, inccol 1));
