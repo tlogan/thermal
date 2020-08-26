@@ -83,7 +83,7 @@ struct
     Intro_Sync of (term * int) |
     Intro_Spawn of (term * int) |
     Intro_Alloc_Loc of (term * int) |
-    Intro_Propagate of (term * int) |
+    Intro_Knock of (term * int) |
 
 
     (* number *)
@@ -135,7 +135,7 @@ struct
     Spawn of effect |
     Sync of event |
     Alloc_Loc of reaction | 
-    Propagate of adjustment
+    Knock of adjustment
 
   and reaction =
     Chill of value |
@@ -200,9 +200,15 @@ struct
     contin list
   )
 
+  (*** TODO ***)
+  (* keeps track of remaining adjustments and remaining trace *)
+  type propagate_thread = unit
+
+
   datatype thread_mode =
     Spawn_Effect of contin list | 
-    Sync_Event of search_thread
+    Sync_Event of search_thread |
+    Knock_Adjustment of propagate_thread 
 
   type thread = (
     Thread_Key.ord_key *
@@ -2519,9 +2525,9 @@ struct
 
     (** **TODO** 
     ** evaluate to special mode operations
-
+    (* effect *)
     Intro_Alloc_Loc of (term * int) |
-    Intro_Propagate of (term * int) |
+    Intro_Knock of (term * int) |
 
     (* adjustment *)
     Intro_Change of (term * int) |
@@ -2532,9 +2538,6 @@ struct
     Intro_React of (term * int) |
 
     **)
-
-
-
 
 
     Intro_Return (t, pos) =>
@@ -2559,7 +2562,7 @@ struct
 
   )
 
-  fun exec_effect_step global_context (effect, thread_key, effect_stack) =
+  fun spawn_effect_step global_context (effect, thread_key, effect_stack) =
   (case effect of
     Return v =>
     (case effect_stack of
@@ -2667,6 +2670,17 @@ struct
     in
       ([new_thread], global_context')
     end)
+
+    (**
+    **TODO **
+    ** allocate a propagation trace **
+    ** rename Loc to Propogation or something similar **
+    Alloc_Loc _ => |
+
+    ** spawn into Adjustment mode **
+    Knock adjustment =>
+    *)
+    
 
   )
 
@@ -3152,7 +3166,7 @@ struct
       (Value (Effect effect, _), [], Spawn_Effect effect_stack) =>
       (let
         val (new_threads, global_context') = (
-          exec_effect_step
+          spawn_effect_step
           global_context
           (effect, thread_key, effect_stack)
         )
@@ -3184,19 +3198,19 @@ struct
       ** change : 'a loc * 'a -> adjustment 
       ** combine : adjustment * adjustment -> adjustment
       **
-      ** propagate : adjustment -> unit effect
+      ** knock : adjustment -> unit effect
       ** extract : 'a loc -> 'a effect
       **
       *)
       (*
       ** TODO **
-      (Value (Adju adjustment, _), [], Propa_Adju react_thread) =>
+      (Value (Adjustment adjustment, _), [], Knock_Adjustment propagate_thread) =>
       (let
         val (new_threads, global_context') =
         (
-          propagate_adustment_step
+          knock_adustment_step
           global_context
-          (adjustment, thread_key, react_thread)
+          (adjustment, thread_key, propagate_thread)
         )
       in
         SOME (threads' @ new_threads, global_context')

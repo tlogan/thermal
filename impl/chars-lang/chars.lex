@@ -117,7 +117,7 @@ symbol=[\-\^\\=+!@$%&*<>/{}|?~:']|"["|"]";
 
 
 <INITIAL>"alloc_loc" => (ALLOC_LOC (!linenum, inccol 1));
-<INITIAL>"propagate" => (PROPAGATE (!linenum, inccol 1));
+<INITIAL>"knock" => (KNOCK (!linenum, inccol 1));
 
 
 <INITIAL>"(" => (LPAREN (!linenum, inccol 1));
