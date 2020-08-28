@@ -112,7 +112,7 @@ struct
 
     Domino of Domino_Key.ord_key |
 
-    Adjustment of adjustment |
+    Adjustment of value Domino_Map.map |
 
     Event of event |
 
@@ -139,7 +139,7 @@ struct
     Spawn of effect |
     Sync of event |
     Install_Domino of reaction | 
-    Knock of adjustment
+    Knock of value Domino_Map.map 
 
   and reaction =
     Chill of value |
@@ -163,10 +163,6 @@ struct
       ((infix_option * (term * term) list) String_Map.map)
     ) |
     Choose of event * event
-
-  and adjustment =
-    Change of Domino_Key.ord_key * value |
-    Combine of adjustment * adjustment
 
   datatype contin_mode =
     Contin_With |
@@ -348,7 +344,7 @@ struct
     Intro_Bind (t, _) => "bind " ^ (to_string t) |
     Intro_Spawn (t, _) => "exec " ^ (to_string t) |
 
-    (** CURRENT TODO **)
+    (** TODO **)
     Intro_Install_Domino (t, _) => raise (Fail "TODO") |
 
     (** TODO **)
@@ -2559,29 +2555,63 @@ struct
       contin_stack
     )) |
 
-    (* effect *)
-    (** CURRENT TODO **)
     Intro_Install_Domino (t, pos) =>
     SOME (reduce_single global_context (
       t, fn t => Intro_Install_Domino (t, pos),
       (fn
         Reaction reaction => Effect (Install_Domino reaction) |
-        _ => Error "intro_install_reaction without reaction"
+        _ => Error "install_domino without reaction"
       ),
       symbol_map,
       contin_stack
     )) |
 
-    (** TODO **)
-    Intro_Knock (t, pos) => NONE |
+    Intro_Knock (t, pos) =>
+    SOME (reduce_single global_context (
+      t, fn t => Intro_Knock (t, pos),
+      (fn
+        Adjustment adjustment => Effect (Knock adjustment) |
+        _ => Error "knock without adjustment"
+      ),
+      symbol_map,
+      contin_stack
+    )) |
 
-    (* TODO *)
-    Intro_Change (t, pos) => NONE |
+    Intro_Change (t, pos) =>
+    SOME (reduce_single global_context (
+      t, fn t => Intro_Change (t, pos),
+      (fn
+        List [Domino domino_key, v] => Adjustment (
+          Domino_Map.insert (Domino_Map.empty, domino_key, v)
+        ) |
+        _ => Error "knock without adjustment"
+      ),
+      symbol_map,
+      contin_stack
+    )) |
 
-    (* TODO *)
-    Intro_Combine (t, pos) => NONE |
+    Intro_Combine (t, pos) =>
+    SOME (reduce_single global_context (
+      t, fn t => Intro_Change (t, pos),
+      (fn
+        List [Adjustment map_a, Adjustment map_b] =>
+        Adjustment (
+          Domino_Map.mergeWith
+          (fn
+            (_, SOME v) => SOME v |
+            (SOME v, NONE) => SOME v |
+            _ => NONE
+          )
+          (map_a, map_b)
+        ) |
 
-    (* TODO *)
+        _ => Error "knock without adjustment"
+      ),
+      symbol_map,
+      contin_stack
+    )) |
+
+    (* CURRENT TODO *)
     Intro_Chill (t, pos) => NONE |
 
     (* TODO *)
