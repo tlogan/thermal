@@ -3270,8 +3270,23 @@ struct
       ** TODO **
       ** create reaction mode
       **
+      ** install : 'a reaction -> 'a domino
+      **
       ** chill : 'a -> 'a reaction
-      ** react : 'a loc -> ('a -> 'b reaction) -> 'b reaction
+      ** react : 'a domino -> ('a -> 'b reaction) -> 'b reaction
+      **
+      ** extract : 'a domino -> 'a reaction
+      **
+      ** these two levels of domino and reaction can be replaced with one level
+      ** to form a monad
+      **
+      ** return : 'a -> 'a domino
+      ** return x = install (chill x)
+      **
+      ** bind : 'a domino -> ('a -> 'b domino) -> 'b domino
+      ** bind xl f = install (react xl (fn x => extract (f x))) 
+      **
+      ****************************************
       **
       ** change : 'a loc * 'a -> adjustment 
       ** combine : adjustment * adjustment -> adjustment
